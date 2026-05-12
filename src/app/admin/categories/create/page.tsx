@@ -1,11 +1,24 @@
+"use client"
+
 import Link from "next/link"
+import { useCreateCategory } from "@/hooks/useCreateCategory"
 
 export default function CreateCategoryPage() {
+
+  const {
+    categoryName,
+    setCategoryName,
+    loading,
+    error,
+    createCategory
+  } = useCreateCategory()
+
   return (
     <main className="min-h-screen bg-zinc-950 text-white p-6">
       <div className="mx-auto max-w-xl">
 
         <div className="mb-8">
+
           <Link
             href="/admin/categories"
             className="text-sm text-orange-500 hover:text-orange-400 transition"
@@ -20,32 +33,41 @@ export default function CreateCategoryPage() {
           <p className="text-zinc-400 mt-2">
             Crea una nueva categoría para tu restaurante.
           </p>
+
         </div>
 
-        <form className="rounded-2xl border border-zinc-800 bg-zinc-900 p-6 space-y-5">
+        <form
+          onSubmit={createCategory}
+          className="rounded-2xl border border-zinc-800 bg-zinc-900 p-6 space-y-5"
+        >
 
           <div>
+
             <label className="block text-sm text-zinc-300 mb-2">
               Nombre de la categoría
             </label>
 
             <input
               type="text"
+              required
+              disabled={loading}
+              value={categoryName}
+              onChange={(e) =>
+                setCategoryName(e.target.value)
+              }
               placeholder="Ej: Hamburguesas"
-              className="w-full rounded-xl bg-zinc-800 border border-zinc-700 px-4 py-3 outline-none focus:border-orange-500"
+              className="w-full rounded-xl bg-zinc-800 border border-zinc-700 px-4 py-3 outline-none focus:border-orange-500 disabled:opacity-50"
             />
+
           </div>
 
-          <div>
-            <label className="block text-sm text-zinc-300 mb-2">
-              Descripción
-            </label>
+          {error && (
 
-            <textarea
-              placeholder="Categoría principal del menú..."
-              className="w-full rounded-xl bg-zinc-800 border border-zinc-700 px-4 py-3 outline-none focus:border-orange-500 min-h-[120px]"
-            />
-          </div>
+            <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-400">
+              {error}
+            </div>
+
+          )}
 
           <div className="flex gap-3">
 
@@ -58,9 +80,12 @@ export default function CreateCategoryPage() {
 
             <button
               type="submit"
-              className="rounded-xl bg-orange-500 px-5 py-3 font-semibold hover:bg-orange-600 transition"
+              disabled={loading}
+              className="rounded-xl bg-orange-500 px-5 py-3 font-semibold hover:bg-orange-600 transition disabled:opacity-50"
             >
-              Crear categoría
+              {loading
+                ? "Creando..."
+                : "Crear categoría"}
             </button>
 
           </div>

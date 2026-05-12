@@ -4,6 +4,7 @@ export default function AdminPage() {
   return (
     <main className="min-h-screen bg-zinc-950 text-white p-6">
       <div className="mx-auto max-w-6xl">
+
         <h1 className="text-3xl font-bold mb-2">
           Panel administrador
         </h1>
@@ -15,7 +16,10 @@ export default function AdminPage() {
         <div className="grid gap-4 md:grid-cols-4">
 
           <div className="rounded-2xl bg-zinc-900 border border-zinc-800 p-5">
-            <h2 className="font-semibold mb-2">Categorías</h2>
+
+            <h2 className="font-semibold mb-2">
+              Categorías
+            </h2>
 
             <p className="text-sm text-zinc-400 mb-4">
               Organiza tu menú.
@@ -27,10 +31,14 @@ export default function AdminPage() {
             >
               Crear categoría
             </Link>
+
           </div>
 
           <div className="rounded-2xl bg-zinc-900 border border-zinc-800 p-5">
-            <h2 className="font-semibold mb-2">Productos</h2>
+
+            <h2 className="font-semibold mb-2">
+              Productos
+            </h2>
 
             <p className="text-sm text-zinc-400 mb-4">
               Agrega platos y precios.
@@ -42,10 +50,14 @@ export default function AdminPage() {
             >
               Crear producto
             </Link>
+
           </div>
 
           <div className="rounded-2xl bg-zinc-900 border border-zinc-800 p-5">
-            <h2 className="font-semibold mb-2">Mesas</h2>
+
+            <h2 className="font-semibold mb-2">
+              Mesas
+            </h2>
 
             <p className="text-sm text-zinc-400 mb-4">
               Genera códigos QR.
@@ -57,10 +69,14 @@ export default function AdminPage() {
             >
               Crear mesa
             </Link>
+
           </div>
 
           <div className="rounded-2xl bg-zinc-900 border border-zinc-800 p-5">
-            <h2 className="font-semibold mb-2">Pedidos</h2>
+
+            <h2 className="font-semibold mb-2">
+              Pedidos
+            </h2>
 
             <p className="text-sm text-zinc-400 mb-4">
               Revisa actividad.
@@ -72,9 +88,11 @@ export default function AdminPage() {
             >
               Ver pedidos
             </Link>
+
           </div>
 
         </div>
+
       </div>
     </main>
   )

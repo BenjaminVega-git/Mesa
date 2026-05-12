@@ -1,6 +1,18 @@
+"use client"
+
 import Link from "next/link"
+import { useEditCategory } from "@/hooks/useEditCategory"
 
 export default function EditCategoryPage() {
+  const {
+    categoryName,
+    setCategoryName,
+    loading,
+    saving,
+    error,
+    updateCategory
+  } = useEditCategory()
+
   return (
     <main className="min-h-screen bg-zinc-950 text-white p-6">
       <div className="mx-auto max-w-xl">
@@ -22,50 +34,56 @@ export default function EditCategoryPage() {
           </p>
         </div>
 
-        <form className="rounded-2xl border border-zinc-800 bg-zinc-900 p-6 space-y-5">
-
-          <div>
-            <label className="block text-sm text-zinc-300 mb-2">
-              Nombre de la categoría
-            </label>
-
-            <input
-              type="text"
-              defaultValue="Hamburguesas"
-              className="w-full rounded-xl bg-zinc-800 border border-zinc-700 px-4 py-3 outline-none focus:border-orange-500"
-            />
+        {loading && (
+          <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-6 text-zinc-400">
+            Cargando categoría...
           </div>
+        )}
 
-          <div>
-            <label className="block text-sm text-zinc-300 mb-2">
-              Descripción
-            </label>
+        {!loading && (
+          <form
+            onSubmit={updateCategory}
+            className="rounded-2xl border border-zinc-800 bg-zinc-900 p-6 space-y-5"
+          >
+            <div>
+              <label className="block text-sm text-zinc-300 mb-2">
+                Nombre de la categoría
+              </label>
 
-            <textarea
-              defaultValue="Categoría principal del menú..."
-              className="w-full rounded-xl bg-zinc-800 border border-zinc-700 px-4 py-3 outline-none focus:border-orange-500 min-h-[120px]"
-            />
-          </div>
+              <input
+                type="text"
+                required
+                disabled={saving}
+                value={categoryName}
+                onChange={(e) => setCategoryName(e.target.value)}
+                className="w-full rounded-xl bg-zinc-800 border border-zinc-700 px-4 py-3 outline-none focus:border-orange-500 disabled:opacity-50"
+              />
+            </div>
 
-          <div className="flex gap-3">
+            {error && (
+              <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-400">
+                {error}
+              </div>
+            )}
 
-            <Link
-              href="/admin/categories"
-              className="rounded-xl border border-zinc-700 px-5 py-3 font-semibold hover:bg-zinc-800 transition"
-            >
-              Cancelar
-            </Link>
+            <div className="flex gap-3">
+              <Link
+                href="/admin/categories"
+                className="rounded-xl border border-zinc-700 px-5 py-3 font-semibold hover:bg-zinc-800 transition"
+              >
+                Cancelar
+              </Link>
 
-            <button
-              type="submit"
-              className="rounded-xl bg-orange-500 px-5 py-3 font-semibold hover:bg-orange-600 transition"
-            >
-              Guardar cambios
-            </button>
-
-          </div>
-
-        </form>
+              <button
+                type="submit"
+                disabled={saving}
+                className="rounded-xl bg-orange-500 px-5 py-3 font-semibold hover:bg-orange-600 transition disabled:opacity-50"
+              >
+                {saving ? "Guardando..." : "Guardar cambios"}
+              </button>
+            </div>
+          </form>
+        )}
 
       </div>
     </main>
