@@ -2,6 +2,7 @@ import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import { logger } from "@/lib/logger"
+import { decodeId } from "@/lib/hashids"
 
 function getErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error ? error.message : fallback
@@ -11,7 +12,7 @@ export function useEditCategory() {
   const router = useRouter()
   const params = useParams()
 
-  const categoryId = Number(params.id)
+  const categoryId = decodeId(params.id as string)
 
   const [categoryName, setCategoryName] = useState("")
   const [loading, setLoading] = useState(true)
@@ -36,17 +37,18 @@ export function useEditCategory() {
           .eq("id", categoryId)
           .maybeSingle()
 
-        if (error) {
-          throw error
-        }
-
-        if (!data) {
-          throw new Error("Categoría no encontrada")
-        }
+        if (error) throw error
+        if (!data) throw new Error("Categoría no encontrada")
 
         setCategoryName(data.category_name)
       } catch (err: unknown) {
-        logger.error("Error cargando categoría", err)
+        logger.error("Error cargando categoría", {
+          error: err,
+          categoryId,
+          rawParamId: params.id,
+          message: err instanceof Error ? err.message : String(err),
+          stack: err instanceof Error ? err.stack : undefined,
+        })
         setLoadError(getErrorMessage(err, "Error al cargar categoría"))
       } finally {
         setLoading(false)
@@ -71,18 +73,20 @@ export function useEditCategory() {
 
       const { error } = await supabase
         .from("categories")
-        .update({
-          category_name: cleanCategoryName
-        })
+        .update({ category_name: cleanCategoryName })
         .eq("id", categoryId)
 
-      if (error) {
-        throw error
-      }
+      if (error) throw error
 
       router.replace("/admin/categories")
     } catch (err: unknown) {
-      logger.error("Error actualizando categoría", err)
+      logger.error("Error actualizando categoría", {
+        error: err,
+        categoryId,
+        rawParamId: params.id,
+        message: err instanceof Error ? err.message : String(err),
+        stack: err instanceof Error ? err.stack : undefined,
+      })
       setError(getErrorMessage(err, "Error al guardar cambios"))
     } finally {
       setSaving(false)

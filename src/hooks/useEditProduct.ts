@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
+import { decodeId } from "@/lib/hashids"
 import { supabase } from "@/lib/supabase"
 import { logger } from "@/lib/logger"
 import { useUploadImage } from "@/hooks/useUploadImage"
@@ -13,7 +14,7 @@ export function useEditProduct() {
   const params = useParams()
   const { uploadImage, uploading } = useUploadImage()
 
-  const productId = Number(params.id)
+  const productId = decodeId(params.id as string)
 
   const [productName, setProductName] = useState("")
   const [productDescription, setProductDescription] = useState("")

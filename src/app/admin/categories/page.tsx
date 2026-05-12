@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-
+import { encodeId } from "@/lib/hashids" 
 import { useCategoryList } from "@/hooks/useCategoryList"
 
 export default function CategoriesPage() {
@@ -110,7 +110,7 @@ export default function CategoriesPage() {
 
                   <div className="flex gap-2">
                     <Link
-                      href={`/admin/categories/${category.id}/edit`}
+                     href={`/admin/categories/${encodeId(category.id)}/edit`}
                       className="flex-1 rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 text-center text-sm font-semibold text-stone-700 transition hover:border-orange-200 hover:bg-orange-50 hover:text-orange-600"
                     >
                       Editar

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import { logger } from "@/lib/logger"
+import { decodeId } from "@/lib/hashids" 
 
 function getErrorMessage(error: unknown, fallback: string) {
   if (error instanceof Error) return error.message
@@ -13,7 +14,7 @@ export function useEditTable() {
   const router = useRouter()
   const params = useParams()
 
-  const tableId = Number(params.id)
+  const tableId = decodeId(params.id as string)
 
   const [tableNumber, setTableNumber] = useState("")
 

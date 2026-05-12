@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { QRCodeSVG } from "qrcode.react"
 import { useTableList } from "@/hooks/useTableList"
+import { encodeId } from "@/lib/hashids" 
 
 export default function TablesPage() {
   const {
@@ -139,7 +140,7 @@ export default function TablesPage() {
 
                   <div className="mt-5 flex gap-2">
                     <Link
-                      href={`/admin/tables/${table.id}/edit`}
+                      href={`/admin/tables/${encodeId(table.id)}/edit`}
                       className="flex-1 rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 text-center text-sm font-semibold text-stone-700 transition hover:border-orange-200 hover:bg-orange-50 hover:text-orange-600"
                     >
                       Editar
