@@ -1,8 +1,10 @@
 "use client"
 
 import { use, useState } from "react"
+import Link from "next/link"
 import { FloatingCartButton } from "@/components/customer/FloatingCartButton"
 import { useMenuData } from "@/hooks/useMenuData"
+import { encodeId } from "@/lib/hashids"
 
 function formatPrice(price: number) {
   return `$${price.toLocaleString("es-CL")}`
@@ -129,8 +131,9 @@ export default function CustomerPage({ params }: { params: Promise<{ id: string 
 
             <div className="grid gap-3 md:grid-cols-2">
               {filteredProducts.map((item) => (
-                <article
+                <Link
                   key={item.id}
+                  href={`/${id}/menu/${encodeId(item.id)}`}
                   className="flex cursor-pointer gap-4 rounded-[1.75rem] bg-white/10 p-3 shadow-xl shadow-black/20 ring-1 ring-white/10 backdrop-blur transition hover:-translate-y-0.5 hover:bg-white/[0.13]"
                 >
                   <ProductImage
@@ -159,7 +162,7 @@ export default function CustomerPage({ params }: { params: Promise<{ id: string 
                       </p>
                     )}
                   </div>
-                </article>
+                </Link>
               ))}
             </div>
           </section>
