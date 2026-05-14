@@ -52,11 +52,15 @@ export default function Home() {
         <div className="absolute inset-x-0 top-0 -z-10 h-[620px] bg-[radial-gradient(circle_at_top_left,_rgba(251,146,60,0.18),_transparent_34%),linear-gradient(135deg,_#fff7ed_0%,_#fafaf9_52%,_#f5f5f4_100%)]" />
 
         <header className="mx-auto flex max-w-7xl items-center justify-between px-5 py-5 sm:px-8 lg:px-10">
-          <Link href="/" className="flex items-center" aria-label="MESA inicio">
+          <Link
+            href="/"
+            className="flex h-12 w-28 items-center overflow-hidden"
+            aria-label="MESA inicio"
+          >
             <Image
               src={mesaLogo}
               alt="MESA"
-              className="h-12 w-28 object-contain object-left"
+              className="h-full w-full scale-[1.75] object-contain object-center"
               priority
             />
           </Link>
