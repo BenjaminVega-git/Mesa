@@ -1,4 +1,6 @@
 import Link from "next/link"
+import Image from "next/image"
+import mesaLogo from "@/image/MESA.svg"
 
 const menuLinks = [
   { label: "Categorías", href: "/admin/categories" },
@@ -50,11 +52,13 @@ export default function Home() {
         <div className="absolute inset-x-0 top-0 -z-10 h-[620px] bg-[radial-gradient(circle_at_top_left,_rgba(251,146,60,0.18),_transparent_34%),linear-gradient(135deg,_#fff7ed_0%,_#fafaf9_52%,_#f5f5f4_100%)]" />
 
         <header className="mx-auto flex max-w-7xl items-center justify-between px-5 py-5 sm:px-8 lg:px-10">
-          <Link href="/" className="flex items-center gap-3" aria-label="MESA inicio">
-            <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-stone-950 text-sm font-bold text-white shadow-sm">
-              M
-            </span>
-            <span className="text-lg font-semibold tracking-tight">MESA</span>
+          <Link href="/" className="flex items-center" aria-label="MESA inicio">
+            <Image
+              src={mesaLogo}
+              alt="MESA"
+              className="h-12 w-28 object-contain object-left"
+              priority
+            />
           </Link>
 
           <nav className="hidden items-center gap-1 text-sm font-medium text-stone-600 md:flex">
