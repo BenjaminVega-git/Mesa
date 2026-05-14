@@ -3,6 +3,7 @@ import { supabase } from "@/lib/supabase"
 import { logger } from "@/lib/logger"
 import type { MenuData } from "@/types/menu"
 import { Category } from "@/types/category"
+import { useCartStore } from "@/store/cartStore"
 
 export function useMenuData(qrCode: string) {
   const [data, setData] = useState<MenuData>({
@@ -29,8 +30,6 @@ export function useMenuData(qrCode: string) {
           .eq("qr_code", qrCode)
           .single()
 
-     
-
         if (qrError || !qrData) throw new Error("QR no válido")
 
         // 2. Obtener mesa con ese qr_code_id
@@ -40,7 +39,6 @@ export function useMenuData(qrCode: string) {
           .eq("qr_code_id", qrData.id)
           .single()
 
-      
         if (tableError || !tableData) throw new Error("Mesa no encontrada")
 
         const { restaurant_id, table_number } = tableData
@@ -66,9 +64,21 @@ export function useMenuData(qrCode: string) {
         if (productsRes.error) throw productsRes.error
         if (categoriesRes.error) throw categoriesRes.error
 
+        const validProducts = productsRes.data ?? []
+
+     
+        const { items, removeItem } = useCartStore.getState()
+        const validIds = new Set(validProducts.map((p) => p.id))
+        const activeIds = new Set(validProducts.filter((p) => p.status_id !== 3).map((p) => p.id))
+        items.forEach((item) => {
+          if (!validIds.has(item.id) || !activeIds.has(item.id)) {
+            removeItem(item.id)
+          }
+        })
+
         setData({
           restaurant: restaurantRes.data,
-          products: productsRes.data ?? [],
+          products: validProducts,
           categories: (categoriesRes.data ?? []) as Category[],
           tableNumber: table_number,
         })

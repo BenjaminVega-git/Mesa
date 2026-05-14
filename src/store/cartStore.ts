@@ -1,26 +1,11 @@
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
+import type { CartStore } from "@/types/cart-store"
 
-interface CartItem {
-  id: number
-  name: string
-  price: number
-  quantity: number
-  image?: string
-}
-
-interface CartStore {
-  items: CartItem[]
-  addItem: (product: CartItem) => void
-  removeItem: (id: number) => void
-  updateQuantity: (id: number, quantity: number) => void
-  clear: () => void
-  total: () => number
-}
 
 export const useCartStore = create<CartStore>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       items: [],
 
       addItem: (product) =>
@@ -45,10 +30,12 @@ export const useCartStore = create<CartStore>()(
         })),
 
       clear: () => set({ items: [] }),
-
-      total: () =>
-        get().items.reduce((acc, i) => acc + i.price * i.quantity, 0),
     }),
     { name: "cart" }
   )
 )
+
+export const useCartTotal = () =>
+  useCartStore((state) =>
+    state.items.reduce((acc, i) => acc + i.price * i.quantity, 0)
+  )

@@ -2,12 +2,13 @@
 
 import { useState } from "react"
 import { CartDrawer } from "@/components/customer/CartDrawer"
-import { useCartStore } from "@/store/cartStore"
+import { useCartStore, useCartTotal } from "@/store/cartStore"
+
 
 export function FloatingCartButton() {
   const [isCartOpen, setIsCartOpen] = useState(false)
   const items = useCartStore((state) => state.items)
-  const total = useCartStore((state) => state.total)
+  const total = useCartTotal()
 
   const itemCount = items.reduce((acc, i) => acc + i.quantity, 0)
 
@@ -23,7 +24,7 @@ export function FloatingCartButton() {
           {itemCount}
         </span>
         <span className="text-sm font-black">Carrito</span>
-        <span className="text-sm font-black">${total()}</span>
+        <span className="text-sm font-black">${total}</span>
       </button>
 
       <CartDrawer

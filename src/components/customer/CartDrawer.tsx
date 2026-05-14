@@ -1,6 +1,6 @@
 "use client"
 
-import { useCartStore } from "@/store/cartStore"
+import { useCartStore, useCartTotal } from "@/store/cartStore"
 
 type CartDrawerProps = {
   isOpen: boolean
@@ -13,7 +13,8 @@ function formatPrice(price: number) {
 
 export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
   const items = useCartStore((state) => state.items)
-  const total = useCartStore((state) => state.total)
+  const total = useCartTotal()
+
 
   if (!isOpen) return null
 
@@ -94,7 +95,7 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
           <div className="mb-4 flex items-center justify-between">
             <span className="text-sm font-bold text-stone-300">Total</span>
             <span className="text-2xl font-black text-orange-200">
-              {formatPrice(total())}
+              {formatPrice(total)}
             </span>
           </div>
 

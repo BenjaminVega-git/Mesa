@@ -51,8 +51,8 @@ export default function CustomerPage({ params }: { params: Promise<{ id: string 
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null)
 
   const filteredProducts = selectedCategory
-    ? products.filter((p) => p.category_id === selectedCategory)
-    : products
+  ? products.filter((p) => p.category_id === selectedCategory && p.status_id !== 3)
+  : products.filter((p) => p.status_id !== 3)
 
   if (loading) return (
     <main className="flex min-h-screen items-center justify-center bg-stone-950 text-white">
@@ -115,7 +115,7 @@ export default function CustomerPage({ params }: { params: Promise<{ id: string 
           ))}
         </div>
 
-        {/* Sección destacada — vacía por ahora */}
+        {/* futuras secciones como ofertas, menu del dia, etc */}
 
         {filteredProducts.length > 0 ? (
           <section className="mt-7">
