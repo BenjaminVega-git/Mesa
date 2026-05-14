@@ -1,5 +1,6 @@
 "use client"
 
+import { useCartStore } from "@/store/cartStore"
 import { use, useState } from "react"
 import { useRouter } from "next/navigation"
 import { decodeId } from "@/lib/hashids"
@@ -18,6 +19,7 @@ export default function ProductDetailPage({
 }) {
   const { productId } = use(params)
   const router = useRouter()
+  const addItem = useCartStore((state) => state.addItem)
   const [activeOptionIndex, setActiveOptionIndex] = useState(0)
   const realProductId = decodeId(productId)
   const { product, loading, error } = useProductDetail(realProductId)
@@ -155,12 +157,19 @@ export default function ProductDetailPage({
               <p className="mt-2 text-4xl font-black tracking-tight text-orange-200 tabular-nums">
                 {formatPrice(activeOption.price)}
               </p>
-              <button
+            <button
                 type="button"
+                onClick={() => addItem({
+                  id: activeOption.id,
+                  name: activeTitle,
+                  price: activeOption.price,
+                  image: activeOption.image ?? undefined,
+                  quantity: 1,
+                })}
                 className="mt-5 flex w-full items-center justify-center rounded-[1.35rem] bg-orange-500 px-5 py-4 text-sm font-black text-stone-950 shadow-2xl shadow-orange-500/25 ring-1 ring-orange-200/50 transition hover:bg-orange-400"
               >
                 Añadir al carrito
-              </button>
+          </button>
             </div>
           </div>
 
