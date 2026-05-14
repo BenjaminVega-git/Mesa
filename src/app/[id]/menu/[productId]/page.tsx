@@ -103,7 +103,7 @@ export default function ProductDetailPage({
         </button>
 
         <div
-          className="flex snap-x snap-mandatory overflow-x-auto scroll-smooth"
+          className="flex snap-x snap-mandatory overflow-x-auto scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
           onScroll={handleOptionsScroll}
         >
           {productOptions.map((option) => (
