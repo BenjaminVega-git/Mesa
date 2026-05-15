@@ -24,7 +24,7 @@ export function useMenuData(qrCode: string) {
 
         // 1. Obtener id del QR
         const { data: qrData, error: qrError } = await supabase
-          .from("qr_codes")
+          .from("table_qr_codes")
           .select("id")
           .eq("qr_code", qrCode)
           .single()
