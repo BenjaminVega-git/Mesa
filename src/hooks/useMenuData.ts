@@ -9,6 +9,7 @@ export function useMenuData(qrCode: string) {
     restaurant: null,
     categories: [],
     products: [],
+    tableId: null,
     tableNumber: null,
   })
   const [loading, setLoading] = useState(true)
@@ -34,7 +35,7 @@ export function useMenuData(qrCode: string) {
         // 2. Obtener mesa con ese qr_code_id
         const { data: tableData, error: tableError } = await supabase
           .from("tables")
-          .select("table_number, restaurant_id")
+          .select("id, table_number, restaurant_id")
           .eq("qr_code_id", qrData.id)
           .single()
 
@@ -67,6 +68,7 @@ export function useMenuData(qrCode: string) {
           restaurant: restaurantRes.data,
           products: productsRes.data ?? [],
           categories: (categoriesRes.data ?? []) as Category[],
+          tableId: tableData.id,
           tableNumber: table_number,
         })
       } catch (err: unknown) {

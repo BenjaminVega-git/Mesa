@@ -36,7 +36,7 @@ export function useCreateTable() {
         throw new Error("No se encontró el restaurante")
       }
 
-      const qrData = await createQR()  
+      const qrData = await createQR("table_qr_codes")
       
       const { error: tableError } = await supabase
         .from("tables")

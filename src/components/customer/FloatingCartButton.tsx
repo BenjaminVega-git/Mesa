@@ -4,8 +4,12 @@ import { useState } from "react"
 import { CartDrawer } from "@/components/customer/CartDrawer"
 import { useCartStore, useCartTotal } from "@/store/cartStore"
 
+type FloatingCartButtonProps = {
+  tableId: number
+  restaurantId: number
+}
 
-export function FloatingCartButton() {
+export function FloatingCartButton({ tableId, restaurantId }: FloatingCartButtonProps) {
   const [isCartOpen, setIsCartOpen] = useState(false)
   const items = useCartStore((state) => state.items)
   const total = useCartTotal()
@@ -30,6 +34,8 @@ export function FloatingCartButton() {
       <CartDrawer
         isOpen={isCartOpen}
         onClose={() => setIsCartOpen(false)}
+        tableId={tableId}
+        restaurantId={restaurantId}
       />
     </>
   )

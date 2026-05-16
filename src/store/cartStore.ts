@@ -7,6 +7,7 @@ export const useCartStore = create<CartStore>()(
   persist(
     (set) => ({
       items: [],
+      lastOrder: null,
 
       addItem: (product) =>
         set((state) => {
@@ -30,6 +31,10 @@ export const useCartStore = create<CartStore>()(
         })),
 
       clear: () => set({ items: [] }),
+
+      setLastOrder: (order) => set({ lastOrder: order }),
+
+      clearLastOrder: () => set({ lastOrder: null }),
     }),
     { name: "cart" }
   )

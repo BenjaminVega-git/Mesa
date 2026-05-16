@@ -48,7 +48,7 @@ function ProductImage({
 
 export default function CustomerPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
-  const { restaurant, categories, products, tableNumber, loading, error } = useMenuData(id)
+  const { restaurant, categories, products, tableId, tableNumber, loading, error } = useMenuData(id)
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null)
   useCartSync(restaurant?.id ?? null)
 
@@ -214,7 +214,9 @@ export default function CustomerPage({ params }: { params: Promise<{ id: string 
         )}
       </section>
 
-      <FloatingCartButton />
+      {restaurant && tableId ? (
+        <FloatingCartButton tableId={tableId} restaurantId={restaurant.id} />
+      ) : null}
     </main>
   )
 }

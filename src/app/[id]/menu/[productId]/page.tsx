@@ -8,6 +8,7 @@ import { useProductVariants } from "@/hooks/useProductVariants"
 import { FloatingCartButton } from "@/components/customer/FloatingCartButton"
 import { useCartSync } from "@/hooks/useCartSync"
 import { BackButton } from "@/components/ui/BackButton"
+import { useMenuData } from "@/hooks/useMenuData"
 
 function formatPrice(price: number) {
   return `$${price.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")}`
@@ -18,7 +19,7 @@ export default function ProductDetailPage({
 }: {
   params: Promise<{ id: string; productId: string }>
 }) {
-  const { productId } = use(params)
+  const { id, productId } = use(params)
   const addItem = useCartStore((state) => state.addItem)
 
   const [activeOptionIndex, setActiveOptionIndex] = useState(0)
@@ -32,6 +33,7 @@ export default function ProductDetailPage({
 
   const realProductId = decodeId(productId)
   const { product, loading, error } = useProductDetail(realProductId)
+  const { restaurant, tableId } = useMenuData(id)
 
   const {
     variants,
@@ -372,7 +374,9 @@ export default function ProductDetailPage({
         </div>
       </section>
 
-      <FloatingCartButton />
+      {restaurant && tableId ? (
+        <FloatingCartButton tableId={tableId} restaurantId={restaurant.id} />
+      ) : null}
     </main>
   )
 }

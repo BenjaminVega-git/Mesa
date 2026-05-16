@@ -7,5 +7,6 @@ export interface MenuData {
   restaurant: Restaurant | null
   categories: Category[]
   products: Product[]
+  tableId: number | null
   tableNumber: number | null
 }
