@@ -3,7 +3,7 @@ import { supabase } from "@/lib/supabase"
 import { CartItem } from "@/types/cart-item"
 import { createOrderQR } from "@/hooks/useCreateQR"
 import { getSafeErrorMessage } from "@/lib/safe-error"
-import { useOfflineRetry } from "@/hooks/useOfflineRetry"
+import { isNetworkError, useOfflineRetry } from "@/hooks/useOfflineRetry"
 
 type UseCreateOrderProps = {
   items: CartItem[]
@@ -61,6 +61,7 @@ export function useCreateOrder({ items, tableId, restaurantId }: UseCreateOrderP
     try {
       await createOrderQrWithRetry()
     } catch (err) {
+      if (isNetworkError(err)) return
       setError(getCreateQrErrorMessage(err))
     } finally {
       setIsLoading(false)
@@ -80,6 +81,7 @@ export function useCreateOrder({ items, tableId, restaurantId }: UseCreateOrderP
   return {
     qrCode,
     isLoading: isLoading || isCreateRetryPending || isCancelRetryPending,
+    isWaitingConnection: isCreateRetryPending,
     error,
     createOrder,
     cancelOrder,

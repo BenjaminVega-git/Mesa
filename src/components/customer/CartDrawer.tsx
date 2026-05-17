@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo } from "react"
 import { QRCodeSVG } from "qrcode.react"
 import { useCartStore, useCartTotal } from "@/store/cartStore"
 import { CartItem } from "@/types/cart-item"
@@ -8,17 +8,10 @@ import { CartDrawerProps } from "@/types/cart-drawer"
 import type { StoredOrder } from "@/types/cart-store"
 import { useCreateOrder } from "@/hooks/useCreateOrder"
 import { useLastOrder } from "@/hooks/useLastOrder"
-import { supabase } from "@/lib/supabase"
+import { useOrderRegistration } from "@/hooks/useOrderRegistration"
 
 function formatPrice(price: number) {
   return `$${price.toLocaleString("es-CL")}`
-}
-
-type OrderStatusRelation = { nombre: string | null } | { nombre: string | null }[] | null
-
-function getOrderStatusName(orderStatus: OrderStatusRelation) {
-  if (Array.isArray(orderStatus)) return orderStatus[0]?.nombre ?? null
-  return orderStatus?.nombre ?? null
 }
 
 function getStoredOrderStatusLabel(order: StoredOrder) {
@@ -30,6 +23,7 @@ function CartView({
   total,
   hasItems,
   isLoading,
+  isWaitingConnection,
   error,
   onContinue,
 }: {
@@ -37,6 +31,7 @@ function CartView({
   total: number
   hasItems: boolean
   isLoading: boolean
+  isWaitingConnection: boolean
   error: string | null
   onContinue: () => void
 }) {
@@ -108,7 +103,11 @@ function CartView({
               : "cursor-not-allowed bg-stone-800 text-stone-500 ring-white/10"
           }`}
         >
-          {isLoading ? "Creando pedido..." : "Continuar pedido"}
+          {isWaitingConnection
+            ? "Esperando conexion..."
+            : isLoading
+              ? "Creando pedido..."
+              : "Continuar pedido"}
         </button>
       </footer>
     </>
@@ -180,9 +179,7 @@ function QrView({
   restaurantId: number
   onCancel: () => void
 }) {
-  const clearCart = useCartStore((state) => state.clear)
-  const setLastOrder = useCartStore((state) => state.setLastOrder)
-  const [isRegistered, setIsRegistered] = useState(false)
+  const { isRegistered, isOffline } = useOrderRegistration({ qrCode, tableId, restaurantId, total })
 
   const scanUrl = useMemo(() => {
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? window.location.origin
@@ -193,50 +190,6 @@ function QrView({
     return url.toString()
   }, [qrCode, restaurantId, tableId, total])
 
-  useEffect(() => {
-    let isMounted = true
-
-    async function checkRegisteredOrder() {
-      const { data: qrData } = await supabase
-        .from("order_qr_codes")
-        .select("id")
-        .eq("qr_code", qrCode)
-        .maybeSingle()
-
-      if (!qrData) return
-
-      const { data: orderData } = await supabase
-        .from("orders")
-        .select("id, status_id, created_at, qr_code_id, table_id, restaurant_id, total, order_status(nombre)")
-        .eq("qr_code_id", qrData.id)
-        .maybeSingle()
-
-      if (orderData && isMounted) {
-        setIsRegistered(true)
-        setLastOrder({
-          id: orderData.id,
-          qrCode,
-          qrCodeId: qrData.id,
-          statusId: orderData.status_id,
-          statusName: getOrderStatusName(orderData.order_status),
-          createdAt: orderData.created_at,
-          tableId: orderData.table_id,
-          restaurantId: orderData.restaurant_id,
-          total: orderData.total,
-        })
-        clearCart()
-      }
-    }
-
-    checkRegisteredOrder()
-    const intervalId = window.setInterval(checkRegisteredOrder, 2500)
-
-    return () => {
-      isMounted = false
-      window.clearInterval(intervalId)
-    }
-  }, [clearCart, qrCode, setLastOrder])
-
   return (
     <>
       <div className="flex-1 overflow-y-auto px-5 py-5 text-center [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
@@ -246,7 +199,9 @@ function QrView({
         <p className="mx-auto mt-2 max-w-xs text-sm leading-5 text-stone-300">
           {isRegistered
             ? "Ya lo enviamos al equipo. Te avisaran cuando este listo."
-            : "El mesero confirmara tu pedido desde la mesa."}
+            : isOffline
+              ? "Sin conexion. Reconectando..."
+              : "El mesero confirmara tu pedido desde la mesa."}
         </p>
 
         {isRegistered ? (
@@ -295,7 +250,7 @@ export function CartDrawer({ isOpen, onClose, tableId, restaurantId }: CartDrawe
   const total = useCartTotal()
   const hasItems = items.length > 0
 
-  const { qrCode, isLoading, error, createOrder, cancelOrder } = useCreateOrder({
+  const { qrCode, isLoading, isWaitingConnection, error, createOrder, cancelOrder } = useCreateOrder({
     items,
     tableId,
     restaurantId,
@@ -362,6 +317,7 @@ export function CartDrawer({ isOpen, onClose, tableId, restaurantId }: CartDrawe
             total={total}
             hasItems={hasItems}
             isLoading={isLoading}
+            isWaitingConnection={isWaitingConnection}
             error={error}
             onContinue={createOrder}
           />
