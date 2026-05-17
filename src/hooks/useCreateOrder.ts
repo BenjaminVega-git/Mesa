@@ -3,6 +3,7 @@ import { supabase } from "@/lib/supabase"
 import { CartItem } from "@/types/cart-item"
 import { createOrderQR } from "@/hooks/useCreateQR"
 import { getSafeErrorMessage } from "@/lib/safe-error"
+import { useOfflineRetry } from "@/hooks/useOfflineRetry"
 
 type UseCreateOrderProps = {
   items: CartItem[]
@@ -14,6 +15,25 @@ export function useCreateOrder({ items, tableId, restaurantId }: UseCreateOrderP
   const [qrCode, setQrCode] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const { run: createOrderQrWithRetry, isPending: isCreateRetryPending } =
+    useOfflineRetry(async () => {
+      const orderQrCode = await createOrderQR()
+      setQrCode(orderQrCode)
+    })
+
+  const { run: cancelOrderWithRetry, isPending: isCancelRetryPending } =
+    useOfflineRetry(async () => {
+      if (!qrCode) return
+
+      const { error } = await supabase
+        .from("order_qr_codes")
+        .update({ qr_active: false })
+        .eq("qr_code", qrCode)
+
+      if (error) throw error
+      setQrCode(null)
+    })
 
   function getCreateQrErrorMessage(err: unknown) {
     if (
@@ -39,8 +59,7 @@ export function useCreateOrder({ items, tableId, restaurantId }: UseCreateOrderP
     setError(null)
 
     try {
-      const orderQrCode = await createOrderQR()
-      setQrCode(orderQrCode)
+      await createOrderQrWithRetry()
     } catch (err) {
       setError(getCreateQrErrorMessage(err))
     } finally {
@@ -51,13 +70,18 @@ export function useCreateOrder({ items, tableId, restaurantId }: UseCreateOrderP
   async function cancelOrder() {
     if (!qrCode) return
 
-    await supabase
-      .from("order_qr_codes")
-      .update({ qr_active: false })
-      .eq("qr_code", qrCode)
-
-    setQrCode(null)
+    try {
+      await cancelOrderWithRetry()
+    } catch (err) {
+      setError(getSafeErrorMessage(err, "Error al cancelar el pedido.", []))
+    }
   }
 
-  return { qrCode, isLoading, error, createOrder, cancelOrder }
+  return {
+    qrCode,
+    isLoading: isLoading || isCreateRetryPending || isCancelRetryPending,
+    error,
+    createOrder,
+    cancelOrder,
+  }
 }

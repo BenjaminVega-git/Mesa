@@ -1,12 +1,13 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { QRCodeSVG } from "qrcode.react"
 import { useCartStore, useCartTotal } from "@/store/cartStore"
 import { CartItem } from "@/types/cart-item"
 import { CartDrawerProps } from "@/types/cart-drawer"
 import type { StoredOrder } from "@/types/cart-store"
 import { useCreateOrder } from "@/hooks/useCreateOrder"
+import { useLastOrder } from "@/hooks/useLastOrder"
 import { supabase } from "@/lib/supabase"
 
 function formatPrice(price: number) {
@@ -18,23 +19,6 @@ type OrderStatusRelation = { nombre: string | null } | { nombre: string | null }
 function getOrderStatusName(orderStatus: OrderStatusRelation) {
   if (Array.isArray(orderStatus)) return orderStatus[0]?.nombre ?? null
   return orderStatus?.nombre ?? null
-}
-
-function normalizeStatusName(statusName: string) {
-  return statusName
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .trim()
-}
-
-function isOrderInProgressByStatusName(statusName: string | null) {
-  if (!statusName) return true
-
-  const normalizedStatusName = normalizeStatusName(statusName)
-  return !["entregado", "cancelado", "completado", "completo", "finalizado"].includes(
-    normalizedStatusName
-  )
 }
 
 function getStoredOrderStatusLabel(order: StoredOrder) {
@@ -223,7 +207,7 @@ function QrView({
 
       const { data: orderData } = await supabase
         .from("orders")
-        .select("id, created_at, qr_code_id, table_id, restaurant_id, total, order_status(nombre)")
+        .select("id, status_id, created_at, qr_code_id, table_id, restaurant_id, total, order_status(nombre)")
         .eq("qr_code_id", qrData.id)
         .maybeSingle()
 
@@ -233,6 +217,7 @@ function QrView({
           id: orderData.id,
           qrCode,
           qrCodeId: qrData.id,
+          statusId: orderData.status_id,
           statusName: getOrderStatusName(orderData.order_status),
           createdAt: orderData.created_at,
           tableId: orderData.table_id,
@@ -291,7 +276,7 @@ function QrView({
           <span className="text-2xl font-black text-orange-200">{formatPrice(total)}</span>
         </div>
 
-        {!isRegistered ? (
+        {!isRegistered && (
           <button
             type="button"
             onClick={onCancel}
@@ -299,7 +284,7 @@ function QrView({
           >
             Cancelar pedido
           </button>
-        ) : null}
+        )}
       </footer>
     </>
   )
@@ -307,12 +292,8 @@ function QrView({
 
 export function CartDrawer({ isOpen, onClose, tableId, restaurantId }: CartDrawerProps) {
   const items = useCartStore((state) => state.items)
-  const lastOrder = useCartStore((state) => state.lastOrder)
-  const setLastOrder = useCartStore((state) => state.setLastOrder)
-  const clearLastOrder = useCartStore((state) => state.clearLastOrder)
   const total = useCartTotal()
   const hasItems = items.length > 0
-  const [isCheckingLastOrder, setIsCheckingLastOrder] = useState(false)
 
   const { qrCode, isLoading, error, createOrder, cancelOrder } = useCreateOrder({
     items,
@@ -320,59 +301,14 @@ export function CartDrawer({ isOpen, onClose, tableId, restaurantId }: CartDrawe
     restaurantId,
   })
 
-  const syncStoredOrder = useCallback(
-    async (storedOrder: StoredOrder) => {
-      setIsCheckingLastOrder(true)
-
-      try {
-        const { data, error } = await supabase
-          .from("orders")
-          .select("id, created_at, qr_code_id, table_id, restaurant_id, total, order_status(nombre)")
-          .eq("id", storedOrder.id)
-          .maybeSingle()
-
-        if (error) return
-
-        const nextStatusName = getOrderStatusName(data?.order_status ?? null)
-
-        if (!data || !isOrderInProgressByStatusName(nextStatusName)) {
-          clearLastOrder()
-          return
-        }
-
-        if (
-          storedOrder.statusName !== nextStatusName ||
-          storedOrder.total !== data.total ||
-          storedOrder.createdAt !== data.created_at
-        ) {
-          setLastOrder({
-            ...storedOrder,
-            statusName: nextStatusName,
-            createdAt: data.created_at,
-            qrCodeId: data.qr_code_id,
-            tableId: data.table_id,
-            restaurantId: data.restaurant_id,
-            total: data.total,
-          })
-        }
-      } finally {
-        setIsCheckingLastOrder(false)
-      }
-    },
-    [clearLastOrder, setLastOrder]
-  )
+  const { activeOrder, isChecking, syncOrder } = useLastOrder()
 
   useEffect(() => {
-    if (!isOpen || !lastOrder) return
-    const timeoutId = window.setTimeout(() => {
-      syncStoredOrder(lastOrder)
-    }, 0)
-
+    if (!isOpen || !activeOrder) return
+    const timeoutId = window.setTimeout(() => syncOrder(activeOrder), 0)
     return () => window.clearTimeout(timeoutId)
-  }, [isOpen, lastOrder, syncStoredOrder])
+  }, [isOpen, activeOrder, syncOrder])
 
-  const activeStoredOrder =
-    lastOrder && isOrderInProgressByStatusName(lastOrder.statusName) ? lastOrder : null
   const isQrVisible = !!qrCode
 
   if (!isOpen) return null
@@ -389,14 +325,10 @@ export function CartDrawer({ isOpen, onClose, tableId, restaurantId }: CartDrawe
         <header className="flex items-center justify-between gap-4 border-b border-white/10 px-5 py-5">
           <div>
             <p className="text-sm font-semibold text-orange-200/80">
-              {activeStoredOrder ? "Pedido en curso" : isQrVisible ? "" : "Pedido actual"}
+              {activeOrder ? "Pedido en curso" : isQrVisible ? "" : "Pedido actual"}
             </p>
             <h2 className="text-2xl font-black tracking-tight">
-              {activeStoredOrder
-                ? "Espera un momento"
-                : isQrVisible
-                  ? "Pedido listo"
-                  : "Tu carrito"}
+              {activeOrder ? "Espera un momento" : isQrVisible ? "Pedido listo" : "Tu carrito"}
             </h2>
           </div>
 
@@ -410,11 +342,11 @@ export function CartDrawer({ isOpen, onClose, tableId, restaurantId }: CartDrawe
           </button>
         </header>
 
-        {activeStoredOrder ? (
+        {activeOrder ? (
           <ActiveOrderView
-            order={activeStoredOrder}
-            isChecking={isCheckingLastOrder}
-            onRefresh={() => syncStoredOrder(activeStoredOrder)}
+            order={activeOrder}
+            isChecking={isChecking}
+            onRefresh={() => syncOrder(activeOrder)}
           />
         ) : isQrVisible ? (
           <QrView

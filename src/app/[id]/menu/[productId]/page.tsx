@@ -1,7 +1,7 @@
 "use client"
 
 import { useCartStore } from "@/store/cartStore"
-import { use, useRef, useState } from "react"
+import { use, useEffect, useRef, useState } from "react"
 import { decodeId } from "@/lib/hashids"
 import { useProductDetail } from "@/hooks/useProductDetail"
 import { useProductVariants } from "@/hooks/useProductVariants"
@@ -9,6 +9,7 @@ import { FloatingCartButton } from "@/components/customer/FloatingCartButton"
 import { useCartSync } from "@/hooks/useCartSync"
 import { BackButton } from "@/components/ui/BackButton"
 import { useMenuData } from "@/hooks/useMenuData"
+import { isStoredOrderInProgress, useLastOrder } from "@/hooks/useLastOrder"
 
 function formatPrice(price: number) {
   return `$${price.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")}`
@@ -34,6 +35,7 @@ export default function ProductDetailPage({
   const realProductId = decodeId(productId)
   const { product, loading, error } = useProductDetail(realProductId)
   const { restaurant, tableId } = useMenuData(id)
+  const { activeOrder, syncOrder } = useLastOrder()
 
   const {
     variants,
@@ -42,6 +44,11 @@ export default function ProductDetailPage({
   } = useProductVariants(realProductId)
 
   const { syncCart } = useCartSync(product?.restaurant_id ?? null)
+
+  useEffect(() => {
+    if (!activeOrder) return
+    syncOrder(activeOrder)
+  }, [activeOrder, syncOrder])
 
   if (!realProductId) {
     return (
@@ -172,6 +179,16 @@ export default function ProductDetailPage({
   }
 
   async function handleAddToCart() {
+    if (activeOrder) {
+      await syncOrder(activeOrder)
+
+      if (isStoredOrderInProgress(useCartStore.getState().lastOrder)) {
+        setUnavailableMsg("Tienes un pedido en curso. Espera a que este listo antes de agregar mas.")
+        setTimeout(() => setUnavailableMsg(""), 3000)
+        return
+      }
+    }
+
     if (isAgotado || isDeshabilitado) {
       setUnavailableMsg(
         isDeshabilitado
@@ -345,13 +362,16 @@ export default function ProductDetailPage({
               <button
                 type="button"
                 onClick={handleAddToCart}
+                disabled={!!activeOrder || isAgotado || isDeshabilitado}
                 className={`mt-5 flex w-full items-center justify-center rounded-[1.35rem] px-5 py-4 text-sm font-black shadow-2xl ring-1 transition ${
-                  isAgotado || isDeshabilitado
+                  activeOrder || isAgotado || isDeshabilitado
                     ? "cursor-not-allowed bg-stone-700 text-stone-400 ring-white/10 shadow-none"
                     : "bg-orange-500 text-stone-950 shadow-orange-500/25 ring-orange-200/50 hover:bg-orange-400"
                 }`}
               >
-                {isAgotado
+                {activeOrder
+                  ? "Pedido en curso"
+                  : isAgotado
                   ? "Agotado"
                   : isDeshabilitado
                     ? "No disponible"

@@ -31,6 +31,7 @@ export default function ScanOrderPage({
 
   const [status, setStatus] = useState<ScanStatus>("loading")
   const [message, setMessage] = useState("Registrando pedido...")
+  const [detail, setDetail] = useState("Espera un momento.")
 
   useEffect(() => {
     let isMounted = true
@@ -43,6 +44,7 @@ export default function ScanOrderPage({
       if (!tableId || !restaurantId || !total) {
         setStatus("error")
         setMessage("El QR no contiene los datos del pedido.")
+        setDetail("Pide al cliente que genere un nuevo codigo desde su carrito.")
         return
       }
 
@@ -55,6 +57,7 @@ export default function ScanOrderPage({
       if (qrError || !qrData) {
         setStatus("error")
         setMessage("No se encontro el QR del pedido.")
+        setDetail("Revisa que el codigo escaneado sea el ultimo que genero el cliente.")
         return
       }
 
@@ -67,18 +70,21 @@ export default function ScanOrderPage({
       if (existingOrderError) {
         setStatus("error")
         setMessage("No se pudo revisar el estado del pedido.")
+        setDetail("Intenta recargar esta pantalla en unos segundos.")
         return
       }
 
       if (existingOrder) {
         setStatus("success")
-        setMessage("Pedido registrado")
+        setMessage("Este pedido ya esta registrado")
+        setDetail("No se creo otro pedido duplicado.")
         return
       }
 
       if (!qrData.qr_active) {
         setStatus("error")
         setMessage("Este QR ya no esta activo.")
+        setDetail("El cliente debe generar un nuevo codigo si necesita otro pedido.")
         return
       }
 
@@ -97,6 +103,7 @@ export default function ScanOrderPage({
             ? "Supabase esta bloqueando el registro del pedido por permisos."
             : "No se pudo registrar el pedido."
         )
+        setDetail("Revisa los permisos de la tabla orders e intenta nuevamente.")
         return
       }
 
@@ -108,6 +115,7 @@ export default function ScanOrderPage({
       if (isMounted) {
         setStatus("success")
         setMessage("Pedido registrado")
+        setDetail("El pedido fue enviado correctamente.")
       }
     }
 
@@ -133,6 +141,9 @@ export default function ScanOrderPage({
           {status === "success" ? "OK" : status === "error" ? "!" : "..."}
         </div>
         <h1 className="mt-5 text-3xl font-black tracking-tight">{message}</h1>
+        <p className="mx-auto mt-3 max-w-xs text-sm font-semibold leading-6 text-stone-300">
+          {detail}
+        </p>
       </section>
     </main>
   )
