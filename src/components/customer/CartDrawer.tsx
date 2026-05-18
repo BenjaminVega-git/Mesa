@@ -35,6 +35,8 @@ function CartView({
   error: string | null
   onContinue: () => void
 }) {
+  const updateQuantity = useCartStore((state) => state.updateQuantity)
+  const removeItem = useCartStore((state) => state.removeItem)   
   return (
     <>
       <div className="max-h-[48vh] overflow-y-auto px-5 py-4 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
@@ -57,7 +59,6 @@ function CartView({
               >
                 <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-stone-900">
                   {item.image ? (
-                    // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={item.image}
                       alt={item.name}
@@ -70,9 +71,34 @@ function CartView({
 
                 <div className="min-w-0 flex-1">
                   <h3 className="line-clamp-2 text-sm font-black leading-tight">{item.name}</h3>
-                  <p className="mt-2 text-xs font-semibold text-stone-400">
-                    Cantidad: {item.quantity}
-                  </p>
+
+                  {/* ✅ reemplaza el <p> de cantidad por esto */}
+                  <div className="mt-2 flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        item.quantity === 1
+                          ? removeItem(item.id)
+                          : updateQuantity(item.id, item.quantity - 1)
+                      }
+                      className="flex h-7 w-7 items-center justify-center rounded-full bg-white/10 text-sm font-black text-orange-100 ring-1 ring-white/10 transition hover:bg-white/20"
+                    >
+                      −
+                    </button>
+
+                    <span className="min-w-[1.25rem] text-center text-sm font-black">
+                      {item.quantity}
+                    </span>
+
+                    <button
+                      type="button"
+                      onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                      className="flex h-7 w-7 items-center justify-center rounded-full bg-orange-500/20 text-sm font-black text-orange-200 ring-1 ring-orange-200/20 transition hover:bg-orange-500/30"
+                    >
+                      +
+                    </button>
+                  </div>
+
                   <p className="mt-1 text-sm font-black text-orange-200">
                     {formatPrice(item.price * item.quantity)}
                   </p>
@@ -113,6 +139,7 @@ function CartView({
     </>
   )
 }
+
 
 function ActiveOrderView({
   order,
