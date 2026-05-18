@@ -5,9 +5,9 @@ import type { StoredOrder } from "@/types/cart-store"
 import { useOfflineRetry } from "@/hooks/useOfflineRetry"
 
 function getOrderStatusName(orderStatus: unknown) {
-  if (Array.isArray(orderStatus)) return orderStatus[0]?.nombre ?? null
-  if (orderStatus && typeof orderStatus === "object" && "nombre" in orderStatus)
-    return (orderStatus as { nombre: string | null }).nombre ?? null
+  if (Array.isArray(orderStatus)) return orderStatus[0]?.status_name ?? null
+  if (orderStatus && typeof orderStatus === "object" && "status_name" in orderStatus)
+    return (orderStatus as { status_name: string | null }).status_name ?? null
   return null
 }
 
@@ -48,7 +48,7 @@ export function useLastOrder() {
 
     const { data, error } = await supabase
       .from("orders")
-      .select("id, status_id, created_at, qr_code_id, table_id, restaurant_id, total, order_status(nombre)")
+      .select("id, status_id, created_at, qr_code_id, table_id, restaurant_id, total, order_status(status_name)")
       .eq("id", orderToSync.id)
       .maybeSingle()
 
@@ -59,12 +59,12 @@ export function useLastOrder() {
     if (data?.status_id && !nextStatusName) {
       const { data: statusData, error: statusError } = await supabase
         .from("order_status")
-        .select("nombre")
+        .select("status_name")
         .eq("id", data.status_id)
         .maybeSingle()
 
       if (statusError) throw statusError
-      nextStatusName = statusData?.nombre ?? null
+      nextStatusName = statusData?.status_name ?? null
     }
 
     if (!data || !isOrderInProgressByStatus(data.status_id, nextStatusName)) {

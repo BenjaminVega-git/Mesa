@@ -1,4 +1,4 @@
 export type OrderStatus = {
   id: number
-  nombre: string
+  status_name: string
 }

@@ -96,7 +96,7 @@ export default function OrdersPage() {
           {!loading && !error && orders.length > 0 && (
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               {orders.map((order) => {
-                const statusName = order.order_status?.nombre ?? "Desconocido"
+                const statusName = order.order_status?.status_name ?? "Desconocido"
                 const tableName = `Mesa ${order.tables?.[0]?.table_number ?? order.table_id}`
 
                 return (

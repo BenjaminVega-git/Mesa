@@ -3,11 +3,11 @@ import { supabase } from "@/lib/supabase"
 import { useCartStore } from "@/store/cartStore"
 import { isNetworkError, useOfflineRetry } from "@/hooks/useOfflineRetry"
 
-type OrderStatusRelation = { nombre: string | null } | { nombre: string | null }[] | null
+type OrderStatusRelation = { status_name: string | null } | { status_name: string | null }[] | null
 
 function getOrderStatusName(orderStatus: OrderStatusRelation) {
-  if (Array.isArray(orderStatus)) return orderStatus[0]?.nombre ?? null
-  return orderStatus?.nombre ?? null
+  if (Array.isArray(orderStatus)) return orderStatus[0]?.status_name ?? null
+  return orderStatus?.status_name ?? null
 }
 
 type UseOrderRegistrationProps = {
@@ -34,7 +34,7 @@ export function useOrderRegistration({ qrCode }: UseOrderRegistrationProps) {
 
     const { data: orderData, error: orderError } = await supabase
       .from("orders")
-      .select("id, status_id, created_at, qr_code_id, table_id, restaurant_id, total, order_status(nombre)")
+      .select("id, status_id, created_at, qr_code_id, table_id, restaurant_id, total, order_status(status_name)")
       .eq("qr_code_id", qrData.id)
       .maybeSingle()
 

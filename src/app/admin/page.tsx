@@ -99,7 +99,7 @@ export default function AdminPage() {
             <p className="py-4 text-center text-sm text-stone-500">No hay pedidos activos</p>
           ) : (
             orders.map((order) => {
-              const statusName = order.order_status?.nombre ?? ""
+              const statusName = order.order_status?.status_name ?? ""
               const badgeClass = statusConfig[statusName] ?? "bg-stone-100 text-stone-700"
 
               return (
