@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useCallback, useState } from "react"
 import { supabase } from "@/lib/supabase"
 import { CartItem } from "@/types/cart-item"
 import { createOrderQR } from "@/hooks/useCreateQR"
@@ -78,6 +78,11 @@ export function useCreateOrder({ items, tableId, restaurantId }: UseCreateOrderP
     }
   }
 
+  const resetOrderDraft = useCallback(() => {
+    setQrCode(null)
+    setError(null)
+  }, [])
+
   return {
     qrCode,
     isLoading: isLoading || isCreateRetryPending || isCancelRetryPending,
@@ -85,5 +90,6 @@ export function useCreateOrder({ items, tableId, restaurantId }: UseCreateOrderP
     error,
     createOrder,
     cancelOrder,
+    resetOrderDraft,
   }
 }

@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { supabase } from "@/lib/supabase"
 import { useCartStore } from "@/store/cartStore"
 import type { StoredOrder } from "@/types/cart-store"
@@ -31,6 +31,19 @@ function isOrderInProgressByStatus(statusId: number | null, statusName: string |
   return isOrderInProgress(statusName)
 }
 
+async function getOrderStatusNameById(statusId: number | null) {
+  if (!statusId) return null
+
+  const { data, error } = await supabase
+    .from("order_status")
+    .select("status_name")
+    .eq("id", statusId)
+    .maybeSingle()
+
+  if (error) throw error
+  return data?.status_name ?? null
+}
+
 export function isStoredOrderInProgress(order: StoredOrder | null) {
   return !!order && isOrderInProgressByStatus(order.statusId, order.statusName)
 }
@@ -57,14 +70,7 @@ export function useLastOrder() {
     let nextStatusName = getOrderStatusName(data?.order_status ?? null)
 
     if (data?.status_id && !nextStatusName) {
-      const { data: statusData, error: statusError } = await supabase
-        .from("order_status")
-        .select("status_name")
-        .eq("id", data.status_id)
-        .maybeSingle()
-
-      if (statusError) throw statusError
-      nextStatusName = statusData?.status_name ?? null
+      nextStatusName = await getOrderStatusNameById(data.status_id)
     }
 
     if (!data || !isOrderInProgressByStatus(data.status_id, nextStatusName)) {
@@ -107,5 +113,58 @@ export function useLastOrder() {
 
   const activeOrder = isStoredOrderInProgress(lastOrder) ? lastOrder : null
 
-  return { activeOrder, isChecking: isChecking || isPending, syncOrder }
+  useEffect(() => {
+    if (!lastOrder) return
+
+    const channel = supabase
+      .channel(`last-order-${lastOrder.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "orders",
+          filter: `id=eq.${lastOrder.id}`,
+        },
+        async (payload) => {
+          const updatedOrder = payload.new as Partial<{
+            status_id: number | null
+            created_at: string
+            qr_code_id: number
+            table_id: number
+            restaurant_id: number
+            total: number
+          }>
+
+          if (updatedOrder.status_id === 3) {
+            clearLastOrder()
+            return
+          }
+
+          const nextStatusId = updatedOrder.status_id ?? lastOrder.statusId
+          const nextStatusName =
+            nextStatusId !== lastOrder.statusId
+              ? await getOrderStatusNameById(nextStatusId)
+              : lastOrder.statusName
+
+          setLastOrder({
+            ...lastOrder,
+            statusId: nextStatusId,
+            statusName: nextStatusName,
+            createdAt: updatedOrder.created_at ?? lastOrder.createdAt,
+            qrCodeId: updatedOrder.qr_code_id ?? lastOrder.qrCodeId,
+            tableId: updatedOrder.table_id ?? lastOrder.tableId,
+            restaurantId: updatedOrder.restaurant_id ?? lastOrder.restaurantId,
+            total: updatedOrder.total ?? lastOrder.total,
+          })
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [clearLastOrder, lastOrder, setLastOrder])
+
+  return { activeOrder, lastOrder, isChecking: isChecking || isPending, syncOrder }
 }

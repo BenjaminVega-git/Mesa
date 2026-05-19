@@ -15,11 +15,13 @@ type UseOrderRegistrationProps = {
   tableId: number
   restaurantId: number
   total: number
+  onOrderCompleted?: () => void
 }
 
-export function useOrderRegistration({ qrCode }: UseOrderRegistrationProps) {
+export function useOrderRegistration({ qrCode, onOrderCompleted }: UseOrderRegistrationProps) {
   const clearCart = useCartStore((state) => state.clear)
   const setLastOrder = useCartStore((state) => state.setLastOrder)
+  const clearLastOrder = useCartStore((state) => state.clearLastOrder)
   const [isRegistered, setIsRegistered] = useState(false)
   const [isOffline, setIsOffline] = useState(false)
   const { run: checkRegisteredOrderWithRetry, isPending } = useOfflineRetry(async () => {
@@ -41,6 +43,14 @@ export function useOrderRegistration({ qrCode }: UseOrderRegistrationProps) {
     if (orderError) throw orderError
 
     if (orderData) {
+      if (orderData.status_id === 3) {
+        setIsRegistered(false)
+        setIsOffline(false)
+        clearLastOrder()
+        onOrderCompleted?.()
+        return
+      }
+
       setIsRegistered(true)
       setIsOffline(false)
       setLastOrder({

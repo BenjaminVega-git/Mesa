@@ -1,13 +1,13 @@
 "use client"
 
-import { useEffect, useMemo } from "react"
+import { useEffect, useMemo, useRef } from "react"
 import { QRCodeSVG } from "qrcode.react"
 import { useCartStore, useCartTotal } from "@/store/cartStore"
 import { CartItem } from "@/types/cart-item"
 import { CartDrawerProps } from "@/types/cart-drawer"
 import type { StoredOrder } from "@/types/cart-store"
 import { useCreateOrder } from "@/hooks/useCreateOrder"
-import { useLastOrder } from "@/hooks/useLastOrder"
+import { isStoredOrderInProgress, useLastOrder } from "@/hooks/useLastOrder"
 import { useOrderRegistration } from "@/hooks/useOrderRegistration"
 
 function formatPrice(price: number) {
@@ -199,14 +199,22 @@ function QrView({
   tableId,
   restaurantId,
   onCancel,
+  onOrderCompleted,
 }: {
   total: number
   qrCode: string
   tableId: number
   restaurantId: number
   onCancel: () => void
+  onOrderCompleted: () => void
 }) {
-  const { isRegistered, isOffline } = useOrderRegistration({ qrCode, tableId, restaurantId, total })
+  const { isRegistered, isOffline } = useOrderRegistration({
+    qrCode,
+    tableId,
+    restaurantId,
+    total,
+    onOrderCompleted,
+  })
 
   const scanUrl = useMemo(() => {
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? window.location.origin
@@ -277,19 +285,49 @@ export function CartDrawer({ isOpen, onClose, tableId, restaurantId }: CartDrawe
   const total = useCartTotal()
   const hasItems = items.length > 0
 
-  const { qrCode, isLoading, isWaitingConnection, error, createOrder, cancelOrder } = useCreateOrder({
+  const {
+    qrCode,
+    isLoading,
+    isWaitingConnection,
+    error,
+    createOrder,
+    cancelOrder,
+    resetOrderDraft,
+  } = useCreateOrder({
     items,
     tableId,
     restaurantId,
   })
 
-  const { activeOrder, isChecking, syncOrder } = useLastOrder()
+  const { activeOrder, lastOrder, isChecking, syncOrder } = useLastOrder()
+  const activeOrderIdRef = useRef<number | null>(null)
 
   useEffect(() => {
     if (!isOpen || !activeOrder) return
     const timeoutId = window.setTimeout(() => syncOrder(activeOrder), 0)
     return () => window.clearTimeout(timeoutId)
   }, [isOpen, activeOrder, syncOrder])
+
+  useEffect(() => {
+    if (activeOrder) {
+      activeOrderIdRef.current = activeOrder.id
+      return
+    }
+
+    if (activeOrderIdRef.current && !lastOrder && qrCode) {
+      resetOrderDraft()
+      activeOrderIdRef.current = null
+    }
+  }, [activeOrder, lastOrder, qrCode, resetOrderDraft])
+
+  async function refreshActiveOrder(order: StoredOrder) {
+    await syncOrder(order)
+
+    if (!isStoredOrderInProgress(useCartStore.getState().lastOrder)) {
+      resetOrderDraft()
+      activeOrderIdRef.current = null
+    }
+  }
 
   const isQrVisible = !!qrCode
 
@@ -328,7 +366,7 @@ export function CartDrawer({ isOpen, onClose, tableId, restaurantId }: CartDrawe
           <ActiveOrderView
             order={activeOrder}
             isChecking={isChecking}
-            onRefresh={() => syncOrder(activeOrder)}
+            onRefresh={() => refreshActiveOrder(activeOrder)}
           />
         ) : isQrVisible ? (
           <QrView
@@ -337,6 +375,7 @@ export function CartDrawer({ isOpen, onClose, tableId, restaurantId }: CartDrawe
             tableId={tableId}
             restaurantId={restaurantId}
             onCancel={cancelOrder}
+            onOrderCompleted={resetOrderDraft}
           />
         ) : (
           <CartView
