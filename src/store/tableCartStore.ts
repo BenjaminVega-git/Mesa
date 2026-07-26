@@ -2,7 +2,7 @@ import { create } from "zustand"
 import { supabase } from "@/lib/supabase"
 import { logger } from "@/lib/logger"
 import { getGuestId } from "@/lib/guest-id"
-import type { CartItem, CartPromoSelection } from "@/types/cart-item"
+import type { CartItem, CartPromoSelection, CartIngredientChoice } from "@/types/cart-item"
 import type { TableCartStore } from "@/types/cart-store"
 
 type ProductJoin = { product_name: string; product_image: string | null } | null
@@ -16,6 +16,8 @@ type PromotionJoin = {
 
 // Selección cruda tal como la guarda table_cart_items.promo_selections (snake).
 type RawSelection = { group_id: number; product_id: number; variant_id: number | null }
+// Elección cruda tal como la guarda table_cart_items.ingredient_choices (snake).
+type RawIngredientChoice = { ingredient_id: number; action: "remove" | "add" }
 
 type CartRow = {
   id: string
@@ -23,6 +25,8 @@ type CartRow = {
   variant_id: number | null
   promotion_id: number | null
   promo_selections: RawSelection[] | null
+  ingredient_choices: RawIngredientChoice[] | null
+  ingredient_labels: string[] | null
   quantity: number
   unit_price: number
   notes: string | null
@@ -44,6 +48,11 @@ function mapSelections(raw: RawSelection[] | null): CartPromoSelection[] | null 
     productId: s.product_id,
     variantId: s.variant_id ?? null,
   }))
+}
+
+function mapIngredientChoices(raw: RawIngredientChoice[] | null): CartIngredientChoice[] | null {
+  if (!raw || !Array.isArray(raw)) return null
+  return raw.map((c) => ({ ingredientId: c.ingredient_id, action: c.action }))
 }
 
 function mapRowToItem(row: CartRow): CartItem {
@@ -77,6 +86,8 @@ function mapRowToItem(row: CartRow): CartItem {
     productId: row.product_id,
     variantId: row.variant_id,
     promotionId: null,
+    ingredientChoices: mapIngredientChoices(row.ingredient_choices),
+    ingredientLabels: row.ingredient_labels,
     name,
     price: row.unit_price,
     quantity: row.quantity,
@@ -129,6 +140,9 @@ export const useTableCartStore = create<TableCartStore>()((set, get) => ({
       p_quantity: input.quantity ?? 1,
       p_notes: input.notes ?? null,
       p_added_by: getGuestId(),
+      p_ingredient_choices: input.ingredientChoices
+        ? input.ingredientChoices.map((c) => ({ ingredient_id: c.ingredientId, action: c.action }))
+        : null,
     })
 
     if (error) {

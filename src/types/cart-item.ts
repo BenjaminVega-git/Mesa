@@ -6,6 +6,13 @@ export type CartPromoSelection = {
   variantId: number | null
 }
 
+// Personalización de ingredientes de una línea de producto: quitar uno
+// incluido (gratis) o agregar uno extra (con precio fijo por ingrediente).
+export type CartIngredientChoice = {
+  ingredientId: number
+  action: "remove" | "add"
+}
+
 export type CartItem = {
   id: string
   // productId es null cuando la línea es una promoción (combo).
@@ -17,6 +24,10 @@ export type CartItem = {
   // resueltas (para mostrar el detalle en el carrito).
   selections?: CartPromoSelection[] | null
   selectionLabels?: string[] | null
+  // Personalización de ingredientes (solo líneas de producto): crudo para el
+  // pedido + etiquetas ya resueltas ("Sin Tomate", "Extra Queso (+$500)").
+  ingredientChoices?: CartIngredientChoice[] | null
+  ingredientLabels?: string[] | null
   name: string
   price: number
   quantity: number

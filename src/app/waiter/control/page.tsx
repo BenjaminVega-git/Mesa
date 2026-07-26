@@ -338,13 +338,13 @@ function WaiterControlSystem() {
               ➕ Tomar pedido
             </button>
             <ScanQrButton onError={triggerToast} />
-            {isVisible("waiter", "caja") && (
+            {isVisible("waiter", "contabilidad") && (
               <Link
-                href="/waiter/caja"
+                href="/waiter/contabilidad"
                 className="inline-flex items-center gap-1.5 rounded-full border border-stone-200/80 bg-white/95 px-3 py-1.5 text-xs font-semibold text-stone-700 shadow-sm backdrop-blur-md transition hover:border-stone-300 hover:text-stone-900 active:scale-95"
-                title="Cierre de caja / turno"
+                title="Pedidos tomados y boletas"
               >
-                🧾 Caja
+                📊 Contabilidad
               </Link>
             )}
             {isVisible("waiter", "soporte") && (

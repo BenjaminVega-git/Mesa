@@ -2,6 +2,16 @@ import type { Category } from "@/types/category"
 import type { ProductStatus } from "@/types/product-status"
 import type { ProductVariant } from "@/types/product-variant"
 
+// Opción de personalización de un producto (configurada en Inventario):
+// 'removable' = ingrediente incluido que el comensal puede quitar (gratis);
+// 'extra' = ingrediente NO incluido que el comensal puede agregar, con precio.
+export type ProductIngredientOption = {
+  ingredient_id: number
+  name: string
+  kind: "removable" | "extra"
+  extra_price: number
+}
+
 export type Product = {
   id: number
   product_name: string
@@ -22,4 +32,7 @@ export type Product = {
   categories: Category
   product_status?: ProductStatus
   product_variants?: ProductVariant[]
+  // Opciones de personalización disponibles (comensal y POS del staff). Lo
+  // expone get_public_menu / staff_get_menu; vacío si el admin no configuró.
+  ingredient_options?: ProductIngredientOption[]
 }

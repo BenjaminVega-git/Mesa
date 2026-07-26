@@ -54,6 +54,7 @@ export function PaymentsTodaySection() {
   }, [])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- carga inicial al montar
     load()
     const interval = window.setInterval(load, 30_000)
     const onVisible = () => {

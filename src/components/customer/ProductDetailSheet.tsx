@@ -1,10 +1,12 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useTableCart } from "@/hooks/useTableCart"
 import { ProductImage } from "@/components/customer/ProductImage"
 import { flyToCart } from "@/lib/customer/fly-to-cart"
+import { calcIngredientExtra } from "@/lib/ingredient-customization"
 import type { Product } from "@/types/product"
+import type { CartIngredientChoice } from "@/types/cart-item"
 
 function formatPrice(price: number) {
   return `$${price.toLocaleString("es-CL")}`
@@ -45,8 +47,42 @@ export function ProductDetailSheet({
   const touchStartX = useRef<number | null>(null)
 
   const activeVariant = variants[Math.min(activeVariantIndex, variants.length - 1)] ?? null
-  const activePrice = activeVariant?.variant_price ?? product.product_price
+  const basePrice = activeVariant?.variant_price ?? product.product_price
   const activeImage = activeVariant?.variant_image ?? product.product_image
+
+  // Personalización: quitar ingredientes incluidos (gratis) o agregar extras
+  // con precio fijo. Configurado en Inventario; vacío si el admin no lo usa.
+  const removableOptions = (product.ingredient_options ?? []).filter((o) => o.kind === "removable")
+  const extraOptions = (product.ingredient_options ?? []).filter((o) => o.kind === "extra")
+  const [removed, setRemoved] = useState<Set<number>>(new Set())
+  const [added, setAdded] = useState<Set<number>>(new Set())
+
+  const ingredientChoices = useMemo<CartIngredientChoice[]>(() => {
+    const choices: CartIngredientChoice[] = []
+    removed.forEach((id) => choices.push({ ingredientId: id, action: "remove" }))
+    added.forEach((id) => choices.push({ ingredientId: id, action: "add" }))
+    return choices
+  }, [removed, added])
+
+  const extraTotal = calcIngredientExtra(ingredientChoices, product.ingredient_options)
+  const activePrice = basePrice + extraTotal
+
+  function toggleRemoved(id: number) {
+    setRemoved((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+  function toggleAdded(id: number) {
+    setAdded((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
   // Agotado = toggle manual (status_id 2) o sin stock por receta. Con variantes,
   // se evalúa la variante seleccionada; si no, el producto.
   const stockOut = activeVariant ? !!activeVariant.stock_out : !!product.stock_out
@@ -110,6 +146,7 @@ export function ProductDetailSheet({
         variantId: activeVariant?.id ?? null,
         price: activePrice,
         quantity: qty,
+        ingredientChoices: ingredientChoices.length > 0 ? ingredientChoices : null,
       })
       onAdded?.(product.product_name)
       requestClose()
@@ -218,6 +255,52 @@ export function ProductDetailSheet({
               </div>
             </div>
           ) : null}
+
+          {(removableOptions.length > 0 || extraOptions.length > 0) && (
+            <div className="mt-5">
+              <p className="mb-2 text-[10px] font-extrabold uppercase tracking-[0.16em] text-[#71717a]">
+                Personaliza tu pedido
+              </p>
+              <div className="space-y-1.5">
+                {removableOptions.map((opt) => (
+                  <label
+                    key={`rm-${opt.ingredient_id}`}
+                    className="flex items-center justify-between gap-2 rounded-xl border border-[#27272a] bg-[#18181b] px-3 py-2.5"
+                  >
+                    <span className="flex items-center gap-2 text-[13px] font-semibold text-[#e4e4e7]">
+                      <input
+                        type="checkbox"
+                        checked={removed.has(opt.ingredient_id)}
+                        onChange={() => toggleRemoved(opt.ingredient_id)}
+                        className="h-4 w-4 rounded border-[#3f3f46] accent-[#fb923c]"
+                      />
+                      Sin {opt.name}
+                    </span>
+                    <span className="text-[11px] text-[#71717a]">gratis</span>
+                  </label>
+                ))}
+                {extraOptions.map((opt) => (
+                  <label
+                    key={`ex-${opt.ingredient_id}`}
+                    className="flex items-center justify-between gap-2 rounded-xl border border-[#27272a] bg-[#18181b] px-3 py-2.5"
+                  >
+                    <span className="flex items-center gap-2 text-[13px] font-semibold text-[#e4e4e7]">
+                      <input
+                        type="checkbox"
+                        checked={added.has(opt.ingredient_id)}
+                        onChange={() => toggleAdded(opt.ingredient_id)}
+                        className="h-4 w-4 rounded border-[#3f3f46] accent-[#fb923c]"
+                      />
+                      Extra {opt.name}
+                    </span>
+                    <span className="text-[11px] font-bold text-[#fb923c]">
+                      +{formatPrice(opt.extra_price)}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
 
         </div>
 

@@ -4,10 +4,11 @@ import { useEffect, useMemo, useState } from "react"
 import Image from "next/image"
 import { getPosData, createPosOrder, type PosData, type PosOrderResult } from "@/services/pos-service"
 import { BuildPromoDialog } from "@/components/customer/BuildPromoDialog"
+import { calcIngredientExtra } from "@/lib/ingredient-customization"
 import type { MenuPromotion } from "@/types/menu"
 import type { Product } from "@/types/product"
 import type { CreateOrderItemInput } from "@/lib/validation/order"
-import type { CartPromoSelection } from "@/types/cart-item"
+import type { CartPromoSelection, CartIngredientChoice } from "@/types/cart-item"
 
 const clp = new Intl.NumberFormat("es-CL", {
   style: "currency",
@@ -22,6 +23,7 @@ type CartLine = {
   variantId?: number | null
   promotionId?: number
   selections?: CartPromoSelection[]
+  ingredientChoices?: CartIngredientChoice[]
   name: string
   detail: string | null
   /** Precio unitario estimado para mostrar (el server SIEMPRE recalcula). */
@@ -65,7 +67,14 @@ export function TakeOrderPanel({
   const [search, setSearch] = useState("")
   const [categoryId, setCategoryId] = useState<number | null>(null)
   const [lines, setLines] = useState<CartLine[]>([])
-  const [variantPick, setVariantPick] = useState<Product | null>(null)
+  // Modal de variante + personalización de ingredientes (uno solo, cubre
+  // productos con variantes, con opciones de ingrediente, o ambos).
+  const [customize, setCustomize] = useState<{
+    product: Product
+    variantId: number | null
+    removed: Set<number>
+    added: Set<number>
+  } | null>(null)
   const [buildPromo, setBuildPromo] = useState<MenuPromotion | null>(null)
   const [cartOpen, setCartOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -111,14 +120,21 @@ export function TakeOrderPanel({
   )
   const count = useMemo(() => lines.reduce((s, l) => s + l.quantity, 0), [lines])
 
+  function sameChoices(a?: CartIngredientChoice[], b?: CartIngredientChoice[]): boolean {
+    const ka = (a ?? []).map((c) => `${c.ingredientId}:${c.action}`).sort().join(",")
+    const kb = (b ?? []).map((c) => `${c.ingredientId}:${c.action}`).sort().join(",")
+    return ka === kb
+  }
+
   function addLine(line: Omit<CartLine, "key">) {
     setLines((prev) => {
-      // Producto idéntico (misma variante, sin nota) → suma cantidad.
+      // Producto idéntico (misma variante, misma personalización, sin nota) → suma cantidad.
       if (line.productId != null) {
         const idx = prev.findIndex(
           (l) =>
             l.productId === line.productId &&
             (l.variantId ?? null) === (line.variantId ?? null) &&
+            sameChoices(l.ingredientChoices, line.ingredientChoices) &&
             !l.notes
         )
         if (idx >= 0 && !prev[idx].promotionId) {
@@ -132,9 +148,10 @@ export function TakeOrderPanel({
   }
 
   function addProduct(p: Product) {
-    const variants = p.product_variants ?? []
-    if (variants.length > 0) {
-      setVariantPick(p)
+    const hasVariants = (p.product_variants ?? []).length > 0
+    const hasIngredientOptions = (p.ingredient_options ?? []).length > 0
+    if (hasVariants || hasIngredientOptions) {
+      setCustomize({ product: p, variantId: null, removed: new Set(), added: new Set() })
       return
     }
     addLine({
@@ -146,6 +163,39 @@ export function TakeOrderPanel({
       quantity: 1,
       notes: "",
     })
+  }
+
+  function confirmCustomize() {
+    if (!customize) return
+    const { product, variantId, removed, added } = customize
+    const variant = product.product_variants?.find((v) => v.id === variantId)
+    const basePrice = variant?.variant_price ?? product.product_price
+    const choices: CartIngredientChoice[] = [
+      ...Array.from(removed).map((id) => ({ ingredientId: id, action: "remove" as const })),
+      ...Array.from(added).map((id) => ({ ingredientId: id, action: "add" as const })),
+    ]
+    const extra = calcIngredientExtra(choices, product.ingredient_options)
+    const detailParts = [
+      variant?.variant_name,
+      ...Array.from(removed).map(
+        (id) => `Sin ${product.ingredient_options?.find((o) => o.ingredient_id === id)?.name}`
+      ),
+      ...Array.from(added).map(
+        (id) => `Extra ${product.ingredient_options?.find((o) => o.ingredient_id === id)?.name}`
+      ),
+    ].filter(Boolean)
+
+    addLine({
+      productId: product.id,
+      variantId,
+      ingredientChoices: choices.length > 0 ? choices : undefined,
+      name: product.product_name,
+      detail: detailParts.length > 0 ? detailParts.join(", ") : null,
+      unitPrice: basePrice + extra,
+      quantity: 1,
+      notes: "",
+    })
+    setCustomize(null)
   }
 
   function addFixedPromo(promo: MenuPromotion) {
@@ -196,6 +246,7 @@ export function TakeOrderPanel({
       variantId: l.variantId ?? null,
       promotionId: l.promotionId ?? null,
       selections: l.selections ?? null,
+      ingredientChoices: l.ingredientChoices ?? null,
       productQuantity: l.quantity,
       notes: l.notes.trim() || null,
     }))
@@ -547,45 +598,99 @@ export function TakeOrderPanel({
         </div>
       )}
 
-      {/* Selector de variante */}
-      {variantPick && (
+      {/* Variante + personalización de ingredientes (un solo modal) */}
+      {customize && (
         <div className="fixed inset-0 z-[80] flex items-end justify-center bg-stone-900/50 p-4 backdrop-blur-sm sm:items-center">
           <div className="w-full max-w-sm rounded-3xl border border-stone-200 bg-white p-5 shadow-2xl">
-            <h4 className="text-sm font-extrabold text-stone-950">{variantPick.product_name}</h4>
-            <p className="mt-0.5 text-[11px] text-stone-500">Elige una opción</p>
-            <div className="mt-3 space-y-1.5">
-              {(variantPick.product_variants ?? []).map((v) => (
-                <button
-                  key={v.id}
-                  type="button"
-                  onClick={() => {
-                    addLine({
-                      productId: variantPick.id,
-                      variantId: v.id,
-                      name: variantPick.product_name,
-                      detail: v.variant_name,
-                      unitPrice: v.variant_price,
-                      quantity: 1,
-                      notes: "",
-                    })
-                    setVariantPick(null)
-                  }}
-                  className="flex w-full items-center justify-between rounded-2xl border border-stone-200 px-4 py-2.5 text-left transition hover:border-orange-300 hover:bg-orange-50/50"
-                >
-                  <span className="text-xs font-bold text-stone-800">{v.variant_name}</span>
-                  <span className="text-xs font-extrabold text-orange-700 tabular-nums">
-                    {fmt(v.variant_price)}
-                  </span>
-                </button>
-              ))}
+            <h4 className="text-sm font-extrabold text-stone-950">{customize.product.product_name}</h4>
+
+            {(customize.product.product_variants?.length ?? 0) > 0 && (
+              <>
+                <p className="mt-3 text-[11px] font-bold uppercase tracking-wider text-stone-500">
+                  Elige una opción
+                </p>
+                <div className="mt-1.5 space-y-1.5">
+                  {customize.product.product_variants!.map((v) => (
+                    <button
+                      key={v.id}
+                      type="button"
+                      onClick={() => setCustomize((c) => (c ? { ...c, variantId: v.id } : c))}
+                      className={`flex w-full items-center justify-between rounded-2xl border px-4 py-2.5 text-left transition ${
+                        customize.variantId === v.id
+                          ? "border-orange-400 bg-orange-50"
+                          : "border-stone-200 hover:border-orange-300 hover:bg-orange-50/50"
+                      }`}
+                    >
+                      <span className="text-xs font-bold text-stone-800">{v.variant_name}</span>
+                      <span className="text-xs font-extrabold text-orange-700 tabular-nums">
+                        {fmt(v.variant_price)}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {(customize.product.ingredient_options ?? []).length > 0 && (
+              <>
+                <p className="mt-3 text-[11px] font-bold uppercase tracking-wider text-stone-500">
+                  Personalizar
+                </p>
+                <div className="mt-1.5 space-y-1.5">
+                  {customize.product.ingredient_options!.map((opt) => {
+                    const isRemovable = opt.kind === "removable"
+                    const checked = isRemovable
+                      ? customize.removed.has(opt.ingredient_id)
+                      : customize.added.has(opt.ingredient_id)
+                    return (
+                      <label
+                        key={opt.ingredient_id}
+                        className="flex items-center justify-between gap-2 rounded-2xl border border-stone-200 px-4 py-2.5"
+                      >
+                        <span className="flex items-center gap-2 text-xs font-bold text-stone-800">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() =>
+                              setCustomize((c) => {
+                                if (!c) return c
+                                const set = new Set(isRemovable ? c.removed : c.added)
+                                if (set.has(opt.ingredient_id)) set.delete(opt.ingredient_id)
+                                else set.add(opt.ingredient_id)
+                                return isRemovable ? { ...c, removed: set } : { ...c, added: set }
+                              })
+                            }
+                            className="h-4 w-4 accent-orange-500"
+                          />
+                          {isRemovable ? `Sin ${opt.name}` : `Extra ${opt.name}`}
+                        </span>
+                        <span className="text-[11px] font-bold text-stone-500">
+                          {isRemovable ? "gratis" : `+${fmt(opt.extra_price)}`}
+                        </span>
+                      </label>
+                    )
+                  })}
+                </div>
+              </>
+            )}
+
+            <div className="mt-4 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setCustomize(null)}
+                className="flex-1 rounded-full border border-stone-300 px-4 py-2.5 text-xs font-bold text-stone-600 transition hover:bg-stone-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={confirmCustomize}
+                disabled={(customize.product.product_variants?.length ?? 0) > 0 && customize.variantId == null}
+                className="flex-1 rounded-full bg-orange-500 px-4 py-2.5 text-xs font-bold text-white shadow transition hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Agregar
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={() => setVariantPick(null)}
-              className="mt-3 w-full rounded-full border border-stone-300 px-4 py-2 text-xs font-bold text-stone-600 transition hover:bg-stone-50"
-            >
-              Cancelar
-            </button>
           </div>
         </div>
       )}

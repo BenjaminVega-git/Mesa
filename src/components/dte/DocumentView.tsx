@@ -67,31 +67,37 @@ function Field({ label, value }: { label: string; value: string | null | undefin
  * factura incluye además la leyenda de acuse de recibo (Ley N° 19.983).
  * data-print-root permite imprimir solo el documento.
  */
+// Etiqueta amigable para el comensal — deliberadamente distinta de
+// DTE_LABEL_BY_CODE (esa es la clasificación tributaria interna/admin). Este
+// comprobante no reclama validez ante el SII, así que no se llama "boleta
+// electrónica" ni luce el recuadro/timbre oficial.
+const FRIENDLY_LABEL: Record<number, string> = {
+  33: "Comprobante de pago (factura)",
+  34: "Comprobante de pago (factura exenta)",
+  39: "Comprobante de pago",
+  41: "Comprobante de pago",
+  56: "Nota de débito",
+  61: "Nota de crédito",
+}
+
 export function DocumentView({ doc, emisor }: { doc: DocumentViewData; emisor: DocumentViewEmisor }) {
-  const label = (DTE_LABEL_BY_CODE[doc.docType] ?? `Documento ${doc.docType}`).toUpperCase()
+  const label = FRIENDLY_LABEL[doc.docType] ?? "Comprobante de pago"
   const esFactura = doc.docType === 33 || doc.docType === 34
   const esBoleta = doc.docType === 39 || doc.docType === 41
   const esNotaCredito = doc.docType === 61
-  const ciudad = emisor.comuna?.trim() || "SANTIAGO"
 
   return (
     <article
       data-print-root
-      className="rounded-2xl border border-stone-300 bg-white p-8 text-stone-900 shadow-sm print:border-0 print:shadow-none"
+      className="rounded-2xl border border-stone-200 bg-white p-8 text-stone-900 shadow-sm print:border-0 print:shadow-none"
     >
-      {doc.simulated ? (
-        <div className="mb-6 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2 text-center text-xs font-bold uppercase tracking-wider text-amber-700">
-          Documento simulado · sin validez tributaria ante el SII
-        </div>
-      ) : null}
-
       {doc.voided ? (
         <div className="mb-6 rounded-lg border border-red-300 bg-red-50 px-4 py-2 text-center text-xs font-bold uppercase tracking-wider text-red-700">
-          Factura anulada por nota de crédito
+          Documento anulado por nota de crédito
         </div>
       ) : null}
 
-      {/* Encabezado: emisor + logo (izq) y recuadro rojo (der) */}
+      {/* Encabezado: emisor + logo (izq) y comprobante N° (der) */}
       <div className="flex items-start justify-between gap-6 border-b border-stone-200 pb-5">
         <div className="flex items-start gap-4">
           {emisor.logoUrl ? (
@@ -99,35 +105,28 @@ export function DocumentView({ doc, emisor }: { doc: DocumentViewData; emisor: D
             <img src={emisor.logoUrl} alt="Logo" className="h-16 w-16 shrink-0 rounded-lg object-contain" />
           ) : null}
           <div>
-            <p className="text-base font-extrabold uppercase tracking-tight text-stone-900">
-              {emisor.razonSocial || "Razón social del emisor"}
+            <p className="text-base font-extrabold tracking-tight text-stone-900">
+              {emisor.razonSocial || "Restaurante"}
             </p>
             <div className="mt-1 space-y-0.5">
-              <Field label="Giro" value={emisor.giro} />
-              {emisor.actividadEconomica?.trim() ? (
-                <Field label="Actividad" value={emisor.actividadEconomica} />
-              ) : null}
               <Field
                 label="Dirección"
                 value={[emisor.direccion, emisor.comuna].filter((s) => s?.trim()).join(", ") || null}
               />
+              {emisor.rut?.trim() ? <Field label="RUT" value={emisor.rut} /> : null}
             </div>
           </div>
         </div>
 
-        <div className="shrink-0 rounded-lg border-2 border-red-600 px-5 py-3 text-center text-red-700">
-          <p className="text-xs font-extrabold tracking-wide">R.U.T. {emisor.rut || "—"}</p>
-          <p className="mt-1.5 text-sm font-extrabold uppercase leading-tight">{label}</p>
-          <p className="mt-1.5 text-sm font-extrabold tabular-nums">N° {doc.folio ?? "—"}</p>
-          <p className="mt-1.5 border-t border-red-300 pt-1 text-[10px] font-bold uppercase tracking-wider">
-            S.I.I. — {ciudad}
-          </p>
+        <div className="shrink-0 rounded-2xl bg-stone-50 px-5 py-3 text-right ring-1 ring-stone-100">
+          <p className="text-[11px] font-bold uppercase tracking-wide text-stone-500">{label}</p>
+          <p className="mt-1 text-lg font-extrabold tabular-nums text-stone-900">N° {doc.folio ?? "—"}</p>
         </div>
       </div>
 
       {/* Fecha */}
       <div className="mt-4 text-xs text-stone-600">
-        Fecha de emisión: <strong className="text-stone-800">{fmtDate(doc.emittedAt)}</strong>
+        Fecha: <strong className="text-stone-800">{fmtDate(doc.emittedAt)}</strong>
       </div>
 
       {/* Receptor: obligatorio en factura; en boleta solo si se registró */}
@@ -237,31 +236,13 @@ export function DocumentView({ doc, emisor }: { doc: DocumentViewData; emisor: D
         )}
       </div>
 
-      {/* Timbre electrónico */}
-      <div className="mt-8 border-t border-dashed border-stone-300 pt-5 text-center">
-        <div
-          className="mx-auto h-16 w-56 bg-[repeating-linear-gradient(90deg,#1c1917_0,#1c1917_2px,transparent_2px,transparent_5px)] opacity-70"
-          aria-hidden
-        />
-        <p className="mt-2 text-[10px] font-semibold text-stone-600">Timbre Electrónico SII</p>
-        <p className="text-[10px] text-stone-500">
-          {doc.simulated
-            ? "Documento simulado — sin resolución del SII"
-            : "Resolución que autoriza la emisión electrónica"}
-          {" · Track ID "}
-          {doc.trackId ?? "—"}
-        </p>
-        <p className="text-[10px] text-stone-400">Verifique este documento en www.sii.cl</p>
+      {/* Cierre */}
+      <div className="mt-8 border-t border-dashed border-stone-200 pt-5 text-center">
+        <p className="text-sm font-bold text-stone-700">¡Gracias por tu visita!</p>
+        {doc.trackId ? (
+          <p className="mt-1 text-[10px] text-stone-400">Referencia {doc.trackId}</p>
+        ) : null}
       </div>
-
-      {/* Leyenda de acuse de recibo (Ley 19.983) — solo factura */}
-      {esFactura ? (
-        <p className="mt-5 border-t border-stone-200 pt-3 text-[9px] leading-4 text-stone-400">
-          El acuse de recibo que se declara en este acto, de acuerdo a lo dispuesto en la letra b)
-          del Art. 4°, y la letra c) del Art. 5° de la Ley N° 19.983, acredita que la entrega de
-          mercaderías o servicio(s) prestado(s) ha(n) sido recibido(s).
-        </p>
-      ) : null}
     </article>
   )
 }

@@ -111,7 +111,12 @@ const TOUR_INFO: Record<string, TourInfo> = {
   pagos: {
     emoji: "💳",
     title: "Pagos",
-    text: "Los datos tributarios de tu negocio, la conexión de tu pasarela para que el comensal pague en línea (Flow, Mercado Pago o Transbank) y tus documentos tributarios.",
+    text: "Los datos tributarios de tu negocio y las boletas/facturas emitidas. La conexión de tu pasarela de pago (Flow, Mercado Pago o Transbank) vive en Ajustes.",
+  },
+  caja: {
+    emoji: "🧮",
+    title: "Caja",
+    text: "Abre y cierra el turno de caja, con el desglose de lo cobrado en efectivo, tarjeta y en línea, y el detalle de todos los pagos del día.",
   },
   api: {
     emoji: "🔌",

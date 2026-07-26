@@ -257,6 +257,15 @@ export function AdminSidebar() {
       ),
     },
     {
+      label: "Caja",
+      href: "/admin/caja",
+      icon: (
+        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.66 0-3 .9-3 2s1.34 2 3 2 3 .9 3 2-1.34 2-3 2m0-8V6m0 2c1.66 0 3 .9 3 2M12 16v2m-7-6a7 7 0 1 0 14 0 7 7 0 1 0-14 0z" />
+        </svg>
+      ),
+    },
+    {
       label: "API",
       href: "/admin/api",
       icon: (

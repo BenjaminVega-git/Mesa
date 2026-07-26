@@ -7,7 +7,6 @@ import { useProductList } from "@/hooks/useProductList"
 import { CreateProductDialog } from "@/components/admin/CreateProductDialog"
 import { EditProductDialog } from "@/components/admin/EditProductDialog"
 import { BulkRecipeDialog } from "@/components/admin/BulkRecipeDialog"
-import { TakeOrderPanel } from "@/components/pos/TakeOrderPanel"
 
 const statusLabels: Record<number, string> = {
   1: "Disponible",
@@ -52,7 +51,6 @@ export default function ProductsPage() {
   const [editInitialTab, setEditInitialTab] = useState<"datos" | "receta">("datos")
   const [editAutoAI, setEditAutoAI] = useState(false)
   const [showBulkRecipe, setShowBulkRecipe] = useState(false)
-  const [showPos, setShowPos] = useState(false)
   const {
     products,
     totalProducts,
@@ -104,7 +102,6 @@ export default function ProductsPage() {
         onSaved={refresh}
       />
       <BulkRecipeDialog open={showBulkRecipe} onClose={() => setShowBulkRecipe(false)} />
-      {showPos && <TakeOrderPanel onClose={() => setShowPos(false)} />}
 
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div>
@@ -146,25 +143,6 @@ export default function ProductsPage() {
           </button>
         </div>
       </div>
-
-      {/* Toma de pedidos (POS): la misma carta del menú QR y de los meseros */}
-      <section className="flex flex-col justify-between gap-4 rounded-3xl border border-stone-900/10 bg-stone-950 p-5 shadow-sm sm:flex-row sm:items-center sm:p-6">
-        <div>
-          <h3 className="text-lg font-bold tracking-tight text-white">🧾 Tomar pedidos</h3>
-          <p className="mt-1 max-w-xl text-xs leading-relaxed text-stone-400">
-            Toma pedidos con esta misma carta, igual que tus meseros: eliges la mesa, agregas
-            productos y promociones, y el pedido entra al flujo normal — cocina lo ve al instante
-            y lo cobras desde Pedidos → Cobrar.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => setShowPos(true)}
-          className="shrink-0 rounded-full bg-orange-500 px-6 py-3 text-sm font-extrabold text-white shadow-lg shadow-orange-500/25 transition hover:-translate-y-0.5 hover:bg-orange-600"
-        >
-          Tomar pedido →
-        </button>
-      </section>
 
       {/* Panel Principal de Productos */}
       <section className="rounded-3xl border border-stone-200 bg-white p-4 shadow-sm sm:p-6">

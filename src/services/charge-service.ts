@@ -36,6 +36,9 @@ export type ChargeScope = {
   tip?: number
   dinerSlot?: number | null
   orderId?: number | null
+  /** Dividir cuenta: cobra exactamente este conjunto de pedidos de la mesa
+   *  (en vez de la mesa completa, un comensal o un pedido puntual). */
+  orderIds?: number[] | null
 }
 
 /** Emite la boleta de un pago y la registra ligada a él (helper interno). */
@@ -103,6 +106,7 @@ export async function registerStaffPayment(
     p_tip: Math.max(0, Math.round(scope.tip ?? 0)),
     p_diner_slot: scope.dinerSlot ?? null,
     p_order_id: scope.orderId ?? null,
+    p_order_ids: scope.orderIds ?? null,
   })
   if (error) return fail(error.message ?? "No se pudo registrar el cobro")
 

@@ -62,7 +62,13 @@ export function ChargeDialog({
   onSettled?: (label: string, method: string) => void
 }) {
   const [step, setStep] = useState<Step>({ kind: "method" })
-  const [tip, setTip] = useState(Math.max(0, Math.round(target.scope.tip ?? 0)))
+  // Propina en % del total del pedido (no un monto fijo): las opciones
+  // rápidas son 0/5/10/15%; "Otro %" habilita un valor a medida.
+  const TIP_PRESETS = [0, 5, 10, 15] as const
+  const [tipPct, setTipPct] = useState<number>(0)
+  const [customPct, setCustomPct] = useState("")
+  const [customPctOpen, setCustomPctOpen] = useState(false)
+  const tip = Math.round((target.total * tipPct) / 100)
   const [payerEmail, setPayerEmail] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [retryingBoleta, setRetryingBoleta] = useState(false)
@@ -223,21 +229,71 @@ export function ChargeDialog({
             <div className="space-y-4">
               <div>
                 <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-stone-500">
-                  Propina (opcional)
+                  Propina (% del total, opcional)
                 </label>
-                <div className="flex items-center gap-1 rounded-xl border border-stone-200 bg-stone-50 px-3 py-2">
-                  <span className="text-xs font-semibold text-stone-400">$</span>
-                  <input
-                    type="number"
-                    min={0}
-                    inputMode="numeric"
-                    placeholder="0"
-                    value={tip ? String(tip) : ""}
-                    onChange={(e) => setTip(Math.max(0, Math.floor(Number(e.target.value) || 0)))}
+                <div className="flex flex-wrap gap-1.5">
+                  {TIP_PRESETS.map((pct) => (
+                    <button
+                      key={pct}
+                      type="button"
+                      onClick={() => {
+                        setTipPct(pct)
+                        setCustomPctOpen(false)
+                      }}
+                      disabled={busy}
+                      className={`rounded-full px-3.5 py-1.5 text-xs font-bold transition disabled:opacity-50 ${
+                        !customPctOpen && tipPct === pct
+                          ? "bg-orange-500 text-white shadow"
+                          : "bg-stone-100 text-stone-600 hover:bg-stone-200"
+                      }`}
+                    >
+                      {pct === 0 ? "Sin propina" : `${pct}%`}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCustomPctOpen(true)
+                      setCustomPct(tipPct ? String(tipPct) : "")
+                    }}
                     disabled={busy}
-                    className="w-full bg-transparent text-sm font-semibold text-stone-800 outline-none tabular-nums"
-                  />
+                    className={`rounded-full px-3.5 py-1.5 text-xs font-bold transition disabled:opacity-50 ${
+                      customPctOpen
+                        ? "bg-orange-500 text-white shadow"
+                        : "bg-stone-100 text-stone-600 hover:bg-stone-200"
+                    }`}
+                  >
+                    Otro %
+                  </button>
                 </div>
+                {customPctOpen && (
+                  <div className="mt-2 flex items-center gap-1 rounded-xl border border-stone-200 bg-stone-50 px-3 py-2">
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      inputMode="numeric"
+                      autoFocus
+                      placeholder="0"
+                      value={customPct}
+                      onChange={(e) => {
+                        const v = Math.max(0, Math.min(100, Math.round(Number(e.target.value) || 0)))
+                        setCustomPct(e.target.value)
+                        setTipPct(v)
+                      }}
+                      disabled={busy}
+                      className="w-full bg-transparent text-sm font-semibold text-stone-800 outline-none tabular-nums"
+                    />
+                    <span className="text-xs font-semibold text-stone-400">%</span>
+                  </div>
+                )}
+                {tip > 0 && (
+                  <p className="mt-2 text-[11px] font-semibold text-stone-500">
+                    Subtotal {fmt(target.total)} + propina ({tipPct}%){" "}
+                    <strong className="text-stone-700">{fmt(tip)}</strong> = total{" "}
+                    <strong className="text-stone-900">{fmt(target.total + tip)}</strong>
+                  </p>
+                )}
               </div>
 
               <div className="grid gap-2">

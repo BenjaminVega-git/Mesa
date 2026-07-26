@@ -96,7 +96,7 @@ export const config = {
     "/admin/:path*",
     "/screen",
     "/waiter/control",
-    "/waiter/caja",
+    "/waiter/contabilidad",
     "/waiter/soporte",
     "/cambiar-contrasena",
   ],

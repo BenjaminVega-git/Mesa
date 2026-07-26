@@ -25,6 +25,7 @@ export const ADMIN_MODULE_BY_ROUTE: Record<string, string> = {
   "/admin/settings": "settings",
   "/admin/plan": "plan",
   "/admin/pagos": "pagos",
+  "/admin/caja": "caja",
   "/admin/api": "api",
   "/admin/soporte": "soporte",
   "/admin/instalar": "instalar",
@@ -33,7 +34,7 @@ export const ADMIN_MODULE_BY_ROUTE: Record<string, string> = {
 
 export const WAITER_MODULE_BY_ROUTE: Record<string, string> = {
   "/waiter/control": "control",
-  "/waiter/caja": "caja",
+  "/waiter/contabilidad": "contabilidad",
   "/waiter/soporte": "soporte",
 }
 

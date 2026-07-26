@@ -16,6 +16,7 @@ import {
   updateRestaurantName,
 } from "@/services/restaurant-service"
 import { LogoUploader } from "@/components/admin/LogoUploader"
+import { PaymentGatewaySection } from "@/components/admin/PaymentGatewaySection"
 import { MENU_TEMPLATES, getTemplateDesign } from "@/lib/menu/templates"
 import type { MenuTemplate, OrderDestination, OutputMode, ReservationContactType, Restaurant } from "@/types/restaurant"
 import type { Category } from "@/types/category"
@@ -1144,6 +1145,8 @@ export default function AdminSettingsPage() {
           refresh()
         }}
       />
+
+      <PaymentGatewaySection />
 
       <section className="rounded-3xl border border-stone-200 bg-white p-6 shadow-sm">
         <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
