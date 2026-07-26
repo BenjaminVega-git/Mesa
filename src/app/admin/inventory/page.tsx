@@ -8,6 +8,7 @@ import { StockHistoryDialog } from "@/components/admin/StockHistoryDialog"
 import { ImportInventoryDialog } from "@/components/admin/ImportInventoryDialog"
 import { InventoryAlertsPanel } from "@/components/admin/InventoryAlertsPanel"
 import { StockModeSelector } from "@/components/admin/StockModeSelector"
+import { IngredientCustomizationSection } from "@/components/admin/IngredientCustomizationSection"
 import { formatStock, formatUnitPrice } from "@/lib/inventory/units"
 import type { IngredientWithFlag } from "@/types/ingredient"
 
@@ -211,6 +212,8 @@ export default function InventoryPage() {
           </ul>
         )}
       </div>
+
+      <IngredientCustomizationSection />
 
       {/* DIALOGS */}
       <IngredientFormDialog

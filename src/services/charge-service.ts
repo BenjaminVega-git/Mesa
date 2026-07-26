@@ -175,6 +175,7 @@ export async function createStaffGatewayCharge(
         tableId: scope.tableId,
         tip: Math.max(0, Math.round(scope.tip ?? 0)),
         dinerSlot: scope.dinerSlot ?? undefined,
+        orderIds: scope.orderIds ?? undefined,
         payerEmail: payerEmail?.trim() || undefined,
       }),
       cache: "no-store",

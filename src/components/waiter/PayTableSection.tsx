@@ -48,9 +48,6 @@ export function PayTableSection({ orders, gatewayProvider, onSettled }: Props) {
   const [target, setTarget] = useState<ChargeTarget | null>(null)
   const [splitTable, setSplitTable] = useState<TableSummary | null>(null)
   const [splitPicked, setSplitPicked] = useState<Set<number>>(new Set())
-  // El cobro por selección arbitraria de pedidos no pasa por pasarela (el
-  // circuito online cobra la mesa/comensal completo); efectivo y tarjeta sí.
-  const [splitCharge, setSplitCharge] = useState(false)
 
   const summaries = useMemo<TableSummary[]>(() => {
     const map = new Map<number, TableSummary>()
@@ -153,7 +150,6 @@ export function PayTableSection({ orders, gatewayProvider, onSettled }: Props) {
   function confirmSplit() {
     if (!splitTable || splitPicked.size === 0) return
     const ids = Array.from(splitPicked)
-    setSplitCharge(true)
     setTarget({
       scope: { tableId: splitTable.tableId, orderIds: ids },
       label: `${splitTable.tableLabel} · ${ids.length} pedido${ids.length === 1 ? "" : "s"} seleccionado${ids.length === 1 ? "" : "s"}`,
@@ -401,15 +397,9 @@ export function PayTableSection({ orders, gatewayProvider, onSettled }: Props) {
       {target && (
         <ChargeDialog
           target={target}
-          gatewayProvider={splitCharge ? null : gatewayProvider}
-          onClose={() => {
-            setTarget(null)
-            setSplitCharge(false)
-          }}
-          onSettled={(label, method) => {
-            setSplitCharge(false)
-            onSettled?.(label, method)
-          }}
+          gatewayProvider={gatewayProvider}
+          onClose={() => setTarget(null)}
+          onSettled={onSettled}
         />
       )}
     </>

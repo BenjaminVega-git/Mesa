@@ -6,7 +6,9 @@
 // staff (verify_jwt=true) y la mesa se valida contra SU restaurante.
 // El monto NUNCA viene del cliente: se suma server-side.
 //
-// Entrada (POST JSON): { tableId, tip?, payerEmail?, dinerSlot? }
+// Entrada (POST JSON): { tableId, tip?, payerEmail?, dinerSlot?, orderIds? }
+// orderIds: dividir cuenta — cobra exactamente ese conjunto de pedidos de la
+// mesa (deben estar todos activos), en vez de la mesa completa o un comensal.
 // Salida: { checkoutUrl, paymentId } | { error }
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { getPaymentAdapter } from "../_shared/payment-adapters.ts";
@@ -49,7 +51,13 @@ Deno.serve(async (req: Request) => {
     return reply(403, { error: "Solo meseros o administradores pueden cobrar" });
   }
 
-  let input: { tableId?: number; tip?: number; payerEmail?: string; dinerSlot?: number };
+  let input: {
+    tableId?: number;
+    tip?: number;
+    payerEmail?: string;
+    dinerSlot?: number;
+    orderIds?: number[];
+  };
   try {
     input = await req.json();
   } catch {
@@ -68,6 +76,13 @@ Deno.serve(async (req: Request) => {
   }
 
   const dinerSlot = Number.isFinite(input.dinerSlot) ? Number(input.dinerSlot) : null;
+  const requestedOrderIds =
+    Array.isArray(input.orderIds) && input.orderIds.length > 0
+      ? input.orderIds.map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0)
+      : null;
+  if (Array.isArray(input.orderIds) && (!requestedOrderIds || requestedOrderIds.length !== input.orderIds.length)) {
+    return reply(400, { error: "Selección de pedidos inválida" });
+  }
 
   // 2) La mesa debe ser del restaurante del staff.
   const { data: table } = await admin
@@ -93,16 +108,21 @@ Deno.serve(async (req: Request) => {
     }
   }
 
-  // 4) Total server-side de los pedidos activos (mesa o comensal).
+  // 4) Total server-side de los pedidos activos (mesa, comensal, o el
+  // conjunto explícito de "dividir cuenta").
   let query = admin
     .from("orders")
     .select("id, total")
     .eq("table_id", table.id)
     .in("status_id", [1, 2, 3]);
-  if (dinerSlot != null) query = query.eq("diner_slot", dinerSlot);
+  if (requestedOrderIds) query = query.in("id", requestedOrderIds);
+  else if (dinerSlot != null) query = query.eq("diner_slot", dinerSlot);
   const { data: orders, error: ordErr } = await query;
   if (ordErr) return reply(500, { error: "No se pudo calcular la cuenta" });
   if (!orders || orders.length === 0) return reply(409, { error: "La mesa no tiene pedidos activos" });
+  if (requestedOrderIds && orders.length !== requestedOrderIds.length) {
+    return reply(409, { error: "Algunos pedidos de la selección ya no están activos" });
+  }
 
   const orderIds = orders.map((o: { id: number }) => o.id);
   const amount = orders.reduce((sum: number, o: { total: number | null }) => sum + (o.total ?? 0), 0);

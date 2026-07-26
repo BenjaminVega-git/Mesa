@@ -14,8 +14,12 @@ import {
   setProductRecipe as setProductRecipeService,
   listProductsWithoutRecipe as listProductsWithoutRecipeService,
   applyRecipesBulk as applyRecipesBulkService,
+  listProductsLite as listProductsLiteService,
+  getIngredientOptions as getIngredientOptionsService,
+  saveIngredientOptions as saveIngredientOptionsService,
   type ImportMode,
 } from "@/services/inventory-service"
+import type { IngredientOptionConfigRow } from "@/types/product"
 import { suggestProductRecipe as suggestProductRecipeService } from "@/services/recipe-ai-service"
 import {
   mapInventoryHeaders as mapInventoryHeadersService,
@@ -135,6 +139,25 @@ export async function applyRecipesBulkAction(
   entries: BulkRecipeEntry[]
 ): Promise<Result<BulkRecipeSummary>> {
   const result = await applyRecipesBulkService(entries)
+  if (result.ok) updateTag("menu")
+  return result
+}
+
+export async function listProductsLiteAction(): Promise<Result<ProductLite[]>> {
+  return listProductsLiteService()
+}
+
+export async function getIngredientOptionsAction(
+  productId: number
+): Promise<Result<IngredientOptionConfigRow[]>> {
+  return getIngredientOptionsService(productId)
+}
+
+export async function saveIngredientOptionsAction(
+  productId: number,
+  rows: IngredientOptionConfigRow[]
+): Promise<Result<{ ok: true }>> {
+  const result = await saveIngredientOptionsService(productId, rows)
   if (result.ok) updateTag("menu")
   return result
 }

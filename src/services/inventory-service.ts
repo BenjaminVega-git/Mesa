@@ -27,6 +27,7 @@ import type {
   BulkRecipeEntry,
   BulkRecipeSummary,
 } from "@/types/product-recipe"
+import type { IngredientOptionConfigRow } from "@/types/product"
 
 const INGREDIENT_COLS = "id, restaurant_id, name, unit, stock_actual, stock_minimo, precio, created_at"
 const MOVEMENTS_LIMIT = 100
@@ -399,4 +400,90 @@ export async function applyRecipesBulk(
   if (error) return fail(error.message)
   revalidateMenu(restaurantId)
   return ok(data as BulkRecipeSummary)
+}
+
+// ----------------------------------------------------------------------------
+// PERSONALIZACIÓN DE INGREDIENTES: qué insumos puede quitar (gratis) o
+// agregar (con precio) el comensal en cada producto. Vive en Inventario
+// porque configura insumos reales (con su unidad y, en los extras, cuánto
+// stock consumen) — no es una propiedad del producto en sí.
+// ----------------------------------------------------------------------------
+
+// Todos los productos del restaurante (para el selector del panel).
+export async function listProductsLite(): Promise<Result<ProductLite[]>> {
+  const guard = await requireCurrentAdmin()
+  if (!guard.ok) return fail(guard.error)
+  const { supabase, restaurantId } = guard.data
+
+  const { data, error } = await supabase
+    .from("products")
+    .select("id, product_name")
+    .eq("restaurant_id", restaurantId)
+    .order("product_name", { ascending: true })
+  if (error) return fail(error.message)
+
+  return ok((data ?? []).map((p) => ({ id: p.id as number, name: p.product_name as string })))
+}
+
+type IngredientOptionRpcRow = {
+  ingredient_id: number
+  name: string
+  unit: string
+  kind: "removable" | "extra" | null
+  extra_price: number
+  quantity: number
+}
+
+// Insumos del restaurante + su configuración actual para este producto
+// (kind=null = todavía sin configurar, la UI lo ofrece como "No aplica").
+export async function getIngredientOptions(productId: number): Promise<Result<IngredientOptionConfigRow[]>> {
+  if (!productId || productId <= 0) return fail("Producto no encontrado")
+  const guard = await requireCurrentAdmin()
+  if (!guard.ok) return fail(guard.error)
+  const { supabase } = guard.data
+
+  const { data, error } = await supabase.rpc("admin_list_ingredient_options", { p_product_id: productId })
+  if (error) return fail(error.message ?? "No se pudieron cargar los insumos")
+
+  const rows = (data ?? []) as IngredientOptionRpcRow[]
+  return ok(
+    rows.map((r) => ({
+      ingredientId: r.ingredient_id,
+      name: r.name,
+      unit: r.unit,
+      kind: r.kind,
+      extraPrice: Number(r.extra_price ?? 0),
+      quantity: Number(r.quantity ?? 1),
+    }))
+  )
+}
+
+// Reemplaza toda la configuración del producto de una vez (solo las filas
+// con kind fijado — "No aplica" simplemente no se envía).
+export async function saveIngredientOptions(
+  productId: number,
+  rows: IngredientOptionConfigRow[]
+): Promise<Result<{ ok: true }>> {
+  if (!productId || productId <= 0) return fail("Producto no encontrado")
+  const guard = await requireCurrentAdmin()
+  if (!guard.ok) return fail(guard.error)
+  const { supabase, restaurantId } = guard.data
+
+  const options = rows
+    .filter((r) => r.kind === "removable" || r.kind === "extra")
+    .map((r) => ({
+      ingredient_id: r.ingredientId,
+      kind: r.kind,
+      extra_price: r.kind === "extra" ? Math.max(0, Math.round(r.extraPrice)) : 0,
+      quantity: r.kind === "extra" ? Math.max(0.01, r.quantity || 1) : 1,
+    }))
+
+  const { error } = await supabase.rpc("admin_save_ingredient_options", {
+    p_product_id: productId,
+    p_options: options,
+  })
+  if (error) return fail(error.message ?? "No se pudo guardar la configuración")
+
+  revalidateMenu(restaurantId)
+  return ok({ ok: true })
 }

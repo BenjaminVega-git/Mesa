@@ -12,6 +12,19 @@ export type ProductIngredientOption = {
   extra_price: number
 }
 
+// Fila de configuración en el panel admin (Inventario): un insumo del
+// restaurante, configurado o no todavía para este producto. kind=null = sin
+// configurar ("No aplica").
+export type IngredientOptionConfigRow = {
+  ingredientId: number
+  name: string
+  unit: string
+  kind: "removable" | "extra" | null
+  extraPrice: number
+  /** Cuánto insumo consume UN extra (en su unidad). Irrelevante si es removable. */
+  quantity: number
+}
+
 export type Product = {
   id: number
   product_name: string
