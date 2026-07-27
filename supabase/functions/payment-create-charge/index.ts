@@ -58,7 +58,7 @@ Deno.serve(async (req: Request) => {
 
   // 2) Pasarela conectada + credenciales (Vault).
   const { data: ctx } = await admin.rpc("payment_gateway_context", { p_restaurant_id: table.restaurant_id });
-  if (!ctx || ctx.status !== "connected" || !ctx.provider) {
+  if (!ctx || ctx.status !== "connected" || ctx.active === false || !ctx.provider) {
     return reply(409, { error: "Este restaurante no tiene pagos en línea habilitados" });
   }
   let credentials: Record<string, unknown> = {};

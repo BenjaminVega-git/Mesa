@@ -96,7 +96,7 @@ Deno.serve(async (req: Request) => {
 
   // 3) Pasarela conectada + credenciales (Vault).
   const { data: ctx } = await admin.rpc("payment_gateway_context", { p_restaurant_id: table.restaurant_id });
-  if (!ctx || ctx.status !== "connected" || !ctx.provider) {
+  if (!ctx || ctx.status !== "connected" || ctx.active === false || !ctx.provider) {
     return reply(409, { error: "El restaurante no tiene pasarela de pagos conectada" });
   }
   let credentials: Record<string, unknown> = {};

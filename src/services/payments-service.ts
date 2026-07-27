@@ -19,6 +19,8 @@ export type PaymentAccount = {
   provider: string | null
   providerAccountId: string | null
   status: string
+  /** Pausada (sin borrar credenciales) — independiente de status. */
+  active: boolean
   hasCredentials: boolean
   connectedAt: string | null
 }
@@ -106,6 +108,7 @@ type PaymentAccountRow = {
   provider?: string | null
   provider_account_id?: string | null
   status?: string | null
+  active?: boolean | null
   has_credentials?: boolean | null
   connected_at?: string | null
 }
@@ -125,6 +128,7 @@ export async function getPaymentAccount(): Promise<Result<PaymentAccount>> {
     provider: raw.provider ?? null,
     providerAccountId: raw.provider_account_id ?? null,
     status: raw.status ?? "disconnected",
+    active: raw.active ?? true,
     hasCredentials: raw.has_credentials ?? false,
     connectedAt: raw.connected_at ?? null,
   })
@@ -143,7 +147,7 @@ export async function connectPaymentAccount(input: {
   if (!auth.ok) return fail(auth.error)
   const { supabase } = auth.data
 
-  if (!input.provider) return fail("Elegí un proveedor")
+  if (!input.provider) return fail("Elige un proveedor")
   if (input.credentials.length > 20_000) return fail("Credenciales demasiado grandes")
 
   const { error } = await supabase.rpc("payment_connect_account", {
@@ -161,5 +165,19 @@ export async function disconnectPaymentAccount(): Promise<Result<null>> {
   const { supabase } = auth.data
   const { error } = await supabase.rpc("payment_disconnect_account")
   if (error) return fail("No se pudo desconectar la cuenta")
+  return ok(null)
+}
+
+/**
+ * Pausa o reactiva la pasarela SIN borrar las credenciales guardadas (a
+ * diferencia de disconnectPaymentAccount). Pausada: el comensal deja de ver
+ * "Pagar en línea" y el staff deja de ver el QR de pago al cobrar.
+ */
+export async function setPaymentAccountActive(active: boolean): Promise<Result<null>> {
+  const auth = await requireCurrentAdmin()
+  if (!auth.ok) return fail(auth.error)
+  const { supabase } = auth.data
+  const { error } = await supabase.rpc("payment_set_active", { p_active: active })
+  if (error) return fail(error.message ?? "No se pudo actualizar la pasarela")
   return ok(null)
 }
