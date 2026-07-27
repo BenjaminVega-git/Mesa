@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import Image from "next/image"
 import { getPosData, createPosOrder, type PosData, type PosOrderResult } from "@/services/pos-service"
 import { BuildPromoDialog } from "@/components/customer/BuildPromoDialog"
 import { calcIngredientExtra } from "@/lib/ingredient-customization"
@@ -396,11 +395,14 @@ export function TakeOrderPanel({
                     className="flex items-center gap-3 rounded-2xl border border-stone-200 bg-white p-3 text-left shadow-sm transition hover:border-orange-300 hover:shadow"
                   >
                     {p.product_image ? (
-                      <Image
+                      // Cloudinary ya sirve la imagen optimizada desde su CDN;
+                      // next/image la rechazaría sin remotePatterns configurado
+                      // (por eso el resto del proyecto usa <img> a propósito).
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
                         src={p.product_image}
                         alt=""
-                        width={44}
-                        height={44}
+                        loading="lazy"
                         className="h-11 w-11 shrink-0 rounded-xl object-cover"
                       />
                     ) : (
