@@ -1,7 +1,7 @@
 import { ModuleGate } from "@/components/ModuleGate"
 import { WaiterPortalShell } from "@/components/waiter/WaiterPortalShell"
 
-export default function ContabilidadLayout({ children }: { children: React.ReactNode }) {
+export default function WaiterControlLayout({ children }: { children: React.ReactNode }) {
   return (
     <WaiterPortalShell>
       <ModuleGate area="waiter">{children}</ModuleGate>

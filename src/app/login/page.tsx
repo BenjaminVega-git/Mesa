@@ -123,7 +123,7 @@ export default function LoginPage() {
             </form>
 
             <p className="mt-6 text-center text-sm text-stone-600">
-              ¿No tenés cuenta? Contactá al administrador para que te dé acceso.
+              ¿No tienes cuenta? Contacta a tu administrador para que te dé acceso.
             </p>
           </div>
         </section>

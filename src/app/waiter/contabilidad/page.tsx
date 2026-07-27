@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import Link from "next/link"
 import {
   listOrdersHistory,
   listPaymentsHistory,
@@ -65,29 +64,17 @@ export default function ContabilidadPage() {
   }, [])
 
   return (
-    <main className="relative min-h-screen overflow-x-hidden bg-[#FAF9F5] pb-20 font-sans text-stone-900">
-      <div className="absolute top-0 left-1/4 -z-10 h-96 w-96 rounded-full bg-orange-100/40 blur-3xl" />
-
-      <header className="mx-auto max-w-4xl px-6 py-8">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <span className="text-[10px] font-bold tracking-widest text-orange-600 uppercase">
-              Historial
-            </span>
-            <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-stone-950">
-              Contabilidad
-            </h1>
-            <p className="mt-1 text-sm text-stone-500">
-              Últimos {Math.max(orders.length, payments.length)} registros. Solo lectura.
-            </p>
-          </div>
-          <Link
-            href="/waiter/control"
-            className="shrink-0 rounded-full border border-stone-200 bg-white px-4 py-2 text-xs font-bold text-stone-600 shadow-sm transition hover:bg-stone-50"
-          >
-            ← Volver
-          </Link>
-        </div>
+    <div className="pb-20 font-sans text-stone-900">
+      <div className="mx-auto max-w-4xl">
+        <span className="text-[10px] font-bold tracking-widest text-orange-600 uppercase">
+          Historial
+        </span>
+        <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-stone-950">
+          Contabilidad
+        </h1>
+        <p className="mt-1 text-sm text-stone-500">
+          Últimos {Math.max(orders.length, payments.length)} registros. Solo lectura.
+        </p>
 
         <div className="mt-5 flex gap-2">
           <button
@@ -109,10 +96,8 @@ export default function ContabilidadPage() {
             Boletas
           </button>
         </div>
-      </header>
 
-      <div className="mx-auto max-w-4xl px-6">
-        <section className="rounded-3xl border border-stone-200 bg-white p-4 shadow-sm sm:p-6">
+        <section className="mt-5 rounded-3xl border border-stone-200 bg-white p-4 shadow-sm sm:p-6">
           {loading ? (
             <div className="space-y-2">
               <div className="h-10 animate-pulse rounded-xl bg-stone-100" />
@@ -225,6 +210,6 @@ export default function ContabilidadPage() {
           )}
         </section>
       </div>
-    </main>
+    </div>
   )
 }

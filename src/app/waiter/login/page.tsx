@@ -13,6 +13,34 @@ import { InstallPwaButton } from "@/components/InstallPwaButton"
 
 type View = "login" | "change-password"
 
+const INPUT_CLASS =
+  "w-full rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 text-stone-950 outline-none transition placeholder:text-stone-400 focus:border-orange-300 focus:bg-white focus:ring-4 focus:ring-orange-100 disabled:opacity-50"
+
+function EyeToggle({ shown, onClick }: { shown: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={shown ? "Ocultar contraseña" : "Mostrar contraseña"}
+      className="absolute inset-y-0 right-3 flex items-center justify-center text-stone-400 transition hover:text-stone-700"
+    >
+      {shown ? (
+        <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a19.55 19.55 0 0 1 5.06-6.06" />
+          <path d="M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 8 11 8a19.62 19.62 0 0 1-2.16 3.19" />
+          <path d="M14.12 14.12A3 3 0 0 1 9.88 9.88" />
+          <line x1="1" y1="1" x2="23" y2="23" />
+        </svg>
+      ) : (
+        <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+          <circle cx="12" cy="12" r="3" />
+        </svg>
+      )}
+    </button>
+  )
+}
+
 async function fetchProfileRoleIdWithRetry(authUserId: string): Promise<number | null> {
   for (let attempt = 0; attempt < 3; attempt += 1) {
     const { data, error } = await supabase
@@ -115,7 +143,7 @@ export default function WaiterLoginPage() {
       // y la propagación del JWT a PostgREST.
       const profileRoleId = await fetchProfileRoleIdWithRetry(user.id)
       if (profileRoleId == null) {
-        setError("No se pudo verificar tu cuenta. Reintentá en unos segundos.")
+        setError("No se pudo verificar tu cuenta. Reintenta en unos segundos.")
         return
       }
       const role = roleIdToRole(profileRoleId)
@@ -189,213 +217,195 @@ export default function WaiterLoginPage() {
 
   if (!sessionChecked) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#FAF9F5] text-sm font-semibold text-stone-600">
+      <main className="flex min-h-screen items-center justify-center bg-stone-50 text-sm font-semibold text-stone-600">
         Cargando...
       </main>
     )
   }
 
   return (
-    <main className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-[#FAF9F5] p-6 font-sans text-stone-900">
-      <div className="absolute top-0 left-1/4 -z-10 h-96 w-96 rounded-full bg-orange-100/40 blur-3xl" />
-      <div className="absolute top-1/3 right-1/4 -z-10 h-[500px] w-[500px] rounded-full bg-orange-50/20 blur-3xl" />
-
-      <div className="mb-8 max-w-md text-center">
-        <Link
-          href="/"
-          className="mb-5 inline-flex items-center gap-2 rounded-full border border-stone-200 bg-white/80 px-3 py-1.5 text-xs font-semibold text-stone-600 shadow-sm transition hover:border-stone-400"
-        >
-          MESA
-        </Link>
-        <span className="rounded-full border border-orange-200/50 bg-orange-50 px-3 py-1 text-[10px] font-bold tracking-widest text-orange-600 uppercase">
-          Portal meseros
-        </span>
-        <h1 className="mt-4 text-3xl font-extrabold tracking-tight text-stone-900">
-          {view === "login" ? "Bienvenido" : "Define tu contraseña"}
-        </h1>
-        <p className="mt-2 text-sm text-stone-500">
-          {view === "login"
-            ? "Ingresa con el correo y contraseña que te compartió tu administrador."
-            : "Es tu primer ingreso. Reemplaza la contraseña temporal por una propia."}
-        </p>
-      </div>
-
-      <div className="relative z-10 w-full max-w-sm rounded-[2rem] border border-stone-200/80 bg-white/80 p-8 shadow-2xl backdrop-blur-xl">
-        {view === "login" ? (
-          <form onSubmit={handleLogin} className="space-y-4">
+    <main className="min-h-screen bg-stone-50 px-4 py-6 text-stone-950 sm:px-6 lg:px-8">
+      <div className="mx-auto flex min-h-[calc(100vh-3rem)] w-full max-w-6xl items-center justify-center">
+        <section className="grid w-full gap-6 lg:grid-cols-[0.95fr_1.05fr] lg:items-stretch">
+          {/* Panel izquierdo: marca */}
+          <div className="flex flex-col justify-between rounded-[2rem] bg-stone-950 p-6 text-white shadow-2xl shadow-stone-900/15 sm:p-8">
             <div>
-              <label htmlFor="waiter-email" className="mb-1.5 block text-xs font-semibold text-stone-700">
-                Correo
-              </label>
-              <input
-                id="waiter-email"
-                type="email"
-                required
-                disabled={loading}
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="tucorreo@restaurante.com"
-                className="w-full rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5 text-sm text-stone-900 outline-none focus:border-orange-300 focus:bg-white focus:ring-2 focus:ring-orange-100 disabled:opacity-50"
-              />
-            </div>
+              <Link href="/" className="inline-flex items-center gap-3" aria-label="MESA inicio">
+                <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-orange-500 text-sm font-bold text-white shadow-lg shadow-orange-500/25">
+                  M
+                </span>
+                <span className="text-lg font-semibold tracking-tight">MESA</span>
+              </Link>
 
-            <div>
-              <div className="mb-1.5 flex items-center justify-between">
-                <label htmlFor="waiter-password" className="block text-xs font-semibold text-stone-700">
-                  Contraseña
-                </label>
-                <Link
-                  href="/forgot-password"
-                  className="text-[10px] font-semibold text-orange-600 transition hover:text-orange-700"
-                >
-                  ¿La olvidaste?
-                </Link>
-              </div>
-              <div className="relative">
-                <input
-                  id="waiter-password"
-                  type={showPassword ? "text" : "password"}
-                  required
-                  disabled={loading}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5 pr-10 text-sm text-stone-900 outline-none focus:border-orange-300 focus:bg-white focus:ring-2 focus:ring-orange-100 disabled:opacity-50"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((v) => !v)}
-                  disabled={loading}
-                  aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
-                  className="absolute inset-y-0 right-2 flex items-center justify-center px-2 text-stone-500 transition hover:text-stone-800 disabled:opacity-50"
-                >
-                  {showPassword ? (
-                    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a19.55 19.55 0 0 1 5.06-6.06" />
-                      <path d="M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 8 11 8a19.62 19.62 0 0 1-2.16 3.19" />
-                      <path d="M14.12 14.12A3 3 0 0 1 9.88 9.88" />
-                      <line x1="1" y1="1" x2="23" y2="23" />
-                    </svg>
-                  ) : (
-                    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                      <circle cx="12" cy="12" r="3" />
-                    </svg>
-                  )}
-                </button>
+              <div className="mt-10 max-w-md">
+                <p className="text-sm font-semibold uppercase tracking-[0.18em] text-orange-300">
+                  Portal meseros
+                </p>
+                <h1 className="mt-4 text-4xl font-bold tracking-tight sm:text-5xl">
+                  {view === "login" ? "Vuelve a atender tus mesas." : "Define tu contraseña."}
+                </h1>
+                <p className="mt-5 text-sm leading-6 text-stone-300 sm:text-base">
+                  {view === "login"
+                    ? "Toma pedidos, cobra mesas y revisa tu turno desde una experiencia clara para el día a día."
+                    : "Es tu primer ingreso. Reemplaza la contraseña temporal por una propia antes de entrar."}
+                </p>
               </div>
             </div>
 
-            {error && (
-              <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700">
-                {error}
+            <div className="mt-10 grid grid-cols-3 gap-3 text-sm">
+              <div className="rounded-3xl bg-white/10 p-4 ring-1 ring-white/10">
+                <p className="text-xl font-bold tabular-nums">24</p>
+                <p className="mt-1 text-stone-300">Pedidos</p>
+              </div>
+              <div className="rounded-3xl bg-white/10 p-4 ring-1 ring-white/10">
+                <p className="text-xl font-bold tabular-nums">12</p>
+                <p className="mt-1 text-stone-300">Mesas</p>
+              </div>
+              <div className="rounded-3xl bg-white/10 p-4 ring-1 ring-white/10">
+                <p className="text-xl font-bold tabular-nums">8</p>
+                <p className="mt-1 text-stone-300">Propinas</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Panel derecho: formulario */}
+          <div className="rounded-[2rem] border border-stone-200 bg-white p-5 shadow-xl shadow-stone-900/5 sm:p-8">
+            <div className="mb-8">
+              <p className="text-sm text-stone-600">
+                {view === "login" ? "Bienvenido de vuelta" : "Primer ingreso"}
               </p>
+              <h2 className="mt-1 text-3xl font-bold tracking-tight">
+                {view === "login" ? "Iniciar sesión" : "Define tu contraseña"}
+              </h2>
+              <p className="mt-2 max-w-md text-sm leading-6 text-stone-600">
+                {view === "login"
+                  ? "Ingresa con el correo y contraseña que te compartió tu administrador."
+                  : "Reemplaza la contraseña temporal por una propia."}
+              </p>
+            </div>
+
+            {view === "login" ? (
+              <form onSubmit={handleLogin} className="space-y-5">
+                <div>
+                  <label htmlFor="waiter-email" className="mb-2 block text-sm font-semibold text-stone-700">
+                    Correo
+                  </label>
+                  <input
+                    id="waiter-email"
+                    type="email"
+                    required
+                    disabled={loading}
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="tucorreo@restaurante.com"
+                    className={INPUT_CLASS}
+                  />
+                </div>
+
+                <div>
+                  <div className="mb-2 flex items-center justify-between">
+                    <label htmlFor="waiter-password" className="block text-sm font-semibold text-stone-700">
+                      Contraseña
+                    </label>
+                    <Link
+                      href="/forgot-password"
+                      className="text-xs font-semibold text-orange-600 transition hover:text-orange-700"
+                    >
+                      ¿La olvidaste?
+                    </Link>
+                  </div>
+                  <div className="relative">
+                    <input
+                      id="waiter-password"
+                      type={showPassword ? "text" : "password"}
+                      required
+                      disabled={loading}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className={`${INPUT_CLASS} pr-11`}
+                    />
+                    <EyeToggle shown={showPassword} onClick={() => setShowPassword((v) => !v)} />
+                  </div>
+                </div>
+
+                {error && (
+                  <p className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-600">
+                    {error}
+                  </p>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full rounded-2xl bg-orange-500 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-orange-500/20 transition hover:bg-orange-600 hover:shadow-orange-500/30 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {loading ? "Ingresando..." : "Ingresar"}
+                </button>
+
+                <InstallPwaButton />
+              </form>
+            ) : (
+              <form onSubmit={handleChangePassword} className="space-y-5">
+                <div>
+                  <label htmlFor="new-password" className="mb-2 block text-sm font-semibold text-stone-700">
+                    Nueva contraseña
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="new-password"
+                      type={showNewPassword ? "text" : "password"}
+                      required
+                      minLength={8}
+                      disabled={loading}
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      className={`${INPUT_CLASS} pr-11`}
+                    />
+                    <EyeToggle shown={showNewPassword} onClick={() => setShowNewPassword((v) => !v)} />
+                  </div>
+                </div>
+
+                <div>
+                  <label htmlFor="confirm-password" className="mb-2 block text-sm font-semibold text-stone-700">
+                    Confirmar contraseña
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="confirm-password"
+                      type={showConfirmPassword ? "text" : "password"}
+                      required
+                      minLength={8}
+                      disabled={loading}
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      className={`${INPUT_CLASS} pr-11`}
+                    />
+                    <EyeToggle shown={showConfirmPassword} onClick={() => setShowConfirmPassword((v) => !v)} />
+                  </div>
+                </div>
+
+                {error && (
+                  <p className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-600">
+                    {error}
+                  </p>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full rounded-2xl bg-orange-500 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-orange-500/20 transition hover:bg-orange-600 hover:shadow-orange-500/30 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {loading ? "Guardando..." : "Guardar y entrar"}
+                </button>
+              </form>
             )}
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full rounded-xl bg-orange-500 px-4 py-3 text-sm font-bold text-white shadow transition hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {loading ? "Ingresando..." : "Ingresar"}
-            </button>
-
-            <InstallPwaButton />
-          </form>
-        ) : (
-          <form onSubmit={handleChangePassword} className="space-y-4">
-            <div>
-              <label htmlFor="new-password" className="mb-1.5 block text-xs font-semibold text-stone-700">
-                Nueva contraseña
-              </label>
-              <div className="relative">
-                <input
-                  id="new-password"
-                  type={showNewPassword ? "text" : "password"}
-                  required
-                  minLength={8}
-                  disabled={loading}
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  className="w-full rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5 pr-10 text-sm text-stone-900 outline-none focus:border-orange-300 focus:bg-white focus:ring-2 focus:ring-orange-100 disabled:opacity-50"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowNewPassword((v) => !v)}
-                  disabled={loading}
-                  aria-label={showNewPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
-                  className="absolute inset-y-0 right-2 flex items-center justify-center px-2 text-stone-500 transition hover:text-stone-800 disabled:opacity-50"
-                >
-                  {showNewPassword ? (
-                    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a19.55 19.55 0 0 1 5.06-6.06" />
-                      <path d="M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 8 11 8a19.62 19.62 0 0 1-2.16 3.19" />
-                      <path d="M14.12 14.12A3 3 0 0 1 9.88 9.88" />
-                      <line x1="1" y1="1" x2="23" y2="23" />
-                    </svg>
-                  ) : (
-                    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                      <circle cx="12" cy="12" r="3" />
-                    </svg>
-                  )}
-                </button>
-              </div>
-            </div>
-
-            <div>
-              <label htmlFor="confirm-password" className="mb-1.5 block text-xs font-semibold text-stone-700">
-                Confirmar contraseña
-              </label>
-              <div className="relative">
-                <input
-                  id="confirm-password"
-                  type={showConfirmPassword ? "text" : "password"}
-                  required
-                  minLength={8}
-                  disabled={loading}
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="w-full rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5 pr-10 text-sm text-stone-900 outline-none focus:border-orange-300 focus:bg-white focus:ring-2 focus:ring-orange-100 disabled:opacity-50"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowConfirmPassword((v) => !v)}
-                  disabled={loading}
-                  aria-label={showConfirmPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
-                  className="absolute inset-y-0 right-2 flex items-center justify-center px-2 text-stone-500 transition hover:text-stone-800 disabled:opacity-50"
-                >
-                  {showConfirmPassword ? (
-                    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a19.55 19.55 0 0 1 5.06-6.06" />
-                      <path d="M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 8 11 8a19.62 19.62 0 0 1-2.16 3.19" />
-                      <path d="M14.12 14.12A3 3 0 0 1 9.88 9.88" />
-                      <line x1="1" y1="1" x2="23" y2="23" />
-                    </svg>
-                  ) : (
-                    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                      <circle cx="12" cy="12" r="3" />
-                    </svg>
-                  )}
-                </button>
-              </div>
-            </div>
-
-            {error && (
-              <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700">
-                {error}
-              </p>
-            )}
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full rounded-xl bg-orange-500 px-4 py-3 text-sm font-bold text-white shadow transition hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {loading ? "Guardando..." : "Guardar y entrar"}
-            </button>
-          </form>
-        )}
+            <p className="mt-6 text-center text-sm text-stone-600">
+              ¿No tienes cuenta? Contacta a tu administrador para que te dé acceso.
+            </p>
+          </div>
+        </section>
       </div>
     </main>
   )

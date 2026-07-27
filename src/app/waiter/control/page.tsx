@@ -1,9 +1,8 @@
 "use client"
 
 import React, { Suspense, useState, useEffect, useCallback, useMemo } from "react"
-import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
-import { getStaffRoleLabel, isAdminRole } from "@/lib/waiter-session"
+import { isAdminRole } from "@/lib/waiter-session"
 import { DeepLinkSetupNotice } from "@/components/DeepLinkSetupNotice"
 import { ScanQrButton } from "@/components/ScanQrButton"
 import { PayTableSection } from "@/components/waiter/PayTableSection"
@@ -16,7 +15,6 @@ import { useWaiters } from "@/hooks/useWaiters"
 import { useServiceCalls } from "@/hooks/useServiceCalls"
 import { useRestaurantTables } from "@/hooks/useRestaurantTables"
 import { usePushRegistration } from "@/hooks/usePushRegistration"
-import { useVisibleModules } from "@/hooks/useVisibleModules"
 import { reassignTableAction } from "@/app/actions/order-actions"
 import { supabase } from "@/lib/supabase"
 import type { WaiterOrder } from "@/services/order-service"
@@ -80,9 +78,9 @@ export default function WaiterControlPage() {
   return (
     <Suspense
       fallback={
-        <main className="flex min-h-screen items-center justify-center bg-[#FAF9F5] px-6 text-sm font-semibold text-stone-600">
+        <div className="flex min-h-[60vh] items-center justify-center text-sm font-semibold text-stone-600">
           Cargando...
-        </main>
+        </div>
       }
     >
       <WaiterControlSystem />
@@ -93,7 +91,6 @@ export default function WaiterControlPage() {
 function WaiterControlSystem() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { isVisible } = useVisibleModules()
   const focusTableId = (() => {
     const raw = searchParams.get("tableId")
     const n = raw ? Number(raw) : NaN
@@ -173,13 +170,6 @@ function WaiterControlSystem() {
     setToastMessage(msg)
     setTimeout(() => setToastMessage(null), 3000)
   }, [])
-
-  const handleLogout = useCallback(async () => {
-    await supabase.auth.signOut()
-    const { clearUserScopedCache } = await import("@/lib/session-cache")
-    clearUserScopedCache()
-    router.replace("/waiter/login")
-  }, [router])
 
   const handleTableClick = useCallback(
     (tableId: number, tableNumber: string | number | null) => {
@@ -294,22 +284,22 @@ function WaiterControlSystem() {
 
   if (profileLoading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#FAF9F5] px-6 text-sm font-semibold text-stone-600">
+      <div className="flex min-h-[60vh] items-center justify-center text-sm font-semibold text-stone-600">
         Cargando...
-      </main>
+      </div>
     )
   }
 
   if (!loggedInStaff) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#FAF9F5] px-6 text-sm font-semibold text-stone-600">
+      <div className="flex min-h-[60vh] items-center justify-center text-sm font-semibold text-stone-600">
         Redirigiendo al login de mesero...
-      </main>
+      </div>
     )
   }
 
   return (
-    <main className="relative min-h-screen overflow-x-hidden bg-[#FAF9F5] font-sans text-stone-900 selection:bg-orange-100 selection:text-orange-900 pb-20">
+    <div className="pb-20 font-sans text-stone-900 selection:bg-orange-100 selection:text-orange-900">
       {toastMessage && (
         <div className="fixed bottom-6 right-6 z-50 animate-card-entrance rounded-2xl border border-stone-200/80 bg-white/95 px-5 py-4 shadow-2xl shadow-stone-900/10 backdrop-blur-xl flex items-center gap-3">
           <div className="h-2 w-2 rounded-full bg-orange-500 animate-ping" />
@@ -317,16 +307,11 @@ function WaiterControlSystem() {
         </div>
       )}
 
-      <div className="absolute top-0 left-1/4 -z-10 h-96 w-96 rounded-full bg-orange-100/40 blur-3xl" />
-      <div className="absolute top-1/3 right-1/4 -z-10 h-[500px] w-[500px] rounded-full bg-orange-50/20 blur-3xl" />
-
-      <header className="mx-auto max-w-7xl px-6 py-6 border-b border-stone-200/60 bg-white/70 backdrop-blur-md sticky top-0 z-30">
+      <div className="mx-auto max-w-7xl">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-3">
-            <div>
-              <span className="text-[10px] font-bold tracking-widest text-orange-600 uppercase">Sistema de Control Operativo</span>
-              <h1 className="text-xl font-bold tracking-tight text-stone-950">Pedidos en vivo</h1>
-            </div>
+          <div>
+            <span className="text-[10px] font-bold tracking-widest text-orange-600 uppercase">Sistema de Control Operativo</span>
+            <h1 className="text-xl font-bold tracking-tight text-stone-950">Pedidos en vivo</h1>
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5">
@@ -338,47 +323,11 @@ function WaiterControlSystem() {
               ➕ Tomar pedido
             </button>
             <ScanQrButton onError={triggerToast} />
-            {isVisible("waiter", "contabilidad") && (
-              <Link
-                href="/waiter/contabilidad"
-                className="inline-flex items-center gap-1.5 rounded-full border border-stone-200/80 bg-white/95 px-3 py-1.5 text-xs font-semibold text-stone-700 shadow-sm backdrop-blur-md transition hover:border-stone-300 hover:text-stone-900 active:scale-95"
-                title="Pedidos tomados y boletas"
-              >
-                📊 Contabilidad
-              </Link>
-            )}
-            {isVisible("waiter", "soporte") && (
-              <Link
-                href="/waiter/soporte"
-                className="inline-flex items-center gap-1.5 rounded-full border border-stone-200/80 bg-white/95 px-3 py-1.5 text-xs font-semibold text-stone-700 shadow-sm backdrop-blur-md transition hover:border-stone-300 hover:text-stone-900 active:scale-95"
-                title="Soporte MESA"
-              >
-                🛟 Soporte
-              </Link>
-            )}
-            <div className="flex items-center gap-2 rounded-full border border-stone-200/80 bg-white/95 px-3 py-1.5 shadow-sm text-xs font-semibold text-stone-700 backdrop-blur-md">
-              <span className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_6px_#10b981]" />
-              <div className={`h-5 w-5 rounded-full bg-gradient-to-tr ${loggedInStaff.avatar_color} flex items-center justify-center text-white text-[8px] font-bold`}>
-                {loggedInStaff.name.substring(0, 2).toUpperCase()}
-              </div>
-              <span>
-                <strong className="text-stone-900">{loggedInStaff.name}</strong>
-                <span className="text-stone-400 font-normal"> ({getStaffRoleLabel(loggedInStaff.role)})</span>
-              </span>
-              <div className="h-3.5 w-[1px] bg-stone-200 mx-1" />
-              <button
-                onClick={handleLogout}
-                className="text-stone-500 hover:text-stone-700 font-medium transition cursor-pointer"
-                title="Cerrar sesión"
-              >
-                Salir
-              </button>
-            </div>
           </div>
         </div>
-      </header>
+      </div>
 
-      <div className="mx-auto max-w-7xl px-6 mt-8">
+      <div className="mx-auto max-w-7xl mt-8">
         <DeepLinkSetupNotice />
 
         {serviceCalls.length > 0 && (
@@ -813,7 +762,7 @@ function WaiterControlSystem() {
         </div>
       )}
 
-    </main>
+    </div>
   )
 }
 
