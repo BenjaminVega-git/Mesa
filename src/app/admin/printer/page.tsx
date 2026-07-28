@@ -53,6 +53,14 @@ export default function PrinterPage() {
   const restaurantRef = useRef(restaurant)
   const printerRef = useRef<ConnectedPrinter | null>(null)
   const printedOrderIds = useRef<Set<number>>(new Set())
+  // Un mismo pedido dispara más de un evento realtime casi al mismo tiempo:
+  // create_public_order_qr/staff_create_order hacen INSERT (con el status ya
+  // en "En preparación" si el destino es cocina directa) y después un UPDATE
+  // en la MISMA transacción (fija el total ya calculado) — eso llega como dos
+  // eventos separados. Sin un candado síncrono, ambos pasaban el chequeo de
+  // "¿ya lo imprimí?" antes de que ninguno llegara a marcarlo (ese marcado
+  // ocurría recién después de un await), y el ticket salía duplicado.
+  const processingOrderIds = useRef<Set<number>>(new Set())
 
   useEffect(() => {
     restaurantRef.current = restaurant
@@ -166,7 +174,14 @@ export default function PrinterPage() {
   const handleOrderEvent = useCallback(async (orderId: number) => {
     const current = restaurantRef.current
     if (current?.output_mode !== "printer") return
-    if (printedOrderIds.current.has(orderId)) return
+
+    // Candado SÍNCRONO (sin ningún await antes de esto): si dos eventos del
+    // mismo pedido llegan casi juntos, el segundo ve processingOrderIds ya
+    // marcado por el primero y sale de inmediato — no hay ventana de carrera
+    // posible entre "chequear" y "marcar" porque ambas cosas pasan en el
+    // mismo tick de JS.
+    if (printedOrderIds.current.has(orderId) || processingOrderIds.current.has(orderId)) return
+    processingOrderIds.current.add(orderId)
 
     try {
       const { data, error } = await supabase
@@ -207,8 +222,6 @@ export default function PrinterPage() {
         return
       }
 
-      printedOrderIds.current.add(orderId)
-
       if (currentPrinter) {
         const ticket = buildOrderTicket(ticketInput)
         await sendTicket(currentPrinter, ticket)
@@ -217,14 +230,19 @@ export default function PrinterPage() {
         printTicketViaOsDriver(ticketInput)
         appendEntry({ orderId, kind: "ok", message: "Diálogo de impresión del sistema abierto" })
       }
+
+      // Marcar impreso solo tras éxito real: si falló, otro evento posterior
+      // del mismo pedido (o un reintento) todavía puede lograrlo.
+      printedOrderIds.current.add(orderId)
     } catch (err) {
-      printedOrderIds.current.delete(orderId)
       logger.error("printer page error", { error: String(err) })
       appendEntry({
         orderId,
         kind: "error",
         message: err instanceof Error ? err.message : "Error inesperado",
       })
+    } finally {
+      processingOrderIds.current.delete(orderId)
     }
   }, [])
 
