@@ -8,6 +8,8 @@ import type { Product } from "@/types/product"
 type UseProductsOptions = {
   page?: number
   pageSize?: number
+  /** Busca por nombre de producto (case-insensitive, contiene). */
+  search?: string
 }
 
 type ProductsResult = {
@@ -15,15 +17,16 @@ type ProductsResult = {
   total: number
 }
 
-export function useProducts({ page = 1, pageSize = 12 }: UseProductsOptions = {}) {
+export function useProducts({ page = 1, pageSize = 12, search = "" }: UseProductsOptions = {}) {
   const { restaurantId, loading: loadingId, error: idError } = useRestaurantId()
   const instanceId = useId()
+  const trimmedSearch = search.trim()
 
   const fetchProducts = useCallback(async (): Promise<ProductsResult> => {
     const from = (page - 1) * pageSize
     const to = from + pageSize - 1
 
-    const { data, error, count } = await supabase
+    let query = supabase
       .from("products")
       .select(`
         *,
@@ -36,6 +39,12 @@ export function useProducts({ page = 1, pageSize = 12 }: UseProductsOptions = {}
         )
       `, { count: "exact" })
       .eq("restaurant_id", restaurantId)
+
+    if (trimmedSearch) {
+      query = query.ilike("product_name", `%${trimmedSearch}%`)
+    }
+
+    const { data, error, count } = await query
       .order("id", { ascending: false })
       .range(from, to)
 
@@ -45,10 +54,10 @@ export function useProducts({ page = 1, pageSize = 12 }: UseProductsOptions = {}
       items: data ?? [],
       total: count ?? 0,
     }
-  }, [restaurantId, page, pageSize])
+  }, [restaurantId, page, pageSize, trimmedSearch])
 
   const { data, isLoading, isPendingRetry, error, refresh } = useCache<ProductsResult>(
-    `products-${restaurantId ?? "pending"}-p${page}-s${pageSize}`,
+    `products-${restaurantId ?? "pending"}-p${page}-s${pageSize}-q${trimmedSearch}`,
     fetchProducts,
     {
       enabled: Boolean(restaurantId),

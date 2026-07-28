@@ -13,10 +13,11 @@ const statusNames: Record<number, string> = {
 type UseProductListOptions = {
   page?: number
   pageSize?: number
+  search?: string
 }
 
-export function useProductList({ page = 1, pageSize = 12 }: UseProductListOptions = {}) {
-  const { products, total, loading, error, refresh } = useProducts({ page, pageSize })
+export function useProductList({ page = 1, pageSize = 12, search = "" }: UseProductListOptions = {}) {
+  const { products, total, loading, error, refresh } = useProducts({ page, pageSize, search })
   const {
     deleteProduct,
     loading: deleting,

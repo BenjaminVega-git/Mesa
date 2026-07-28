@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { useEffect, useState } from "react"
-import { Sparkles } from "lucide-react"
+import { Search, Sparkles, X } from "lucide-react"
 import { Pagination } from "@/components/ui/Pagination"
 import { useProductList } from "@/hooks/useProductList"
 import { CreateProductDialog } from "@/components/admin/CreateProductDialog"
@@ -47,6 +47,8 @@ function getStatusActions(statusId: number) {
 
 export default function ProductsPage() {
   const [currentPage, setCurrentPage] = useState(1)
+  const [searchInput, setSearchInput] = useState("")
+  const [search, setSearch] = useState("")
   const [showCreate, setShowCreate] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editInitialTab, setEditInitialTab] = useState<"datos" | "receta">("datos")
@@ -64,8 +66,21 @@ export default function ProductsPage() {
     updateProductStatus,
     deleteDialog,
     refresh,
-  } = useProductList({ page: currentPage, pageSize: 12 })
+  } = useProductList({ page: currentPage, pageSize: 12, search })
   const [openMenuProductId, setOpenMenuProductId] = useState<number | null>(null)
+
+  // Debounce: espera a que dejen de tipear antes de disparar la búsqueda.
+  useEffect(() => {
+    const timeout = setTimeout(() => setSearch(searchInput), 300)
+    return () => clearTimeout(timeout)
+  }, [searchInput])
+
+  // Toda búsqueda nueva vuelve a la página 1 (el resultado ya no corresponde
+  // a la misma cantidad de páginas que la lista sin filtrar).
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset al cambiar la búsqueda
+    setCurrentPage(1)
+  }, [search])
 
   useEffect(() => {
     if (!loading && currentPage > totalPages) {
@@ -162,6 +177,30 @@ export default function ProductsPage() {
           </div>
         </div>
 
+        <div className="relative mb-5">
+          <Search
+            className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400"
+            aria-hidden="true"
+          />
+          <input
+            type="search"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            placeholder="Buscar producto por nombre…"
+            className="w-full rounded-full border border-stone-200 bg-white py-2.5 pl-10 pr-10 text-sm text-stone-800 outline-none focus:border-orange-300 focus:ring-2 focus:ring-orange-100"
+          />
+          {searchInput && (
+            <button
+              type="button"
+              onClick={() => setSearchInput("")}
+              aria-label="Limpiar búsqueda"
+              className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-stone-400 transition hover:bg-stone-100 hover:text-stone-600"
+            >
+              <X className="h-4 w-4" aria-hidden="true" />
+            </button>
+          )}
+        </div>
+
         {loading && (
           <div className="rounded-2xl border border-stone-200 bg-stone-50 p-6 text-center text-xs font-semibold text-stone-500 animate-pulse">
             Cargando carta de productos...
@@ -174,7 +213,16 @@ export default function ProductsPage() {
           </div>
         )}
 
-        {!loading && !error && products.length === 0 && (
+        {!loading && !error && products.length === 0 && search && (
+          <div className="rounded-2xl border border-dashed border-stone-300 bg-stone-50 p-8 text-center shadow-inner">
+            <h3 className="font-bold text-stone-900">Sin resultados para &quot;{search}&quot;</h3>
+            <p className="mx-auto mt-2 max-w-xs text-xs text-stone-550 leading-relaxed">
+              Probá con otro nombre o revisá si el producto está en otra categoría.
+            </p>
+          </div>
+        )}
+
+        {!loading && !error && products.length === 0 && !search && (
           <div className="rounded-2xl border border-dashed border-stone-300 bg-stone-50 p-8 text-center shadow-inner">
             <h3 className="font-bold text-stone-900">No hay productos en el menú</h3>
             <p className="mx-auto mt-2 max-w-xs text-xs text-stone-550 leading-relaxed">
