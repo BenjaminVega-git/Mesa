@@ -1,4 +1,5 @@
-﻿const { app, BrowserWindow, shell, Menu, session, dialog } = require('electron')
+﻿const { app, BrowserWindow, shell, Menu, session, dialog, ipcMain } = require('electron')
+const path = require('path')
 
 const BASE_URL = 'https://tumesaqr.com'
 const APP_URL = `${BASE_URL}/admin`
@@ -74,6 +75,7 @@ function createWindow() {
       nodeIntegration: false,
       contextIsolation: true,
       partition: 'persist:mesa',
+      preload: path.join(__dirname, 'preload.js'),
     },
     show: true,
     backgroundColor: '#0c0a09',
@@ -158,6 +160,36 @@ function setupDeviceChoosers(ses) {
   ses.setPermissionCheckHandler(() => true)
 }
 
+// ── Impresión SILENCIOSA (sin diálogo) desde la app de escritorio ─────────
+// window.print() del navegador SIEMPRE muestra el diálogo del sistema — es
+// una restricción de seguridad que ninguna página web puede evitar. Pero
+// desde el PROCESO PRINCIPAL de Electron, webContents.print({silent:true})
+// sí puede imprimir sin ningún diálogo a una impresora ya elegida. La página
+// (vía preload.js → contextBridge) solo pide "imprimí esto en silencio";
+// sigue siendo la página la que arma el contenido a imprimir (marcando
+// data-print-root/data-printing, igual que ya hace osPrint.ts) — esto solo
+// reemplaza el ÚLTIMO paso (window.print() → print({silent:true})).
+function setupPrinterIpc() {
+  ipcMain.handle('printer:list', async () => {
+    if (!mainWindow) return []
+    const printers = await mainWindow.webContents.getPrintersAsync()
+    return printers.map((p) => ({ name: p.name, displayName: p.displayName, isDefault: Boolean(p.isDefault) }))
+  })
+
+  ipcMain.handle('printer:print-silent', (_event, deviceName) => {
+    return new Promise((resolve) => {
+      if (!mainWindow) {
+        resolve({ success: false, errorType: 'Ventana no disponible' })
+        return
+      }
+      mainWindow.webContents.print(
+        { silent: true, deviceName, printBackground: true, margins: { marginType: 'none' } },
+        (success, errorType) => resolve({ success, errorType })
+      )
+    })
+  })
+}
+
 app.whenReady().then(() => {
   const ses = session.fromPartition('persist:mesa')
 
@@ -181,6 +213,7 @@ app.whenReady().then(() => {
   })
 
   setupDeviceChoosers(ses)
+  setupPrinterIpc()
 
   createWindow()
   setupAutoUpdates()

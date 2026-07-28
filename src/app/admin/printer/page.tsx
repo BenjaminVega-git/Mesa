@@ -12,8 +12,16 @@ import {
   onPrinterDisconnected,
   type ConnectedPrinter,
 } from "@/lib/printer"
-import { printTicketViaOsDriver } from "@/lib/printer/osPrint"
+import {
+  printTicketViaOsDriver,
+  isElectronPrintAvailable,
+  listElectronPrinters,
+  getStoredElectronPrinter,
+  setStoredElectronPrinter,
+} from "@/lib/printer/osPrint"
 import { logger } from "@/lib/logger"
+
+type ElectronPrinterInfo = { name: string; displayName: string; isDefault: boolean }
 
 const OS_PRINT_STORAGE_KEY = "mesa-printer-os-fallback"
 
@@ -50,6 +58,8 @@ export default function PrinterPage() {
     }
   })
   const osPrintEnabledRef = useRef(osPrintEnabled)
+  const [electronPrinters, setElectronPrinters] = useState<ElectronPrinterInfo[]>([])
+  const [electronDevice, setElectronDevice] = useState<string>(() => getStoredElectronPrinter())
   const restaurantRef = useRef(restaurant)
   const printerRef = useRef<ConnectedPrinter | null>(null)
   const printedOrderIds = useRef<Set<number>>(new Set())
@@ -73,6 +83,15 @@ export default function PrinterPage() {
   useEffect(() => {
     osPrintEnabledRef.current = osPrintEnabled
   }, [osPrintEnabled])
+
+  // Solo existe dentro de la app de escritorio (window.electronAPI). Ahí, y
+  // solo ahí, se puede elegir una impresora del sistema para imprimir en
+  // SILENCIO — en cualquier navegador normal window.print() siempre pide
+  // confirmar, sin excepción (restricción del navegador, no de MESA).
+  useEffect(() => {
+    if (!isElectronPrintAvailable()) return
+    listElectronPrinters().then(setElectronPrinters)
+  }, [])
 
   // Bluetooth y "impresora del sistema" son EXCLUYENTES: activar una
   // desactiva la otra. Fue justamente convivir dos vías activas a la vez
@@ -135,7 +154,7 @@ export default function PrinterPage() {
         await sendTicket(currentPrinter, ticket)
         appendEntry({ orderId: 9999, kind: "ok", message: "Ticket de prueba enviado" })
       } else {
-        printTicketViaOsDriver(buildSampleTicket())
+        await printTicketViaOsDriver(buildSampleTicket())
         appendEntry({ orderId: 9999, kind: "ok", message: "Se abrió el diálogo de impresión del sistema" })
       }
     } catch (err) {
@@ -227,7 +246,7 @@ export default function PrinterPage() {
         await sendTicket(currentPrinter, ticket)
         appendEntry({ orderId, kind: "ok", message: "Ticket impreso" })
       } else {
-        printTicketViaOsDriver(ticketInput)
+        await printTicketViaOsDriver(ticketInput)
         appendEntry({ orderId, kind: "ok", message: "Diálogo de impresión del sistema abierto" })
       }
 
@@ -302,6 +321,7 @@ export default function PrinterPage() {
 
   const printerEnabled = restaurant.output_mode === "printer"
   const btSupported = isWebBluetoothAvailable()
+  const isElectron = isElectronPrintAvailable()
   const connected = Boolean(printer) || osPrintEnabled
   const ready = printerEnabled && connected
 
@@ -354,7 +374,9 @@ export default function PrinterPage() {
                 {printer
                   ? printerLabel(printer)
                   : osPrintEnabled
-                  ? "Impresora del sistema (diálogo por ticket)"
+                  ? isElectron && electronDevice
+                    ? `${electronDevice} (automática, sin diálogo)`
+                    : "Impresora del sistema (diálogo por ticket)"
                   : restaurant.printer_bluetooth_name ?? "—"}
               </dd>
             </div>
@@ -375,7 +397,7 @@ export default function PrinterPage() {
               <button
                 type="button"
                 onClick={toggleOsPrint}
-                title="Imprime con la impresora que ya tengas configurada en Windows/macOS. Funciona con cualquier impresora, pero pide confirmar cada ticket en un diálogo."
+                title="Imprime con la impresora que ya tengas configurada en Windows/macOS. En el navegador pide confirmar cada ticket; en la app de escritorio, elegí abajo una impresora para que sea automática."
                 className={`rounded-xl px-5 py-3 text-sm font-bold shadow-sm transition ${
                   osPrintEnabled
                     ? "bg-emerald-600 text-white hover:bg-emerald-700"
@@ -384,6 +406,24 @@ export default function PrinterPage() {
               >
                 {osPrintEnabled ? "Impresora del sistema: activada" : "Usar impresora del sistema"}
               </button>
+              {osPrintEnabled && isElectron && (
+                <select
+                  value={electronDevice}
+                  onChange={(e) => {
+                    setElectronDevice(e.target.value)
+                    setStoredElectronPrinter(e.target.value)
+                  }}
+                  className="rounded-xl border border-stone-300 bg-white px-3 py-3 text-sm font-bold text-stone-700 outline-none focus:border-orange-300"
+                >
+                  <option value="">Elegí una impresora (queda con diálogo)</option>
+                  {electronPrinters.map((p) => (
+                    <option key={p.name} value={p.name}>
+                      {p.displayName || p.name}
+                      {p.isDefault ? " (predeterminada)" : ""}
+                    </option>
+                  ))}
+                </select>
+              )}
               {connected && (
                 <button
                   type="button"
@@ -411,9 +451,11 @@ export default function PrinterPage() {
 
           {osPrintEnabled && !printer && (
             <p className="mt-3 text-[11px] text-stone-400">
-              Cada pedido nuevo va a abrir el diálogo de impresión del sistema — elegí la impresora ahí (o dejá la
-              que esté por defecto) y confirmá. No es automático como Bluetooth, pero funciona con cualquier
-              impresora que Windows/macOS ya reconozca.
+              {isElectron && electronDevice
+                ? `Cada pedido nuevo se va a imprimir SOLO en "${electronDevice}", sin ningún diálogo — igual de automático que Bluetooth.`
+                : isElectron
+                ? "Elegí una impresora arriba para que sea automática, sin diálogo. Si no elegís ninguna, va a pedir confirmar cada ticket."
+                : "Cada pedido nuevo va a abrir el diálogo de impresión del sistema — elegí la impresora ahí (o dejá la que esté por defecto) y confirmá. Esto solo es 100% automático (sin diálogo) desde la app de escritorio de Windows."}
             </p>
           )}
 

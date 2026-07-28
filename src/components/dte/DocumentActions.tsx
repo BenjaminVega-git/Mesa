@@ -95,7 +95,7 @@ export function DocumentActions({ doc, emisor, officialPdfHref }: Props) {
         }
       }
 
-      printReceiptViaOsDriver(receiptInput)
+      await printReceiptViaOsDriver(receiptInput)
     } catch (err) {
       logger.error("thermal receipt print failed", { error: String(err) })
       setThermalError(err instanceof Error ? err.message : "No se pudo imprimir en la impresora térmica")

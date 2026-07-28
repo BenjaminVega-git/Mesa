@@ -7,9 +7,13 @@ import type { TicketInput, ReceiptInput } from "@/lib/printer/escpos"
  * impresora normal), delegando todo el ancho/calidad de página al driver
  * en vez de asumir un tamaño fijo.
  *
- * Contra: window.print() siempre muestra el diálogo de impresión del
- * sistema — a diferencia de Bluetooth, esta vía no es 100% silenciosa
- * (hay que confirmar cada ticket).
+ * Desde un navegador normal, window.print() SIEMPRE muestra el diálogo del
+ * sistema — es una restricción de seguridad que ninguna página web puede
+ * evitar. Dentro de la app de escritorio (Electron) SÍ es posible imprimir
+ * en silencio: electron/preload.js expone window.electronAPI.printSilently,
+ * que llama a webContents.print({silent:true}) desde el proceso principal.
+ * Si hay una impresora de Electron configurada (ver getStoredElectronPrinter),
+ * se usa esa vía silenciosa; si no, cae al diálogo de siempre.
  *
  * Dos ajustes clave (reportados por usuarios reales):
  * - "salió casi sin nada de color": el contenido es HTML con negritas
@@ -112,40 +116,92 @@ export function buildReceiptHtml(input: ReceiptInput): string {
   `)
 }
 
-function printHtml(html: string): void {
-  if (typeof window === "undefined") return
+const ELECTRON_PRINTER_STORAGE_KEY = "mesa-printer-electron-device"
 
-  // Sin esto, el margen de página por defecto del navegador (~1-2cm por
-  // lado) se come casi todo el ancho de un rollo térmico de 58/80mm.
-  const pageStyle = document.createElement("style")
-  pageStyle.textContent = "@page { size: auto; margin: 0; }"
+/** true solo dentro de la app de escritorio (nunca en un navegador normal). */
+export function isElectronPrintAvailable(): boolean {
+  return typeof window !== "undefined" && Boolean(window.electronAPI?.isElectron)
+}
+
+export async function listElectronPrinters() {
+  if (!isElectronPrintAvailable()) return []
+  try {
+    return await window.electronAPI!.listPrinters()
+  } catch {
+    return []
+  }
+}
+
+export function getStoredElectronPrinter(): string {
+  try {
+    return localStorage.getItem(ELECTRON_PRINTER_STORAGE_KEY) || ""
+  } catch {
+    return ""
+  }
+}
+
+export function setStoredElectronPrinter(deviceName: string): void {
+  try {
+    localStorage.setItem(ELECTRON_PRINTER_STORAGE_KEY, deviceName)
+  } catch {
+    // no crítico
+  }
+}
+
+async function printHtml(html: string): Promise<void> {
+  if (typeof window === "undefined") return
 
   // La regla global body[data-printing] [data-print-root] en globals.css ya
   // fuerza position:absolute + width:100% + margin/padding:0 en este nodo.
   const root = document.createElement("div")
   root.setAttribute("data-print-root", "")
   root.innerHTML = html
-
-  document.head.appendChild(pageStyle)
   document.body.appendChild(root)
   document.body.setAttribute("data-printing", "")
 
   const cleanup = () => {
     document.body.removeAttribute("data-printing")
     root.remove()
-    pageStyle.remove()
-    window.removeEventListener("afterprint", cleanup)
   }
-  window.addEventListener("afterprint", cleanup)
-  window.print()
-  // Respaldo por si afterprint no dispara (algunos navegadores/Electron).
-  setTimeout(cleanup, 3000)
+
+  const electronDevice = getStoredElectronPrinter()
+  if (isElectronPrintAvailable() && electronDevice) {
+    try {
+      const result = await window.electronAPI!.printSilently(electronDevice)
+      if (!result.success) {
+        throw new Error(result.errorType || "La app de escritorio no pudo imprimir")
+      }
+    } finally {
+      cleanup()
+    }
+    return
+  }
+
+  // Navegador normal (o Electron sin impresora elegida todavía): diálogo del
+  // sistema. Sin esto, el margen de página por defecto (~1-2cm por lado) se
+  // come casi todo el ancho de un rollo térmico de 58/80mm.
+  const pageStyle = document.createElement("style")
+  pageStyle.textContent = "@page { size: auto; margin: 0; }"
+  document.head.appendChild(pageStyle)
+
+  await new Promise<void>((resolve) => {
+    const finish = () => {
+      window.removeEventListener("afterprint", finish)
+      pageStyle.remove()
+      cleanup()
+      resolve()
+    }
+    window.addEventListener("afterprint", finish)
+    window.print()
+    // Respaldo por si afterprint no dispara (algunos navegadores).
+    setTimeout(finish, 3000)
+  })
 }
 
-export function printTicketViaOsDriver(input: TicketInput): void {
-  printHtml(buildTicketHtml(input))
+export async function printTicketViaOsDriver(input: TicketInput): Promise<void> {
+  await printHtml(buildTicketHtml(input))
 }
 
-export function printReceiptViaOsDriver(input: ReceiptInput): void {
-  printHtml(buildReceiptHtml(input))
+export async function printReceiptViaOsDriver(input: ReceiptInput): Promise<void> {
+  await printHtml(buildReceiptHtml(input))
 }
