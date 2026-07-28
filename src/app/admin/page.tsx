@@ -1,10 +1,21 @@
 "use client"
 
 import Link from "next/link"
+import { useEffect, useState } from "react"
 import { useTableList } from "@/hooks/useTableList"
 import { useOrderList } from "@/hooks/useOrderList"
 import { useOrderStats } from "@/hooks/useOrderStats"
 import { InventoryAlertCard } from "@/components/admin/InventoryAlertCard"
+import { Sparkline } from "@/components/admin/Sparkline"
+import { getSalesReport, type TimeBucket } from "@/services/report-service"
+
+function todayHourRange() {
+  const from = new Date()
+  from.setHours(0, 0, 0, 0)
+  const to = new Date(from)
+  to.setDate(to.getDate() + 1)
+  return { from: from.toISOString(), to: to.toISOString(), granularity: "hour" as const }
+}
 
 const statusConfig: Record<string, string> = {
   "Nuevo":          "bg-orange-50 text-orange-700 ring-orange-200/50",
@@ -17,6 +28,18 @@ export default function AdminPage() {
   const { orders, activeOrdersCount, loading: loadingOrders } = useOrderList({ limit: 4 })
   const { dailySales, completedOrders, loading: loadingStats } = useOrderStats()
 
+  const [todayTimeline, setTodayTimeline] = useState<TimeBucket[]>([])
+
+  useEffect(() => {
+    let active = true
+    getSalesReport(todayHourRange()).then((res) => {
+      if (active && res.ok) setTodayTimeline(res.data.timeline)
+    })
+    return () => {
+      active = false
+    }
+  }, [])
+
   return (
     <div className="space-y-6">
 
@@ -26,17 +49,45 @@ export default function AdminPage() {
       {/* Sección principal de métricas de ventas */}
       <section className="rounded-3xl border border-stone-200 bg-white p-6 shadow-sm">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-xs font-semibold text-stone-500 uppercase tracking-wider">Ventas del día</p>
-            <p className="mt-1 text-4xl font-extrabold tracking-tight text-stone-900 tabular-nums">
-              {loadingStats ? "..." : `$${dailySales.toLocaleString("es-CL")}`}
-            </p>
+          <div className="flex flex-1 items-center gap-4">
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-stone-500 uppercase tracking-wider">Ventas del día</p>
+              <p className="mt-1 text-4xl font-extrabold tracking-tight text-stone-900 tabular-nums">
+                {loadingStats ? "..." : `$${dailySales.toLocaleString("es-CL")}`}
+              </p>
+            </div>
+            {todayTimeline.length >= 2 && (
+              <div className="hidden flex-1 sm:block">
+                <Sparkline
+                  id="dashboard-sales"
+                  data={todayTimeline}
+                  dataKey="revenue"
+                  color="#1c1917"
+                  formatValue={(n) => `$${n.toLocaleString("es-CL")}`}
+                  height={48}
+                />
+              </div>
+            )}
           </div>
-          <div className="rounded-2xl bg-orange-50 px-4 py-3 ring-1 ring-orange-200/50 sm:text-right">
-            <p className="text-xs font-semibold text-orange-800">pedidos cerrados</p>
-            <p className="mt-0.5 text-2xl font-bold tracking-tight text-orange-700 tabular-nums">
-              {loadingStats ? "..." : completedOrders}
-            </p>
+          <div className="flex items-center gap-4 rounded-2xl bg-orange-50 px-4 py-3 ring-1 ring-orange-200/50">
+            <div className="sm:text-right">
+              <p className="text-xs font-semibold text-orange-800">pedidos cerrados</p>
+              <p className="mt-0.5 text-2xl font-bold tracking-tight text-orange-700 tabular-nums">
+                {loadingStats ? "..." : completedOrders}
+              </p>
+            </div>
+            {todayTimeline.length >= 2 && (
+              <div className="hidden w-24 sm:block">
+                <Sparkline
+                  id="dashboard-orders"
+                  data={todayTimeline}
+                  dataKey="orderCount"
+                  color="#ea580c"
+                  formatValue={(n) => `${n} pedido${n === 1 ? "" : "s"}`}
+                  height={40}
+                />
+              </div>
+            )}
           </div>
         </div>
       </section>
