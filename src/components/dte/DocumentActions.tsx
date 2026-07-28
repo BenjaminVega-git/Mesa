@@ -1,5 +1,11 @@
 "use client"
 
+import { useState } from "react"
+import { getKnownPrinter, connectBluetoothPrinter, connectSerialPrinter, sendTicket, isWebBluetoothAvailable, isWebSerialAvailable } from "@/lib/printer"
+import { buildReceiptTicket } from "@/lib/printer/escpos"
+import { FRIENDLY_LABEL } from "./DocumentView"
+import { logger } from "@/lib/logger"
+
 type Props = {
   doc: {
     id: number
@@ -56,6 +62,40 @@ function buildXml(d: Props["doc"], emisor: Props["emisor"]): string {
 }
 
 export function DocumentActions({ doc, emisor, officialPdfHref }: Props) {
+  const [printingThermal, setPrintingThermal] = useState(false)
+  const [thermalError, setThermalError] = useState<string | null>(null)
+  const thermalSupported = isWebBluetoothAvailable() || isWebSerialAvailable()
+
+  async function printThermal() {
+    if (printingThermal) return
+    setPrintingThermal(true)
+    setThermalError(null)
+    try {
+      // Reconecta en silencio a la impresora ya emparejada en /admin/printer
+      // (Bluetooth o cable); solo si no hay ninguna conocida abre el selector.
+      let printer = await getKnownPrinter()
+      if (!printer) {
+        printer = isWebBluetoothAvailable() ? await connectBluetoothPrinter() : await connectSerialPrinter()
+      }
+      const ticket = buildReceiptTicket({
+        restaurantName: emisor.razonSocial || "Restaurante",
+        restaurantRut: emisor.rut,
+        docLabel: FRIENDLY_LABEL[doc.docType] ?? "Comprobante de pago",
+        folio: doc.folio,
+        emittedAt: doc.emittedAt,
+        net: doc.net,
+        iva: doc.iva,
+        total: doc.total,
+      })
+      await sendTicket(printer, ticket)
+    } catch (err) {
+      logger.error("thermal receipt print failed", { error: String(err) })
+      setThermalError(err instanceof Error ? err.message : "No se pudo imprimir en la impresora térmica")
+    } finally {
+      setPrintingThermal(false)
+    }
+  }
+
   function print() {
     // Marca el body para que el @media print muestre solo el documento
     // (data-print-root), sirva desde la página o desde el modal de vista previa.
@@ -89,7 +129,20 @@ export function DocumentActions({ doc, emisor, officialPdfHref }: Props) {
   const pdfHref = doc.pdfUrl ?? (!doc.simulated ? officialPdfHref : null)
 
   return (
-    <div data-print-hide className="flex flex-wrap gap-3 print:hidden">
+    <div data-print-hide className="flex flex-wrap items-start gap-3 print:hidden">
+      {thermalSupported && (
+        <div className="flex flex-col gap-1">
+          <button
+            type="button"
+            onClick={printThermal}
+            disabled={printingThermal}
+            className="rounded-xl border border-stone-300 px-4 py-2.5 text-sm font-bold text-stone-700 transition hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {printingThermal ? "Imprimiendo..." : "🖨️ Imprimir en impresora térmica"}
+          </button>
+          {thermalError && <p className="max-w-xs text-xs font-medium text-red-600">{thermalError}</p>}
+        </div>
+      )}
       {pdfHref ? (
         <a
           href={pdfHref}

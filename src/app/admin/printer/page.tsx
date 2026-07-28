@@ -6,10 +6,14 @@ import { useRestaurant } from "@/hooks/useRestaurant"
 import { buildOrderTicket, formatTicketAsText } from "@/lib/printer/escpos"
 import {
   isWebBluetoothAvailable,
-  requestPrinter,
-  sendToPrinter,
-  type BluetoothPrinter,
-} from "@/lib/printer/bluetooth"
+  isWebSerialAvailable,
+  connectBluetoothPrinter,
+  connectSerialPrinter,
+  sendTicket,
+  printerLabel,
+  onPrinterDisconnected,
+  type ConnectedPrinter,
+} from "@/lib/printer"
 import { logger } from "@/lib/logger"
 
 type FetchedOrder = {
@@ -34,11 +38,11 @@ export default function PrinterPage() {
   const { restaurant, loading } = useRestaurant()
   const channelId = useId()
   const [entries, setEntries] = useState<LogEntry[]>([])
-  const [printer, setPrinter] = useState<BluetoothPrinter | null>(null)
-  const [pairing, setPairing] = useState(false)
+  const [printer, setPrinter] = useState<ConnectedPrinter | null>(null)
+  const [pairing, setPairing] = useState<"bluetooth" | "serial" | null>(null)
   const [pairError, setPairError] = useState<string | null>(null)
   const restaurantRef = useRef(restaurant)
-  const printerRef = useRef<BluetoothPrinter | null>(null)
+  const printerRef = useRef<ConnectedPrinter | null>(null)
   const printedOrderIds = useRef<Set<number>>(new Set())
 
   useEffect(() => {
@@ -86,7 +90,7 @@ export default function PrinterPage() {
     setTesting(true)
     try {
       const ticket = buildOrderTicket(buildSampleTicket())
-      await sendToPrinter(currentPrinter, ticket)
+      await sendTicket(currentPrinter, ticket)
       appendEntry({ orderId: 9999, kind: "ok", message: "Ticket de prueba impreso" })
     } catch (err) {
       logger.error("test print failed", { error: String(err) })
@@ -100,21 +104,35 @@ export default function PrinterPage() {
     }
   }
 
-  async function handlePair() {
+  async function handlePairBluetooth() {
     if (pairing) return
-    setPairing(true)
+    setPairing("bluetooth")
     setPairError(null)
     try {
-      const result = await requestPrinter(restaurantRef.current?.printer_bluetooth_name ?? null)
+      const result = await connectBluetoothPrinter(restaurantRef.current?.printer_bluetooth_name ?? null)
       setPrinter(result)
-      result.device.addEventListener("gattserverdisconnected", () => {
-        setPrinter(null)
-      })
+      onPrinterDisconnected(result, () => setPrinter(null))
     } catch (err) {
       logger.error("printer pair failed", { error: String(err) })
       setPairError(err instanceof Error ? err.message : "No se pudo emparejar la impresora")
     } finally {
-      setPairing(false)
+      setPairing(null)
+    }
+  }
+
+  async function handlePairSerial() {
+    if (pairing) return
+    setPairing("serial")
+    setPairError(null)
+    try {
+      const result = await connectSerialPrinter()
+      setPrinter(result)
+      onPrinterDisconnected(result, () => setPrinter(null))
+    } catch (err) {
+      logger.error("printer serial pair failed", { error: String(err) })
+      setPairError(err instanceof Error ? err.message : "No se pudo conectar la impresora por cable")
+    } finally {
+      setPairing(null)
     }
   }
 
@@ -165,7 +183,7 @@ export default function PrinterPage() {
       printedOrderIds.current.add(orderId)
 
       const ticket = buildOrderTicket(ticketInput)
-      await sendToPrinter(currentPrinter, ticket)
+      await sendTicket(currentPrinter, ticket)
       appendEntry({ orderId, kind: "ok", message: "Ticket impreso" })
     } catch (err) {
       printedOrderIds.current.delete(orderId)
@@ -234,6 +252,8 @@ export default function PrinterPage() {
 
   const printerEnabled = restaurant.output_mode === "printer"
   const btSupported = isWebBluetoothAvailable()
+  const serialSupported = isWebSerialAvailable()
+  const anyTransportSupported = btSupported || serialSupported
   const connected = Boolean(printer)
   const ready = printerEnabled && connected
 
@@ -246,7 +266,7 @@ export default function PrinterPage() {
             {restaurant.restaurant_name}
           </h1>
           <p className="mt-1 text-sm text-stone-500">
-            Mantené esta pantalla abierta en el dispositivo del local con la impresora ya emparejada por Bluetooth.
+            Mantené esta pantalla abierta en el dispositivo del local con la impresora ya conectada, por Bluetooth o por cable.
           </p>
         </header>
 
@@ -269,9 +289,9 @@ export default function PrinterPage() {
                 ? "Listo para imprimir"
                 : !printerEnabled
                 ? "Elegí 'Impresora térmica' en /admin/settings"
-                : !btSupported
-                ? "Tu navegador no soporta Web Bluetooth"
-                : "Falta emparejar la impresora"}
+                : !anyTransportSupported
+                ? "Tu navegador no soporta Bluetooth ni conexión por cable"
+                : "Falta conectar la impresora"}
             </p>
           </div>
 
@@ -285,21 +305,41 @@ export default function PrinterPage() {
             <div>
               <dt className="text-xs font-medium uppercase tracking-wider text-stone-500">Dispositivo</dt>
               <dd className="mt-1 font-semibold">
-                {printer?.device.name ?? restaurant.printer_bluetooth_name ?? "—"}
+                {printer ? printerLabel(printer) : restaurant.printer_bluetooth_name ?? "—"}
               </dd>
             </div>
           </dl>
 
-          {printerEnabled && btSupported && (
+          {printerEnabled && anyTransportSupported && (
             <div className="mt-5 flex flex-wrap items-center gap-3">
-              <button
-                type="button"
-                onClick={handlePair}
-                disabled={pairing}
-                className="rounded-xl bg-orange-500 px-5 py-3 text-sm font-bold text-white shadow transition hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {pairing ? "Emparejando..." : connected ? "Reemparejar" : "Emparejar impresora"}
-              </button>
+              {btSupported && (
+                <button
+                  type="button"
+                  onClick={handlePairBluetooth}
+                  disabled={pairing !== null}
+                  className="rounded-xl bg-orange-500 px-5 py-3 text-sm font-bold text-white shadow transition hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {pairing === "bluetooth"
+                    ? "Emparejando..."
+                    : connected && printer?.transport === "bluetooth"
+                    ? "Reemparejar Bluetooth"
+                    : "Emparejar por Bluetooth"}
+                </button>
+              )}
+              {serialSupported && (
+                <button
+                  type="button"
+                  onClick={handlePairSerial}
+                  disabled={pairing !== null}
+                  className="rounded-xl bg-stone-800 px-5 py-3 text-sm font-bold text-white shadow transition hover:bg-stone-900 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {pairing === "serial"
+                    ? "Conectando..."
+                    : connected && printer?.transport === "serial"
+                    ? "Reconectar por cable"
+                    : "Conectar por cable"}
+                </button>
+              )}
               {connected && (
                 <button
                   type="button"

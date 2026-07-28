@@ -71,7 +71,7 @@ function Field({ label, value }: { label: string; value: string | null | undefin
 // DTE_LABEL_BY_CODE (esa es la clasificación tributaria interna/admin). Este
 // comprobante no reclama validez ante el SII, así que no se llama "boleta
 // electrónica" ni luce el recuadro/timbre oficial.
-const FRIENDLY_LABEL: Record<number, string> = {
+export const FRIENDLY_LABEL: Record<number, string> = {
   33: "Comprobante de pago (factura)",
   34: "Comprobante de pago (factura exenta)",
   39: "Comprobante de pago",
@@ -239,6 +239,7 @@ export function DocumentView({ doc, emisor }: { doc: DocumentViewData; emisor: D
       {/* Cierre */}
       <div className="mt-8 border-t border-dashed border-stone-200 pt-5 text-center">
         <p className="text-sm font-bold text-stone-700">¡Gracias por tu visita!</p>
+        <p className="mt-1 text-xs font-semibold text-stone-400">tumesaqr.com</p>
         {doc.trackId ? (
           <p className="mt-1 text-[10px] text-stone-400">Referencia {doc.trackId}</p>
         ) : null}

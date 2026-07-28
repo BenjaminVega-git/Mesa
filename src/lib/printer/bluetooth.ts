@@ -50,6 +50,28 @@ export async function requestPrinter(preferredName?: string | null): Promise<Blu
   return connectToDevice(device)
 }
 
+/**
+ * Reconexión silenciosa a un dispositivo YA emparejado antes (sin abrir el
+ * selector del navegador ni pedir gesto del usuario) — para imprimir boletas
+ * desde otra pantalla sin volver a /admin/printer a reemparejar.
+ */
+export async function getKnownBluetoothPrinter(): Promise<BluetoothPrinter | null> {
+  if (!isWebBluetoothAvailable() || !navigator.bluetooth.getDevices) return null
+  try {
+    const devices = await navigator.bluetooth.getDevices()
+    for (const device of devices) {
+      try {
+        return await connectToDevice(device)
+      } catch {
+        // probar el siguiente dispositivo ya emparejado
+      }
+    }
+  } catch {
+    // getDevices puede no estar disponible en todos los navegadores
+  }
+  return null
+}
+
 async function connectToDevice(device: BluetoothDevice): Promise<BluetoothPrinter> {
   if (!device.gatt) throw new Error("El dispositivo no expone GATT.")
 

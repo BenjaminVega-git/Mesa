@@ -86,7 +86,7 @@ async function staleWhileRevalidate(request, cacheName) {
     .catch(() => undefined)
 
   if (cached) {
-    refresh
+    void refresh
     return cached
   }
 
