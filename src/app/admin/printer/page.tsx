@@ -132,7 +132,7 @@ export default function PrinterPage() {
               : "Ticket de prueba enviado",
         })
       } else {
-        printTicketViaOsDriver(formatTicketAsText(buildSampleTicket()))
+        printTicketViaOsDriver(buildSampleTicket())
         appendEntry({ orderId: 9999, kind: "ok", message: "Se abrió el diálogo de impresión del sistema" })
       }
     } catch (err) {
@@ -234,7 +234,7 @@ export default function PrinterPage() {
           message: currentPrinter.transport === "serial" ? "Enviado al puerto" : "Ticket impreso",
         })
       } else {
-        printTicketViaOsDriver(formatTicketAsText(ticketInput))
+        printTicketViaOsDriver(ticketInput)
         appendEntry({ orderId, kind: "ok", message: "Diálogo de impresión del sistema abierto" })
       }
     } catch (err) {
