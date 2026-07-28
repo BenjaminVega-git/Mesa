@@ -14,10 +14,18 @@ type UseProductListOptions = {
   page?: number
   pageSize?: number
   search?: string
+  categoryId?: number | null
+  statusId?: number | null
 }
 
-export function useProductList({ page = 1, pageSize = 12, search = "" }: UseProductListOptions = {}) {
-  const { products, total, loading, error, refresh } = useProducts({ page, pageSize, search })
+export function useProductList({
+  page = 1,
+  pageSize = 12,
+  search = "",
+  categoryId = null,
+  statusId = null,
+}: UseProductListOptions = {}) {
+  const { products, total, loading, error, refresh } = useProducts({ page, pageSize, search, categoryId, statusId })
   const {
     deleteProduct,
     loading: deleting,

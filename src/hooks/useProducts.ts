@@ -10,6 +10,10 @@ type UseProductsOptions = {
   pageSize?: number
   /** Busca por nombre de producto (case-insensitive, contiene). */
   search?: string
+  /** Filtra por categoría. null/undefined = todas. */
+  categoryId?: number | null
+  /** Filtra por estado (1 Disponible, 2 Agotado, 3 Deshabilitado). null/undefined = todos. */
+  statusId?: number | null
 }
 
 type ProductsResult = {
@@ -17,7 +21,13 @@ type ProductsResult = {
   total: number
 }
 
-export function useProducts({ page = 1, pageSize = 12, search = "" }: UseProductsOptions = {}) {
+export function useProducts({
+  page = 1,
+  pageSize = 12,
+  search = "",
+  categoryId = null,
+  statusId = null,
+}: UseProductsOptions = {}) {
   const { restaurantId, loading: loadingId, error: idError } = useRestaurantId()
   const instanceId = useId()
   const trimmedSearch = search.trim()
@@ -43,6 +53,12 @@ export function useProducts({ page = 1, pageSize = 12, search = "" }: UseProduct
     if (trimmedSearch) {
       query = query.ilike("product_name", `%${trimmedSearch}%`)
     }
+    if (categoryId != null) {
+      query = query.eq("category_id", categoryId)
+    }
+    if (statusId != null) {
+      query = query.eq("status_id", statusId)
+    }
 
     const { data, error, count } = await query
       .order("id", { ascending: false })
@@ -54,10 +70,10 @@ export function useProducts({ page = 1, pageSize = 12, search = "" }: UseProduct
       items: data ?? [],
       total: count ?? 0,
     }
-  }, [restaurantId, page, pageSize, trimmedSearch])
+  }, [restaurantId, page, pageSize, trimmedSearch, categoryId, statusId])
 
   const { data, isLoading, isPendingRetry, error, refresh } = useCache<ProductsResult>(
-    `products-${restaurantId ?? "pending"}-p${page}-s${pageSize}-q${trimmedSearch}`,
+    `products-${restaurantId ?? "pending"}-p${page}-s${pageSize}-q${trimmedSearch}-c${categoryId ?? "all"}-st${statusId ?? "all"}`,
     fetchProducts,
     {
       enabled: Boolean(restaurantId),

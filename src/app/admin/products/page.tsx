@@ -5,6 +5,7 @@ import { useEffect, useState } from "react"
 import { Search, Sparkles, X } from "lucide-react"
 import { Pagination } from "@/components/ui/Pagination"
 import { useProductList } from "@/hooks/useProductList"
+import { useAllCategories } from "@/hooks/useAllCategories"
 import { CreateProductDialog } from "@/components/admin/CreateProductDialog"
 import { EditProductDialog } from "@/components/admin/EditProductDialog"
 import { BulkRecipeDialog } from "@/components/admin/BulkRecipeDialog"
@@ -49,11 +50,14 @@ export default function ProductsPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const [searchInput, setSearchInput] = useState("")
   const [search, setSearch] = useState("")
+  const [categoryFilter, setCategoryFilter] = useState<number | null>(null)
+  const [statusFilter, setStatusFilter] = useState<number | null>(null)
   const [showCreate, setShowCreate] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editInitialTab, setEditInitialTab] = useState<"datos" | "receta">("datos")
   const [editAutoAI, setEditAutoAI] = useState(false)
   const [showBulkRecipe, setShowBulkRecipe] = useState(false)
+  const { categories } = useAllCategories()
   const {
     products,
     totalProducts,
@@ -66,7 +70,7 @@ export default function ProductsPage() {
     updateProductStatus,
     deleteDialog,
     refresh,
-  } = useProductList({ page: currentPage, pageSize: 12, search })
+  } = useProductList({ page: currentPage, pageSize: 12, search, categoryId: categoryFilter, statusId: statusFilter })
   const [openMenuProductId, setOpenMenuProductId] = useState<number | null>(null)
 
   // Debounce: espera a que dejen de tipear antes de disparar la búsqueda.
@@ -75,12 +79,12 @@ export default function ProductsPage() {
     return () => clearTimeout(timeout)
   }, [searchInput])
 
-  // Toda búsqueda nueva vuelve a la página 1 (el resultado ya no corresponde
-  // a la misma cantidad de páginas que la lista sin filtrar).
+  // Toda búsqueda o filtro nuevo vuelve a la página 1 (el resultado ya no
+  // corresponde a la misma cantidad de páginas que la lista sin filtrar).
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset al cambiar la búsqueda
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset al cambiar búsqueda/filtros
     setCurrentPage(1)
-  }, [search])
+  }, [search, categoryFilter, statusFilter])
 
   useEffect(() => {
     if (!loading && currentPage > totalPages) {
@@ -201,6 +205,45 @@ export default function ProductsPage() {
           )}
         </div>
 
+        <div className="mb-5 flex flex-wrap items-center gap-2">
+          <select
+            value={categoryFilter ?? ""}
+            onChange={(e) => setCategoryFilter(e.target.value ? Number(e.target.value) : null)}
+            className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-xs font-bold text-stone-700 outline-none focus:border-orange-300"
+          >
+            <option value="">Todas las categorías</option>
+            {categories.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.category_name}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={statusFilter ?? ""}
+            onChange={(e) => setStatusFilter(e.target.value ? Number(e.target.value) : null)}
+            className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-xs font-bold text-stone-700 outline-none focus:border-orange-300"
+          >
+            <option value="">Todos los estados</option>
+            <option value={1}>Disponible</option>
+            <option value={2}>Agotado</option>
+            <option value={3}>Deshabilitado</option>
+          </select>
+
+          {(categoryFilter != null || statusFilter != null) && (
+            <button
+              type="button"
+              onClick={() => {
+                setCategoryFilter(null)
+                setStatusFilter(null)
+              }}
+              className="text-xs font-bold text-stone-500 underline-offset-2 hover:text-orange-600 hover:underline"
+            >
+              Quitar filtros
+            </button>
+          )}
+        </div>
+
         {loading && (
           <div className="rounded-2xl border border-stone-200 bg-stone-50 p-6 text-center text-xs font-semibold text-stone-500 animate-pulse">
             Cargando carta de productos...
@@ -213,16 +256,18 @@ export default function ProductsPage() {
           </div>
         )}
 
-        {!loading && !error && products.length === 0 && search && (
+        {!loading && !error && products.length === 0 && (search || categoryFilter != null || statusFilter != null) && (
           <div className="rounded-2xl border border-dashed border-stone-300 bg-stone-50 p-8 text-center shadow-inner">
-            <h3 className="font-bold text-stone-900">Sin resultados para &quot;{search}&quot;</h3>
+            <h3 className="font-bold text-stone-900">
+              {search ? <>Sin resultados para &quot;{search}&quot;</> : "Sin resultados para este filtro"}
+            </h3>
             <p className="mx-auto mt-2 max-w-xs text-xs text-stone-550 leading-relaxed">
-              Probá con otro nombre o revisá si el producto está en otra categoría.
+              Probá con otro nombre o quitá algún filtro.
             </p>
           </div>
         )}
 
-        {!loading && !error && products.length === 0 && !search && (
+        {!loading && !error && products.length === 0 && !search && categoryFilter == null && statusFilter == null && (
           <div className="rounded-2xl border border-dashed border-stone-300 bg-stone-50 p-8 text-center shadow-inner">
             <h3 className="font-bold text-stone-900">No hay productos en el menú</h3>
             <p className="mx-auto mt-2 max-w-xs text-xs text-stone-550 leading-relaxed">
