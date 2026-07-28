@@ -17,6 +17,7 @@ declare global {
     writable: WritableStream<Uint8Array> | null
     open(options: { baudRate: number }): Promise<void>
     close(): Promise<void>
+    getInfo(): { usbVendorId?: number; usbProductId?: number }
     addEventListener(type: "disconnect", listener: () => void): void
     removeEventListener(type: "disconnect", listener: () => void): void
   }
@@ -31,9 +32,35 @@ declare global {
 
 const BAUD_RATE = 9600
 
+// Chips USB-a-serie más comunes en impresoras térmicas/adaptadores baratos —
+// para mostrar algo reconocible ("¿es este el que conecté?") en vez de un
+// genérico "Impresora por cable". Si el VID no está en esta lista, se muestra
+// igual el VID:PID crudo (sigue siendo información verificable).
+const KNOWN_USB_SERIAL_VENDORS: Record<number, string> = {
+  0x1a86: "CH340/CH341",
+  0x0403: "FTDI",
+  0x067b: "Prolific PL2303",
+  0x10c4: "Silicon Labs CP210x",
+  0x1a2c: "QinHeng",
+}
+
+function hex4(n: number): string {
+  return n.toString(16).toUpperCase().padStart(4, "0")
+}
+
+/** Etiqueta identificable del puerto para que el usuario pueda verificar que es el dispositivo correcto. */
+export function describeSerialPort(port: SerialPort): string {
+  const info = port.getInfo()
+  if (info.usbVendorId == null) return "Cable USB"
+  const vendor = KNOWN_USB_SERIAL_VENDORS[info.usbVendorId]
+  const ids = `VID ${hex4(info.usbVendorId)}${info.usbProductId != null ? `:PID ${hex4(info.usbProductId)}` : ""}`
+  return vendor ? `Cable USB (${vendor} · ${ids})` : `Cable USB (${ids})`
+}
+
 export type SerialPrinter = {
   port: SerialPort
   writer: WritableStreamDefaultWriter<Uint8Array>
+  label: string
 }
 
 export function isWebSerialAvailable(): boolean {
@@ -44,7 +71,7 @@ async function connectToPort(port: SerialPort): Promise<SerialPrinter> {
   await port.open({ baudRate: BAUD_RATE })
   if (!port.writable) throw new Error("El puerto no permite escritura.")
   const writer = port.writable.getWriter()
-  return { port, writer }
+  return { port, writer, label: describeSerialPort(port) }
 }
 
 export async function requestSerialPrinter(): Promise<SerialPrinter> {

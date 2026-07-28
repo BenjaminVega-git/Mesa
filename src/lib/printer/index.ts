@@ -63,7 +63,7 @@ export async function disconnectPrinter(connected: ConnectedPrinter): Promise<vo
 export function printerLabel(connected: ConnectedPrinter): string {
   return connected.transport === "bluetooth"
     ? connected.printer.device.name || "Impresora Bluetooth"
-    : "Impresora por cable"
+    : connected.printer.label
 }
 
 export function onPrinterDisconnected(connected: ConnectedPrinter, cb: () => void): void {
