@@ -28,7 +28,7 @@ export default async function BoletaPage({
     )
   }
 
-  const { doc, emisor } = result.data
+  const { doc, emisor, items } = result.data
 
   return (
     <main className="mx-auto max-w-2xl p-6 print:p-0">
@@ -71,6 +71,7 @@ export default async function BoletaPage({
           simulated: doc.simulated,
         }}
         emisor={emisor}
+        items={items}
       />
     </main>
   )

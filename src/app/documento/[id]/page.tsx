@@ -22,7 +22,7 @@ export default async function DocumentoPage({
     )
   }
 
-  const { doc, emisor } = result.data
+  const { doc, emisor, items } = result.data
 
   return (
     <main className="mx-auto max-w-2xl p-6 print:p-0">
@@ -37,7 +37,7 @@ export default async function DocumentoPage({
         />
       </div>
 
-      <DocumentView doc={doc} emisor={emisor} />
+      <DocumentView doc={doc} emisor={emisor} items={items} />
     </main>
   )
 }

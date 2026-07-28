@@ -288,7 +288,16 @@ export async function getGatewayProvider(): Promise<Result<string | null>> {
   return ok((data as string | null) ?? null)
 }
 
+export type PaymentReceiptItem = {
+  name: string
+  variantName: string | null
+  quantity: number
+  unitPrice: number
+  lineTotal: number
+}
+
 export type PaymentReceipt = {
+  items: PaymentReceiptItem[]
   doc: {
     id: number
     docType: number
@@ -330,7 +339,16 @@ export async function getPaymentReceipt(paymentId: number): Promise<Result<Payme
 
   const d = data.doc as Record<string, unknown>
   const e = (data.emisor ?? {}) as Record<string, unknown>
+  const rawItems = Array.isArray(data.items) ? (data.items as Record<string, unknown>[]) : []
+  const items: PaymentReceiptItem[] = rawItems.map((it) => ({
+    name: (it.name as string) || "Producto",
+    variantName: (it.variant_name as string) ?? null,
+    quantity: Number(it.quantity ?? 0),
+    unitPrice: Number(it.unit_price ?? 0),
+    lineTotal: Number(it.line_total ?? 0),
+  }))
   return ok({
+    items,
     doc: {
       id: Number(d.id),
       docType: Number(d.doc_type),

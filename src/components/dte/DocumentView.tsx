@@ -23,6 +23,16 @@ export type DocumentViewData = {
   refReason?: string | null
 }
 
+/** Línea real del pedido cobrado — order_items no se borra al cobrar, así
+ *  que el detalle sigue siendo recuperable aunque tax_documents no lo guarde. */
+export type DocumentViewItem = {
+  name: string
+  variantName: string | null
+  quantity: number
+  unitPrice: number
+  lineTotal: number
+}
+
 const COD_REF_LABEL: Record<number, string> = {
   1: "Anula documento de referencia",
   2: "Corrige texto",
@@ -80,17 +90,37 @@ export const FRIENDLY_LABEL: Record<number, string> = {
   61: "Nota de crédito",
 }
 
-export function DocumentView({ doc, emisor }: { doc: DocumentViewData; emisor: DocumentViewEmisor }) {
+// Un acento de color por tipo de documento — antes todo el comprobante era
+// monocromático stone, sin ninguna forma rápida de distinguir a simple vista
+// una boleta de una factura o una nota de crédito.
+const ACCENT = {
+  boleta: { bar: "bg-orange-500", badgeBg: "bg-orange-50", badgeRing: "ring-orange-200", badgeText: "text-orange-700", totalBg: "bg-orange-50" },
+  factura: { bar: "bg-sky-500", badgeBg: "bg-sky-50", badgeRing: "ring-sky-200", badgeText: "text-sky-700", totalBg: "bg-sky-50" },
+  notaCredito: { bar: "bg-red-500", badgeBg: "bg-red-50", badgeRing: "ring-red-200", badgeText: "text-red-700", totalBg: "bg-red-50" },
+} as const
+
+export function DocumentView({
+  doc,
+  emisor,
+  items,
+}: {
+  doc: DocumentViewData
+  emisor: DocumentViewEmisor
+  items?: DocumentViewItem[]
+}) {
   const label = FRIENDLY_LABEL[doc.docType] ?? "Comprobante de pago"
   const esFactura = doc.docType === 33 || doc.docType === 34
   const esBoleta = doc.docType === 39 || doc.docType === 41
   const esNotaCredito = doc.docType === 61
+  const accent = esFactura ? ACCENT.factura : esNotaCredito ? ACCENT.notaCredito : ACCENT.boleta
 
   return (
     <article
       data-print-root
-      className="rounded-2xl border border-stone-200 bg-white p-8 text-stone-900 shadow-sm print:border-0 print:shadow-none"
+      className="overflow-hidden rounded-2xl border border-stone-200 bg-white text-stone-900 shadow-sm print:border-0 print:shadow-none"
     >
+      <div className={`h-1.5 ${accent.bar} print:hidden`} aria-hidden="true" />
+      <div className="p-8">
       {doc.voided ? (
         <div className="mb-6 rounded-lg border border-red-300 bg-red-50 px-4 py-2 text-center text-xs font-bold uppercase tracking-wider text-red-700">
           Documento anulado por nota de crédito
@@ -118,8 +148,8 @@ export function DocumentView({ doc, emisor }: { doc: DocumentViewData; emisor: D
           </div>
         </div>
 
-        <div className="shrink-0 rounded-2xl bg-stone-50 px-5 py-3 text-right ring-1 ring-stone-100">
-          <p className="text-[11px] font-bold uppercase tracking-wide text-stone-500">{label}</p>
+        <div className={`shrink-0 rounded-2xl px-5 py-3 text-right ring-1 ${accent.badgeBg} ${accent.badgeRing}`}>
+          <p className={`text-[11px] font-bold uppercase tracking-wide ${accent.badgeText}`}>{label}</p>
           <p className="mt-1 text-lg font-extrabold tabular-nums text-stone-900">N° {doc.folio ?? "—"}</p>
         </div>
       </div>
@@ -173,10 +203,11 @@ export function DocumentView({ doc, emisor }: { doc: DocumentViewData; emisor: D
         </div>
       ) : null}
 
-      {/* Detalle */}
+      {/* Detalle: ítems reales del pedido cobrado cuando están disponibles
+          (no se borran al cobrar); si no, la línea genérica de siempre. */}
       <table className="mt-4 w-full text-xs">
         <thead>
-          <tr className="border-y border-stone-200 text-left text-[10px] font-bold uppercase tracking-wider text-stone-500">
+          <tr className={`border-y border-stone-200 text-left text-[10px] font-bold uppercase tracking-wider ${accent.badgeText}`}>
             <th className="py-1.5 pr-3">Descripción</th>
             <th className="py-1.5 pr-3 text-right">Cant.</th>
             <th className="py-1.5 pr-3 text-right">P. unitario</th>
@@ -184,20 +215,34 @@ export function DocumentView({ doc, emisor }: { doc: DocumentViewData; emisor: D
           </tr>
         </thead>
         <tbody>
-          <tr className="border-b border-stone-100">
-            <td className="py-2 pr-3 text-stone-800">
-              {esNotaCredito
-                ? `Anulación de ${DTE_LABEL_BY_CODE[doc.refDocType ?? 33] ?? "factura"} N° ${doc.refFolio ?? "—"}`
-                : "Consumo / Servicios"}
-            </td>
-            <td className="py-2 pr-3 text-right tabular-nums text-stone-700">1</td>
-            <td className="py-2 pr-3 text-right tabular-nums text-stone-700">
-              {esBoleta ? clp.format(doc.total ?? 0) : clp.format(doc.net ?? 0)}
-            </td>
-            <td className="py-2 text-right tabular-nums font-semibold text-stone-900">
-              {esBoleta ? clp.format(doc.total ?? 0) : clp.format(doc.net ?? 0)}
-            </td>
-          </tr>
+          {items && items.length > 0 ? (
+            items.map((item, i) => (
+              <tr key={i} className="border-b border-stone-100 last:border-b-0">
+                <td className="py-2 pr-3 text-stone-800">
+                  {item.name}
+                  {item.variantName ? <span className="text-stone-400"> · {item.variantName}</span> : null}
+                </td>
+                <td className="py-2 pr-3 text-right tabular-nums text-stone-700">{item.quantity}</td>
+                <td className="py-2 pr-3 text-right tabular-nums text-stone-700">{clp.format(item.unitPrice)}</td>
+                <td className="py-2 text-right tabular-nums font-semibold text-stone-900">{clp.format(item.lineTotal)}</td>
+              </tr>
+            ))
+          ) : (
+            <tr className="border-b border-stone-100">
+              <td className="py-2 pr-3 text-stone-800">
+                {esNotaCredito
+                  ? `Anulación de ${DTE_LABEL_BY_CODE[doc.refDocType ?? 33] ?? "factura"} N° ${doc.refFolio ?? "—"}`
+                  : "Consumo / Servicios"}
+              </td>
+              <td className="py-2 pr-3 text-right tabular-nums text-stone-700">1</td>
+              <td className="py-2 pr-3 text-right tabular-nums text-stone-700">
+                {esBoleta ? clp.format(doc.total ?? 0) : clp.format(doc.net ?? 0)}
+              </td>
+              <td className="py-2 text-right tabular-nums font-semibold text-stone-900">
+                {esBoleta ? clp.format(doc.total ?? 0) : clp.format(doc.net ?? 0)}
+              </td>
+            </tr>
+          )}
         </tbody>
       </table>
 
@@ -213,7 +258,7 @@ export function DocumentView({ doc, emisor }: { doc: DocumentViewData; emisor: D
               <span>IVA (19%) incluido</span>
               <span className="tabular-nums">{doc.iva != null ? clp.format(doc.iva) : "—"}</span>
             </div>
-            <div className="flex justify-between border-t border-stone-300 pt-1.5 text-base font-extrabold text-stone-900">
+            <div className={`flex justify-between rounded-xl px-3 py-2 text-base font-extrabold text-stone-900 ${accent.totalBg}`}>
               <span>Total (IVA incluido)</span>
               <span className="tabular-nums">{doc.total != null ? clp.format(doc.total) : "—"}</span>
             </div>
@@ -228,7 +273,7 @@ export function DocumentView({ doc, emisor }: { doc: DocumentViewData; emisor: D
               <span>IVA (19%)</span>
               <span className="tabular-nums">{doc.iva != null ? clp.format(doc.iva) : "—"}</span>
             </div>
-            <div className="flex justify-between border-t border-stone-300 pt-1.5 text-base font-extrabold text-stone-900">
+            <div className={`flex justify-between rounded-xl px-3 py-2 text-base font-extrabold text-stone-900 ${accent.totalBg}`}>
               <span>Total</span>
               <span className="tabular-nums">{doc.total != null ? clp.format(doc.total) : "—"}</span>
             </div>
@@ -243,6 +288,7 @@ export function DocumentView({ doc, emisor }: { doc: DocumentViewData; emisor: D
         {doc.trackId ? (
           <p className="mt-1 text-[10px] text-stone-400">Referencia {doc.trackId}</p>
         ) : null}
+      </div>
       </div>
     </article>
   )

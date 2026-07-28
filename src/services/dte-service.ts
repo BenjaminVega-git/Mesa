@@ -6,6 +6,28 @@ import { logger } from "@/lib/logger"
 import { ok, fail, type Result } from "@/services/result"
 import type { SupabaseClient } from "@supabase/supabase-js"
 
+export type TaxDocumentItem = {
+  name: string
+  variantName: string | null
+  quantity: number
+  unitPrice: number
+  lineTotal: number
+}
+
+function mapItems(raw: unknown): TaxDocumentItem[] {
+  if (!Array.isArray(raw)) return []
+  return raw.map((r) => {
+    const row = r as Record<string, unknown>
+    return {
+      name: (row.name as string) || "Producto",
+      variantName: (row.variant_name as string) ?? null,
+      quantity: Number(row.quantity ?? 0),
+      unitPrice: Number(row.unit_price ?? 0),
+      lineTotal: Number(row.line_total ?? 0),
+    }
+  })
+}
+
 export type TaxDocument = {
   id: number
   docType: number
@@ -148,10 +170,10 @@ export type DteEmisorInfo = {
   logoUrl: string | null
 }
 
-/** Documento + datos del emisor, para renderizar la vista previa imprimible. */
+/** Documento + datos del emisor + detalle de ítems, para la vista previa imprimible. */
 export async function getDocumentForView(
   id: number
-): Promise<Result<{ doc: TaxDocument; emisor: DteEmisorInfo }>> {
+): Promise<Result<{ doc: TaxDocument; emisor: DteEmisorInfo; items: TaxDocumentItem[] }>> {
   const auth = await requireCurrentAdmin()
   if (!auth.ok) return fail(auth.error)
   const { supabase } = auth.data
@@ -171,7 +193,9 @@ export async function getDocumentForView(
     actividadEconomica: (prof?.actividad_economica as string) ?? "",
     logoUrl: (prof?.logo_url as string) ?? null,
   }
-  return ok({ doc: mapRow(row), emisor })
+
+  const { data: itemsData } = await supabase.rpc("get_tax_document_item_detail", { p_document_id: id })
+  return ok({ doc: mapRow(row), emisor, items: mapItems(itemsData) })
 }
 
 /**

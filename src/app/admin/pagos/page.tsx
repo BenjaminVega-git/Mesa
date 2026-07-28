@@ -15,6 +15,7 @@ import {
   annulDocument,
   getDteProviderInfo,
   type TaxDocument,
+  type TaxDocumentItem,
 } from "@/services/dte-service"
 import { DTE_LABEL_BY_CODE } from "@/lib/dte/types"
 import { DocumentView, type DocumentViewEmisor } from "@/components/dte/DocumentView"
@@ -312,7 +313,7 @@ function TaxDocumentsSection() {
   const [amount, setAmount] = useState("10000")
   const [emitting, setEmitting] = useState(false)
   const [feedback, setFeedback] = useState<{ kind: "ok" | "error"; message: string } | null>(null)
-  const [preview, setPreview] = useState<{ doc: TaxDocument; emisor: DocumentViewEmisor } | null>(null)
+  const [preview, setPreview] = useState<{ doc: TaxDocument; emisor: DocumentViewEmisor; items: TaxDocumentItem[] } | null>(null)
   const [previewLoading, setPreviewLoading] = useState(false)
   const [docType, setDocType] = useState<"boleta" | "factura">("boleta")
   const [receptorRut, setReceptorRut] = useState("")
@@ -716,7 +717,7 @@ function TaxDocumentsSection() {
               </div>
             </div>
             <div className="space-y-4 p-4">
-              <DocumentView doc={preview.doc} emisor={preview.emisor} />
+              <DocumentView doc={preview.doc} emisor={preview.emisor} items={preview.items} />
               <div className="print:hidden">
                 <DocumentActions
                   doc={preview.doc}
