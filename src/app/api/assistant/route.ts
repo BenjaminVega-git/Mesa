@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server"
 import { GoogleGenerativeAI, type Content } from "@google/generative-ai"
 import { requireCurrentAdmin } from "@/services/auth-guard"
-import { checkAssistantLimit } from "@/lib/rate-limit"
+import {
+  checkAssistantLimit,
+  checkAssistantGlobalLimit,
+  acquireAssistantSlot,
+  releaseAssistantSlot,
+} from "@/lib/rate-limit"
 import {
   functionDeclarations,
   executeTool,
@@ -94,6 +99,17 @@ export async function POST(req: Request) {
     )
   }
 
+  // Todos los restaurantes comparten una sola API key de Gemini: este límite
+  // protege esa cuota agregada de ráfagas de MUCHOS restaurantes distintos a
+  // la vez (el de arriba solo protege a cada restaurante de sí mismo).
+  const globalCheck = await checkAssistantGlobalLimit()
+  if (!globalCheck.success) {
+    return NextResponse.json(
+      { error: "Manuel está con mucha demanda en este momento. Probá de nuevo en unos segundos." },
+      { status: 429 }
+    )
+  }
+
   const apiKey = process.env.GEMINI_API_KEY
   if (!apiKey) {
     return NextResponse.json({ error: "El asistente no está configurado (falta la API key)." }, { status: 503 })
@@ -109,6 +125,19 @@ export async function POST(req: Request) {
   const history = sanitizeHistory(body.messages)
   if (history.length === 0 || history[history.length - 1].role !== "user") {
     return NextResponse.json({ error: "Falta el mensaje del usuario" }, { status: 400 })
+  }
+
+  // Tope de conversaciones del asistente EN VUELO al mismo tiempo (cada una
+  // puede tardar hasta maxDuration=300s y hacer varias llamadas seguidas a
+  // Gemini) — el límite de frecuencia de arriba no alcanza a esto solo: una
+  // ráfaga de usuarios distintos podría seguir acumulando llamadas
+  // simultáneas mientras las anteriores ni terminan.
+  const gotSlot = await acquireAssistantSlot()
+  if (!gotSlot) {
+    return NextResponse.json(
+      { error: "Manuel está atendiendo a mucha gente en este momento. Probá de nuevo en unos segundos." },
+      { status: 429 }
+    )
   }
 
   const genAI = new GoogleGenerativeAI(apiKey)
@@ -193,6 +222,7 @@ export async function POST(req: Request) {
               : "El asistente tuvo un problema. Prueba de nuevo.",
         })
       } finally {
+        await releaseAssistantSlot()
         controller.close()
       }
     },
