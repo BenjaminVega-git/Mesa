@@ -83,8 +83,8 @@ export function PaymentsTodaySection() {
         <div>
           <h2 className="text-lg font-bold tracking-tight text-stone-900">Pagos de hoy</h2>
           <p className="mt-1 text-sm text-stone-500">
-            Todos los cobros del día con su boleta. Lo pagado en línea llega a la cuenta de la
-            pasarela, no a la caja.
+            Todos los cobros del día calendario con su boleta (no solo del turno de caja actual).
+            Lo pagado en línea llega a la cuenta de la pasarela, no a la caja.
           </p>
         </div>
         <div className="text-right">

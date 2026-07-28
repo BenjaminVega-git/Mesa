@@ -19,9 +19,32 @@ export function useCashShift() {
     }
   }, [])
 
+  // Refresco silencioso (sin flash de "Cargando"): lo que se cobra durante el
+  // turno debe reflejarse sin que el admin tenga que recargar la página.
+  const refreshSilently = useCallback(async () => {
+    try {
+      const res = await getCurrentShift()
+      if (res.ok) setShift(res.data)
+    } catch {
+      // se mantiene el último valor conocido
+    }
+  }, [])
+
   useEffect(() => {
     void reload()
   }, [reload])
+
+  useEffect(() => {
+    const interval = window.setInterval(refreshSilently, 30_000)
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void refreshSilently()
+    }
+    document.addEventListener("visibilitychange", onVisible)
+    return () => {
+      window.clearInterval(interval)
+      document.removeEventListener("visibilitychange", onVisible)
+    }
+  }, [refreshSilently])
 
   return { shift, loading, reload }
 }

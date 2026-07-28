@@ -6,6 +6,7 @@ import { ok, fail, type Result } from "@/services/result"
 export type CurrentShift = {
   id: number
   openedAt: string
+  openedByName: string | null
   openingAmount: number
   sales: number
   tips: number
@@ -21,6 +22,7 @@ export type CurrentShift = {
 type CurrentShiftRpcResult = {
   id: number
   opened_at: string
+  opened_by_name: string | null
   opening_amount: number
   sales: number
   tips: number
@@ -38,6 +40,43 @@ type CloseShiftRpcResult = {
   cash_sales: number
   card_sales: number
   online_sales: number
+  closed_by_name: string | null
+}
+
+export type PastShift = {
+  id: number
+  openedAt: string
+  closedAt: string
+  openedByName: string | null
+  closedByName: string | null
+  openingAmount: number
+  closingAmount: number
+  cashSales: number
+  cardSales: number
+  onlineSales: number
+  tips: number
+  ordersCount: number
+  expectedCash: number
+  difference: number
+  notes: string | null
+}
+
+type PastShiftRpcResult = {
+  id: number
+  opened_at: string
+  closed_at: string
+  opened_by_name: string | null
+  closed_by_name: string | null
+  opening_amount: number
+  closing_amount: number
+  cash_sales: number | null
+  card_sales: number | null
+  online_sales: number | null
+  tips: number | null
+  orders_count: number | null
+  expected_cash: number
+  difference: number
+  notes: string | null
 }
 
 export async function getCurrentShift(): Promise<Result<CurrentShift | null>> {
@@ -52,6 +91,7 @@ export async function getCurrentShift(): Promise<Result<CurrentShift | null>> {
   return ok({
     id: result.id,
     openedAt: result.opened_at,
+    openedByName: result.opened_by_name ?? null,
     openingAmount: result.opening_amount ?? 0,
     sales: result.sales ?? 0,
     tips: result.tips ?? 0,
@@ -86,6 +126,7 @@ export type CloseShiftResult = {
   cashSales: number
   cardSales: number
   onlineSales: number
+  closedByName: string | null
 }
 
 export async function closeShift(
@@ -112,5 +153,34 @@ export async function closeShift(
     cashSales: result.cash_sales ?? 0,
     cardSales: result.card_sales ?? 0,
     onlineSales: result.online_sales ?? 0,
+    closedByName: result.closed_by_name ?? null,
   })
+}
+
+export async function listPastShifts(limit = 20): Promise<Result<PastShift[]>> {
+  const supabase = await createSupabaseServerClient()
+  const { data, error } = await supabase.rpc("list_cash_shifts", { p_limit: limit })
+
+  if (error) return fail(error.message ?? "No se pudo obtener el historial de caja")
+
+  const results = (data ?? []) as PastShiftRpcResult[]
+  return ok(
+    results.map((r) => ({
+      id: r.id,
+      openedAt: r.opened_at,
+      closedAt: r.closed_at,
+      openedByName: r.opened_by_name ?? null,
+      closedByName: r.closed_by_name ?? null,
+      openingAmount: r.opening_amount ?? 0,
+      closingAmount: r.closing_amount ?? 0,
+      cashSales: r.cash_sales ?? 0,
+      cardSales: r.card_sales ?? 0,
+      onlineSales: r.online_sales ?? 0,
+      tips: r.tips ?? 0,
+      ordersCount: r.orders_count ?? 0,
+      expectedCash: r.expected_cash ?? 0,
+      difference: r.difference ?? 0,
+      notes: r.notes ?? null,
+    }))
+  )
 }

@@ -2,9 +2,11 @@
 
 import type { FormEvent } from "react"
 import { useMemo, useState } from "react"
+import { Banknote, CreditCard, Smartphone, UserRound } from "lucide-react"
 import { useCashShift } from "@/hooks/useCashShift"
 import { closeShift, openShift, type CloseShiftResult } from "@/services/cash-shift-service"
 import { PaymentsTodaySection } from "@/components/charge/PaymentsTodaySection"
+import { CashShiftHistory } from "@/components/admin/CashShiftHistory"
 
 const clpFormatter = new Intl.NumberFormat("es-CL", {
   style: "currency",
@@ -37,6 +39,8 @@ export default function AdminCajaPage() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [closeResult, setCloseResult] = useState<CloseResult | null>(null)
+  const [showCloseForm, setShowCloseForm] = useState(false)
+  const [historyRefreshKey, setHistoryRefreshKey] = useState(0)
 
   const openedAtLabel = useMemo(() => {
     if (!shift?.openedAt) return ""
@@ -88,6 +92,8 @@ export default function AdminCajaPage() {
       setCloseResult(res.data)
       setClosingInput("")
       setNotes("")
+      setShowCloseForm(false)
+      setHistoryRefreshKey((k) => k + 1)
       await reload()
     } finally {
       setSubmitting(false)
@@ -151,46 +157,82 @@ export default function AdminCajaPage() {
         </section>
       ) : (
         <>
-          <section className="grid gap-3 sm:grid-cols-2">
-            <div className="rounded-2xl border border-stone-200 bg-white px-5 py-4 shadow-sm">
-              <p className="text-xs font-bold uppercase tracking-wider text-stone-500">
-                Apertura
-              </p>
-              <p className="mt-2 text-2xl font-extrabold leading-none tracking-tight text-stone-900 tabular-nums">
-                {formatCLP(shift.openingAmount)}
-              </p>
+          {/* Estado del turno: quién lo abrió y desde cuándo, siempre visible arriba. */}
+          <section className="flex items-center justify-between gap-3 rounded-3xl border border-emerald-200 bg-emerald-50/60 px-5 py-4 shadow-sm">
+            <div className="flex items-center gap-3">
+              <span className="relative flex h-2.5 w-2.5 shrink-0">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
+              </span>
+              <div>
+                <p className="text-sm font-bold text-emerald-900">Turno abierto</p>
+                <p className="mt-0.5 flex items-center gap-1 text-xs font-semibold text-emerald-700">
+                  <UserRound className="h-3.5 w-3.5" aria-hidden="true" />
+                  {shift.openedByName ?? "—"}
+                  {openedAtLabel && <span className="text-emerald-600/80">· desde {openedAtLabel}</span>}
+                </p>
+              </div>
             </div>
-            <div className="rounded-2xl border border-stone-200 bg-white px-5 py-4 shadow-sm">
-              <p className="text-xs font-bold uppercase tracking-wider text-stone-500">
-                Ventas del turno
-              </p>
-              <p className="mt-2 text-2xl font-extrabold leading-none tracking-tight text-orange-600 tabular-nums">
-                {formatCLP(shift.sales)}
-              </p>
+            {!showCloseForm && (
+              <button
+                type="button"
+                onClick={() => setShowCloseForm(true)}
+                className="shrink-0 rounded-full border border-emerald-300 bg-white px-4 py-2 text-xs font-bold text-emerald-700 shadow-sm transition hover:bg-emerald-50"
+              >
+                Cerrar turno
+              </button>
+            )}
+          </section>
+
+          <section>
+            <div className="mb-2 flex items-center justify-between">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-stone-500">
+                Resumen del turno actual
+              </h3>
+              <span className="text-[11px] text-stone-400">Se actualiza solo</span>
             </div>
-            <div className="rounded-2xl border border-stone-200 bg-white px-5 py-4 shadow-sm">
-              <p className="text-xs font-bold uppercase tracking-wider text-stone-500">
-                Propinas
-              </p>
-              <p className="mt-2 text-2xl font-extrabold leading-none tracking-tight text-stone-900 tabular-nums">
-                {formatCLP(shift.tips)}
-              </p>
-            </div>
-            <div className="rounded-2xl border border-stone-200 bg-white px-5 py-4 shadow-sm">
-              <p className="text-xs font-bold uppercase tracking-wider text-stone-500">
-                Nº de pedidos
-              </p>
-              <p className="mt-2 text-2xl font-extrabold leading-none tracking-tight text-stone-900 tabular-nums">
-                {shift.orders}
-              </p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-2xl border border-stone-200 bg-white px-5 py-4 shadow-sm">
+                <p className="text-xs font-bold uppercase tracking-wider text-stone-500">
+                  Apertura
+                </p>
+                <p className="mt-2 text-2xl font-extrabold leading-none tracking-tight text-stone-900 tabular-nums">
+                  {formatCLP(shift.openingAmount)}
+                </p>
+              </div>
+              <div className="rounded-2xl border border-stone-200 bg-white px-5 py-4 shadow-sm">
+                <p className="text-xs font-bold uppercase tracking-wider text-stone-500">
+                  Ventas del turno
+                </p>
+                <p className="mt-2 text-2xl font-extrabold leading-none tracking-tight text-orange-600 tabular-nums">
+                  {formatCLP(shift.sales)}
+                </p>
+              </div>
+              <div className="rounded-2xl border border-stone-200 bg-white px-5 py-4 shadow-sm">
+                <p className="text-xs font-bold uppercase tracking-wider text-stone-500">
+                  Propinas
+                </p>
+                <p className="mt-2 text-2xl font-extrabold leading-none tracking-tight text-stone-900 tabular-nums">
+                  {formatCLP(shift.tips)}
+                </p>
+              </div>
+              <div className="rounded-2xl border border-stone-200 bg-white px-5 py-4 shadow-sm">
+                <p className="text-xs font-bold uppercase tracking-wider text-stone-500">
+                  Nº de pedidos
+                </p>
+                <p className="mt-2 text-2xl font-extrabold leading-none tracking-tight text-stone-900 tabular-nums">
+                  {shift.orders}
+                </p>
+              </div>
             </div>
           </section>
 
           {/* Desglose por método: solo el efectivo debe estar en el cajón. */}
           <section className="grid gap-3 sm:grid-cols-3">
             <div className="rounded-2xl border border-emerald-200 bg-emerald-50/60 px-5 py-4 shadow-sm">
-              <p className="text-xs font-bold uppercase tracking-wider text-emerald-700">
-                💵 Efectivo
+              <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-emerald-700">
+                <Banknote className="h-3.5 w-3.5" aria-hidden="true" />
+                Efectivo
               </p>
               <p className="mt-2 text-xl font-extrabold leading-none tracking-tight text-emerald-800 tabular-nums">
                 {formatCLP(shift.salesCash)}
@@ -200,8 +242,9 @@ export default function AdminCajaPage() {
               </p>
             </div>
             <div className="rounded-2xl border border-sky-200 bg-sky-50/60 px-5 py-4 shadow-sm">
-              <p className="text-xs font-bold uppercase tracking-wider text-sky-700">
-                💳 Tarjeta
+              <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-sky-700">
+                <CreditCard className="h-3.5 w-3.5" aria-hidden="true" />
+                Tarjeta
               </p>
               <p className="mt-2 text-xl font-extrabold leading-none tracking-tight text-sky-800 tabular-nums">
                 {formatCLP(shift.salesCard)}
@@ -209,8 +252,9 @@ export default function AdminCajaPage() {
               <p className="mt-1.5 text-[11px] font-semibold text-sky-700/80">POS físico</p>
             </div>
             <div className="rounded-2xl border border-orange-200 bg-orange-50/60 px-5 py-4 shadow-sm">
-              <p className="text-xs font-bold uppercase tracking-wider text-orange-700">
-                📱 En línea
+              <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-orange-700">
+                <Smartphone className="h-3.5 w-3.5" aria-hidden="true" />
+                En línea
               </p>
               <p className="mt-2 text-xl font-extrabold leading-none tracking-tight text-orange-800 tabular-nums">
                 {formatCLP(shift.salesOnline)}
@@ -221,67 +265,78 @@ export default function AdminCajaPage() {
             </div>
           </section>
 
-          {openedAtLabel && (
-            <p className="text-xs font-semibold text-stone-500">
-              Turno abierto desde <span className="text-stone-700">{openedAtLabel}</span>
-            </p>
-          )}
-
           {closeResult && <CloseResultCard result={closeResult} />}
 
-          <section className="rounded-3xl border border-stone-200 bg-white p-6 shadow-sm">
-            <h3 className="text-lg font-bold tracking-tight text-stone-900">Cerrar turno</h3>
-            <p className="mt-1 text-sm text-stone-500">
-              Cuenta el efectivo en caja y ciérrala para conciliar.
-            </p>
-            <form onSubmit={handleClose} className="mt-5 space-y-4">
-              <div>
-                <label
-                  htmlFor="closing"
-                  className="block text-xs font-bold uppercase tracking-wider text-stone-500"
+          {showCloseForm && (
+            <section className="rounded-3xl border border-stone-200 bg-white p-6 shadow-sm">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-bold tracking-tight text-stone-900">Cerrar turno</h3>
+                <button
+                  type="button"
+                  onClick={() => setShowCloseForm(false)}
+                  className="text-xs font-semibold text-stone-500 hover:text-stone-800"
                 >
-                  Efectivo contado (CLP)
-                </label>
-                <input
-                  id="closing"
-                  type="text"
-                  inputMode="numeric"
-                  autoComplete="off"
-                  placeholder="$0"
-                  value={closingInput ? formatCLP(parseAmount(closingInput)) : ""}
-                  onChange={(e) => setClosingInput(e.target.value)}
-                  className="mt-2 w-full rounded-2xl border border-stone-200 bg-white px-4 py-3 text-lg font-bold tabular-nums text-stone-900 outline-none focus:border-orange-300 focus:ring-2 focus:ring-orange-100"
-                />
+                  Cancelar
+                </button>
               </div>
-              <div>
-                <label
-                  htmlFor="notes"
-                  className="block text-xs font-bold uppercase tracking-wider text-stone-500"
+              <p className="mt-1 text-sm text-stone-500">
+                Cuenta el efectivo físico en caja y ciérrala para conciliar contra lo esperado.
+              </p>
+              <form onSubmit={handleClose} className="mt-5 space-y-4">
+                <div>
+                  <label
+                    htmlFor="closing"
+                    className="block text-xs font-bold uppercase tracking-wider text-stone-500"
+                  >
+                    Efectivo contado (CLP)
+                  </label>
+                  <input
+                    id="closing"
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="off"
+                    placeholder="$0"
+                    value={closingInput ? formatCLP(parseAmount(closingInput)) : ""}
+                    onChange={(e) => setClosingInput(e.target.value)}
+                    className="mt-2 w-full rounded-2xl border border-stone-200 bg-white px-4 py-3 text-lg font-bold tabular-nums text-stone-900 outline-none focus:border-orange-300 focus:ring-2 focus:ring-orange-100"
+                  />
+                  <p className="mt-1.5 text-[11px] text-stone-400">
+                    Debería haber {formatCLP(shift.expectedCash)} en el cajón (apertura + efectivo cobrado).
+                  </p>
+                </div>
+                <div>
+                  <label
+                    htmlFor="notes"
+                    className="block text-xs font-bold uppercase tracking-wider text-stone-500"
+                  >
+                    Notas (opcional)
+                  </label>
+                  <textarea
+                    id="notes"
+                    rows={3}
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    placeholder="Observaciones del cierre..."
+                    className="mt-2 w-full resize-none rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm text-stone-900 outline-none focus:border-orange-300 focus:ring-2 focus:ring-orange-100"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="rounded-full bg-orange-500 px-6 py-3 text-sm font-bold text-white shadow transition hover:bg-orange-600 active:scale-95 disabled:opacity-50"
                 >
-                  Notas (opcional)
-                </label>
-                <textarea
-                  id="notes"
-                  rows={3}
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Observaciones del cierre..."
-                  className="mt-2 w-full resize-none rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm text-stone-900 outline-none focus:border-orange-300 focus:ring-2 focus:ring-orange-100"
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={submitting}
-                className="rounded-full bg-orange-500 px-6 py-3 text-sm font-bold text-white shadow transition hover:bg-orange-600 active:scale-95 disabled:opacity-50"
-              >
-                {submitting ? "Cerrando..." : "Cerrar caja"}
-              </button>
-            </form>
-          </section>
+                  {submitting ? "Cerrando..." : "Confirmar cierre"}
+                </button>
+              </form>
+            </section>
+          )}
         </>
       )}
 
-      {/* Pagos del día (todos los métodos) con su boleta. */}
+      <CashShiftHistory refreshKey={historyRefreshKey} />
+
+      {/* Todos los cobros del día calendario, no solo de este turno — el
+          subtítulo del propio componente aclara el alcance. */}
       <PaymentsTodaySection />
     </div>
   )
@@ -328,6 +383,9 @@ function CloseResultCard({ result }: { result: CloseResult }) {
           {tone.label}
         </span>
       </div>
+      {result.closedByName && (
+        <p className={`mt-1 text-xs font-semibold ${tone.value}`}>Cerrado por {result.closedByName}</p>
+      )}
       <div className="mt-4 grid gap-3 sm:grid-cols-3">
         <div className="rounded-2xl border border-white/60 bg-white/70 px-4 py-3">
           <p className="text-[11px] font-bold uppercase tracking-wider text-stone-500">
