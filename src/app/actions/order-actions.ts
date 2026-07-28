@@ -8,6 +8,7 @@ import {
   markTableOrdersAsPaid as markTableOrdersAsPaidService,
   reassignTable as reassignTableService,
   claimTable as claimTableService,
+  cancelOrder as cancelOrderService,
   type CreatedOrder,
   type WaiterOrder,
 } from "@/services/order-service"
@@ -68,4 +69,11 @@ export async function claimTableAction(
   tableId: number
 ): Promise<Result<{ claimed: boolean }>> {
   return claimTableService(tableId)
+}
+
+export async function cancelOrderAction(
+  orderId: number,
+  reason?: string
+): Promise<Result<{ id: number; statusId: number }>> {
+  return cancelOrderService(orderId, reason)
 }

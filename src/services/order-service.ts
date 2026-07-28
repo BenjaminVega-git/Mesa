@@ -5,7 +5,7 @@ import {
   type CreateOrderInput,
 } from "@/lib/validation/order"
 import { ok, fail, type Result } from "@/services/result"
-import { requireStaffForRestaurant } from "@/services/auth-guard"
+import { requireStaffForRestaurant, requireCurrentAdmin } from "@/services/auth-guard"
 import { menuTag } from "@/lib/menu/menu-cache"
 
 export const ORDER_STATUS_NUEVO = 1
@@ -220,6 +220,36 @@ export async function markOrderAsPaid(
 }
 
 
+
+
+/**
+ * Cancela un pedido creado por error (SOLO admin). El pedido pasa a
+ * status_id "Cancelado" — queda afuera de get_sales_report/get_product_margins/
+ * get_peak_hours (todos filtran status_id = 4) sin tocar ningún reporte, y
+ * si había descontado stock por receta, la RPC lo revierte automáticamente.
+ */
+export async function cancelOrder(
+  orderId: number,
+  reason?: string
+): Promise<Result<{ id: number; statusId: number }>> {
+  if (!orderId || orderId <= 0) return fail("Orden inválida")
+
+  const guard = await requireCurrentAdmin()
+  if (!guard.ok) return fail(guard.error)
+  const { supabase } = guard.data
+
+  const { data, error } = await supabase.rpc("cancel_order", {
+    p_order_id: orderId,
+    p_reason: reason?.trim() || null,
+  })
+
+  if (error) return fail(error.message ?? "No se pudo cancelar el pedido")
+
+  const result = data as { ok: boolean; order_id: number; status_id: number } | null
+  if (!result?.ok) return fail("No se pudo cancelar el pedido")
+
+  return ok({ id: result.order_id, statusId: result.status_id })
+}
 
 
 export async function markTableOrdersAsPaid(

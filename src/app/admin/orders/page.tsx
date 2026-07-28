@@ -5,6 +5,8 @@ import { useOrderList } from "@/hooks/useOrderList"
 import { OrderDetailModal } from "@/components/admin/OrderDetailModal"
 import { AdminChargeSection } from "@/components/admin/AdminChargeSection"
 import { PaymentsTodaySection } from "@/components/charge/PaymentsTodaySection"
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog"
+import { cancelOrderAction } from "@/app/actions/order-actions"
 
 const statusStyles: Record<string, string> = {
   Nuevo: "bg-orange-50 text-orange-700 ring-1 ring-orange-200/50",
@@ -24,6 +26,24 @@ function formatTime(createdAt: string) {
 export default function OrdersPage() {
   const { orders, loading, error } = useOrderList()
   const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null)
+  const [cancelTarget, setCancelTarget] = useState<{ id: number; label: string } | null>(null)
+  const [cancelling, setCancelling] = useState(false)
+  const [cancelError, setCancelError] = useState<string | null>(null)
+
+  async function handleConfirmCancel() {
+    if (!cancelTarget || cancelling) return
+    setCancelling(true)
+    setCancelError(null)
+    const result = await cancelOrderAction(cancelTarget.id, "Cancelado por error desde el panel")
+    setCancelling(false)
+    if (!result.ok) {
+      setCancelError(result.error)
+      return
+    }
+    // El cambio de status_id llega por realtime (mismo canal que ya refresca
+    // la lista al avanzar/pagar pedidos) — no hace falta refetch manual.
+    setCancelTarget(null)
+  }
 
   const summary = [
     {
@@ -82,6 +102,12 @@ export default function OrdersPage() {
         {error && (
           <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-xs font-bold text-red-650 shadow-sm">
             {error}
+          </div>
+        )}
+
+        {cancelError && (
+          <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-xs font-bold text-red-700 shadow-sm">
+            {cancelError}
           </div>
         )}
 
@@ -145,13 +171,20 @@ export default function OrdersPage() {
                     </p>
                   </div>
 
-                  <div className="mt-auto">
+                  <div className="mt-auto grid grid-cols-2 gap-2">
                     <button
                       type="button"
                       onClick={() => setSelectedOrderId(order.id)}
                       className="w-full rounded-xl border border-stone-200 bg-stone-50 py-2.5 text-xs font-bold text-stone-700 transition hover:bg-stone-100"
                     >
                       Ver detalle
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCancelTarget({ id: order.id, label: `Pedido #${order.order_number ?? order.id}` })}
+                      className="w-full rounded-xl border border-red-200 bg-red-50 py-2.5 text-xs font-bold text-red-700 transition hover:bg-red-100"
+                    >
+                      Cancelar
                     </button>
                   </div>
                 </article>
@@ -168,6 +201,19 @@ export default function OrdersPage() {
         orderId={selectedOrderId}
         onClose={() => setSelectedOrderId(null)}
       />
+
+      <ConfirmDialog
+        open={cancelTarget !== null}
+        title={`¿Cancelar ${cancelTarget?.label ?? "este pedido"}?`}
+        description="Se marca como cancelado y ya no cuenta en los reportes de ventas. Si había descontado insumos del inventario, se le devuelven automáticamente. Esta acción no se puede deshacer."
+        confirmLabel={cancelling ? "Cancelando..." : "Sí, cancelar pedido"}
+        cancelLabel="No, mantener pedido"
+        onConfirm={handleConfirmCancel}
+        onCancel={() => {
+          if (!cancelling) setCancelTarget(null)
+        }}
+      />
+
     </div>
   )
 }
