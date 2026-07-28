@@ -17,7 +17,10 @@ import {
   setStoredBaudRate,
   type ConnectedPrinter,
 } from "@/lib/printer"
+import { printTicketViaOsDriver } from "@/lib/printer/osPrint"
 import { logger } from "@/lib/logger"
+
+const OS_PRINT_STORAGE_KEY = "mesa-printer-os-fallback"
 
 type FetchedOrder = {
   id: number
@@ -45,6 +48,14 @@ export default function PrinterPage() {
   const [pairing, setPairing] = useState<"bluetooth" | "serial" | null>(null)
   const [pairError, setPairError] = useState<string | null>(null)
   const [baudRate, setBaudRate] = useState<number>(() => getStoredBaudRate())
+  const [osPrintEnabled, setOsPrintEnabled] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem(OS_PRINT_STORAGE_KEY) === "1"
+    } catch {
+      return false
+    }
+  })
+  const osPrintEnabledRef = useRef(osPrintEnabled)
   const restaurantRef = useRef(restaurant)
   const printerRef = useRef<ConnectedPrinter | null>(null)
   const printedOrderIds = useRef<Set<number>>(new Set())
@@ -56,6 +67,22 @@ export default function PrinterPage() {
   useEffect(() => {
     printerRef.current = printer
   }, [printer])
+
+  useEffect(() => {
+    osPrintEnabledRef.current = osPrintEnabled
+  }, [osPrintEnabled])
+
+  function toggleOsPrint() {
+    setOsPrintEnabled((prev) => {
+      const next = !prev
+      try {
+        localStorage.setItem(OS_PRINT_STORAGE_KEY, next ? "1" : "0")
+      } catch {
+        // no crítico
+      }
+      return next
+    })
+  }
 
   function appendEntry(partial: Omit<LogEntry, "id" | "at">) {
     setEntries((prev) => [
@@ -89,20 +116,25 @@ export default function PrinterPage() {
     if (testing) return
     const current = restaurantRef.current
     const currentPrinter = printerRef.current
-    if (!current || !currentPrinter) return
+    if (!current || (!currentPrinter && !osPrintEnabled)) return
 
     setTesting(true)
     try {
-      const ticket = buildOrderTicket(buildSampleTicket())
-      await sendTicket(currentPrinter, ticket)
-      appendEntry({
-        orderId: 9999,
-        kind: "ok",
-        message:
-          currentPrinter.transport === "serial"
-            ? "Enviado al puerto. Si no salió nada, probá otra velocidad (bps) arriba y reconectá."
-            : "Ticket de prueba enviado",
-      })
+      if (currentPrinter) {
+        const ticket = buildOrderTicket(buildSampleTicket())
+        await sendTicket(currentPrinter, ticket)
+        appendEntry({
+          orderId: 9999,
+          kind: "ok",
+          message:
+            currentPrinter.transport === "serial"
+              ? "Enviado al puerto. Si no salió nada, probá otra velocidad (bps) arriba y reconectá."
+              : "Ticket de prueba enviado",
+        })
+      } else {
+        printTicketViaOsDriver(formatTicketAsText(buildSampleTicket()))
+        appendEntry({ orderId: 9999, kind: "ok", message: "Se abrió el diálogo de impresión del sistema" })
+      }
     } catch (err) {
       logger.error("test print failed", { error: String(err) })
       appendEntry({
@@ -186,20 +218,25 @@ export default function PrinterPage() {
       setPreviewText(formatTicketAsText(ticketInput))
 
       const currentPrinter = printerRef.current
-      if (!currentPrinter) {
+      if (!currentPrinter && !osPrintEnabledRef.current) {
         appendEntry({ orderId, kind: "error", message: "Impresora no conectada (ver vista previa)" })
         return
       }
 
       printedOrderIds.current.add(orderId)
 
-      const ticket = buildOrderTicket(ticketInput)
-      await sendTicket(currentPrinter, ticket)
-      appendEntry({
-        orderId,
-        kind: "ok",
-        message: currentPrinter.transport === "serial" ? "Enviado al puerto" : "Ticket impreso",
-      })
+      if (currentPrinter) {
+        const ticket = buildOrderTicket(ticketInput)
+        await sendTicket(currentPrinter, ticket)
+        appendEntry({
+          orderId,
+          kind: "ok",
+          message: currentPrinter.transport === "serial" ? "Enviado al puerto" : "Ticket impreso",
+        })
+      } else {
+        printTicketViaOsDriver(formatTicketAsText(ticketInput))
+        appendEntry({ orderId, kind: "ok", message: "Diálogo de impresión del sistema abierto" })
+      }
     } catch (err) {
       printedOrderIds.current.delete(orderId)
       logger.error("printer page error", { error: String(err) })
@@ -269,7 +306,7 @@ export default function PrinterPage() {
   const btSupported = isWebBluetoothAvailable()
   const serialSupported = isWebSerialAvailable()
   const anyTransportSupported = btSupported || serialSupported
-  const connected = Boolean(printer)
+  const connected = Boolean(printer) || osPrintEnabled
   const ready = printerEnabled && connected
 
   return (
@@ -304,8 +341,8 @@ export default function PrinterPage() {
                 ? "Listo para imprimir"
                 : !printerEnabled
                 ? "Elegí 'Impresora térmica' en /admin/settings"
-                : !anyTransportSupported
-                ? "Tu navegador no soporta Bluetooth ni conexión por cable"
+                : !anyTransportSupported && !osPrintEnabled
+                ? "Activá 'Usar impresora del sistema' abajo, o usá Chrome/Edge para Bluetooth/cable"
                 : "Falta conectar la impresora"}
             </p>
           </div>
@@ -320,12 +357,16 @@ export default function PrinterPage() {
             <div>
               <dt className="text-xs font-medium uppercase tracking-wider text-stone-500">Dispositivo</dt>
               <dd className="mt-1 font-semibold">
-                {printer ? printerLabel(printer) : restaurant.printer_bluetooth_name ?? "—"}
+                {printer
+                  ? printerLabel(printer)
+                  : osPrintEnabled
+                  ? "Impresora del sistema (diálogo por ticket)"
+                  : restaurant.printer_bluetooth_name ?? "—"}
               </dd>
             </div>
           </dl>
 
-          {printerEnabled && anyTransportSupported && (
+          {printerEnabled && (
             <div className="mt-5 flex flex-wrap items-center gap-3">
               {btSupported && (
                 <button
@@ -374,6 +415,18 @@ export default function PrinterPage() {
                   </button>
                 </>
               )}
+              <button
+                type="button"
+                onClick={toggleOsPrint}
+                title="Imprime con la impresora que ya tengas configurada en Windows/macOS. Funciona con cualquier impresora, pero pide confirmar cada ticket en un diálogo."
+                className={`rounded-xl px-5 py-3 text-sm font-bold shadow-sm transition ${
+                  osPrintEnabled
+                    ? "bg-emerald-600 text-white hover:bg-emerald-700"
+                    : "border border-stone-300 bg-white text-stone-800 hover:bg-stone-50"
+                }`}
+              >
+                {osPrintEnabled ? "Impresora del sistema: activada" : "Usar impresora del sistema"}
+              </button>
               {connected && (
                 <button
                   type="button"
@@ -404,6 +457,14 @@ export default function PrinterPage() {
               &quot;Conectado&quot; solo confirma que el puerto está abierto, no que la impresora entendió lo que se
               envió. Si &quot;Probar impresión&quot; no saca ningún ticket, es casi siempre la velocidad (bps) —
               probá otra arriba y tocá &quot;Reconectar por cable&quot; de nuevo.
+            </p>
+          )}
+
+          {osPrintEnabled && !printer && (
+            <p className="mt-3 text-[11px] text-stone-400">
+              Cada pedido nuevo va a abrir el diálogo de impresión del sistema — elegí la impresora ahí (o dejá la
+              que esté por defecto) y confirmá. No es automático como Bluetooth/cable, pero funciona con cualquier
+              impresora que Windows/macOS ya reconozca.
             </p>
           )}
 
