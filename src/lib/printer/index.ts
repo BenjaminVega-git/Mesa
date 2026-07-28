@@ -17,10 +17,13 @@ import {
   getKnownSerialPrinter,
   sendToSerialPrinter,
   disconnectSerialPrinter,
+  COMMON_BAUD_RATES,
+  getStoredBaudRate,
+  setStoredBaudRate,
   type SerialPrinter,
 } from "./serial"
 
-export { isWebBluetoothAvailable, isWebSerialAvailable }
+export { isWebBluetoothAvailable, isWebSerialAvailable, COMMON_BAUD_RATES, getStoredBaudRate, setStoredBaudRate }
 
 export type ConnectedPrinter =
   | { transport: "bluetooth"; printer: BluetoothPrinter }
@@ -31,8 +34,8 @@ export async function connectBluetoothPrinter(preferredName?: string | null): Pr
   return { transport: "bluetooth", printer }
 }
 
-export async function connectSerialPrinter(): Promise<ConnectedPrinter> {
-  const printer = await requestSerialPrinter()
+export async function connectSerialPrinter(baudRate?: number): Promise<ConnectedPrinter> {
+  const printer = await requestSerialPrinter(baudRate)
   return { transport: "serial", printer }
 }
 
@@ -63,7 +66,7 @@ export async function disconnectPrinter(connected: ConnectedPrinter): Promise<vo
 export function printerLabel(connected: ConnectedPrinter): string {
   return connected.transport === "bluetooth"
     ? connected.printer.device.name || "Impresora Bluetooth"
-    : connected.printer.label
+    : `${connected.printer.label} · ${connected.printer.baudRate} bps`
 }
 
 export function onPrinterDisconnected(connected: ConnectedPrinter, cb: () => void): void {

@@ -30,7 +30,36 @@ declare global {
   }
 }
 
-const BAUD_RATE = 9600
+export const DEFAULT_BAUD_RATE = 9600
+
+// Velocidades más comunes en impresoras térmicas ESC/POS por serie. Si al
+// conectar por cable no imprime nada (pero el puerto abre sin error — eso
+// solo confirma que el puerto EXISTE, no que la velocidad sea la correcta),
+// lo primero a probar es cambiar esta velocidad, no asumir que el cable/
+// puerto está mal.
+export const COMMON_BAUD_RATES = [9600, 19200, 38400, 57600, 115200] as const
+
+const BAUD_RATE_STORAGE_KEY = "mesa-printer-baud-rate"
+
+/** Última velocidad elegida por el admin — para que la reconexión silenciosa
+ *  desde CUALQUIER pantalla (boleta, admin/printer) use la misma. */
+export function getStoredBaudRate(): number {
+  try {
+    const raw = localStorage.getItem(BAUD_RATE_STORAGE_KEY)
+    const parsed = raw ? Number.parseInt(raw, 10) : NaN
+    return (COMMON_BAUD_RATES as readonly number[]).includes(parsed) ? parsed : DEFAULT_BAUD_RATE
+  } catch {
+    return DEFAULT_BAUD_RATE
+  }
+}
+
+export function setStoredBaudRate(baudRate: number): void {
+  try {
+    localStorage.setItem(BAUD_RATE_STORAGE_KEY, String(baudRate))
+  } catch {
+    // localStorage puede fallar en contextos restringidos; no es crítico
+  }
+}
 
 // Chips USB-a-serie más comunes en impresoras térmicas/adaptadores baratos —
 // para mostrar algo reconocible ("¿es este el que conecté?") en vez de un
@@ -61,35 +90,36 @@ export type SerialPrinter = {
   port: SerialPort
   writer: WritableStreamDefaultWriter<Uint8Array>
   label: string
+  baudRate: number
 }
 
 export function isWebSerialAvailable(): boolean {
   return typeof navigator !== "undefined" && Boolean(navigator.serial)
 }
 
-async function connectToPort(port: SerialPort): Promise<SerialPrinter> {
-  await port.open({ baudRate: BAUD_RATE })
+async function connectToPort(port: SerialPort, baudRate: number): Promise<SerialPrinter> {
+  await port.open({ baudRate })
   if (!port.writable) throw new Error("El puerto no permite escritura.")
   const writer = port.writable.getWriter()
-  return { port, writer, label: describeSerialPort(port) }
+  return { port, writer, label: describeSerialPort(port), baudRate }
 }
 
-export async function requestSerialPrinter(): Promise<SerialPrinter> {
+export async function requestSerialPrinter(baudRate: number = getStoredBaudRate()): Promise<SerialPrinter> {
   if (!isWebSerialAvailable()) {
     throw new Error("Tu navegador no soporta conexión por cable (Web Serial). Usá Chrome o Edge en escritorio o Android.")
   }
   const port = await navigator.serial!.requestPort()
-  return connectToPort(port)
+  return connectToPort(port, baudRate)
 }
 
 /** Reconexión silenciosa a un puerto ya autorizado antes, sin abrir el selector. */
-export async function getKnownSerialPrinter(): Promise<SerialPrinter | null> {
+export async function getKnownSerialPrinter(baudRate: number = getStoredBaudRate()): Promise<SerialPrinter | null> {
   if (!isWebSerialAvailable()) return null
   try {
     const ports = await navigator.serial!.getPorts()
     for (const port of ports) {
       try {
-        return await connectToPort(port)
+        return await connectToPort(port, baudRate)
       } catch {
         // probar el siguiente puerto ya autorizado
       }

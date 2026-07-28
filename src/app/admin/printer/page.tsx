@@ -12,6 +12,9 @@ import {
   sendTicket,
   printerLabel,
   onPrinterDisconnected,
+  COMMON_BAUD_RATES,
+  getStoredBaudRate,
+  setStoredBaudRate,
   type ConnectedPrinter,
 } from "@/lib/printer"
 import { logger } from "@/lib/logger"
@@ -41,6 +44,7 @@ export default function PrinterPage() {
   const [printer, setPrinter] = useState<ConnectedPrinter | null>(null)
   const [pairing, setPairing] = useState<"bluetooth" | "serial" | null>(null)
   const [pairError, setPairError] = useState<string | null>(null)
+  const [baudRate, setBaudRate] = useState<number>(() => getStoredBaudRate())
   const restaurantRef = useRef(restaurant)
   const printerRef = useRef<ConnectedPrinter | null>(null)
   const printedOrderIds = useRef<Set<number>>(new Set())
@@ -91,7 +95,14 @@ export default function PrinterPage() {
     try {
       const ticket = buildOrderTicket(buildSampleTicket())
       await sendTicket(currentPrinter, ticket)
-      appendEntry({ orderId: 9999, kind: "ok", message: "Ticket de prueba impreso" })
+      appendEntry({
+        orderId: 9999,
+        kind: "ok",
+        message:
+          currentPrinter.transport === "serial"
+            ? "Enviado al puerto. Si no salió nada, probá otra velocidad (bps) arriba y reconectá."
+            : "Ticket de prueba enviado",
+      })
     } catch (err) {
       logger.error("test print failed", { error: String(err) })
       appendEntry({
@@ -125,7 +136,7 @@ export default function PrinterPage() {
     setPairing("serial")
     setPairError(null)
     try {
-      const result = await connectSerialPrinter()
+      const result = await connectSerialPrinter(baudRate)
       setPrinter(result)
       onPrinterDisconnected(result, () => setPrinter(null))
     } catch (err) {
@@ -184,7 +195,11 @@ export default function PrinterPage() {
 
       const ticket = buildOrderTicket(ticketInput)
       await sendTicket(currentPrinter, ticket)
-      appendEntry({ orderId, kind: "ok", message: "Ticket impreso" })
+      appendEntry({
+        orderId,
+        kind: "ok",
+        message: currentPrinter.transport === "serial" ? "Enviado al puerto" : "Ticket impreso",
+      })
     } catch (err) {
       printedOrderIds.current.delete(orderId)
       logger.error("printer page error", { error: String(err) })
@@ -327,18 +342,37 @@ export default function PrinterPage() {
                 </button>
               )}
               {serialSupported && (
-                <button
-                  type="button"
-                  onClick={handlePairSerial}
-                  disabled={pairing !== null}
-                  className="rounded-xl bg-stone-800 px-5 py-3 text-sm font-bold text-white shadow transition hover:bg-stone-900 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {pairing === "serial"
-                    ? "Conectando..."
-                    : connected && printer?.transport === "serial"
-                    ? "Reconectar por cable"
-                    : "Conectar por cable"}
-                </button>
+                <>
+                  <select
+                    value={baudRate}
+                    onChange={(e) => {
+                      const rate = Number(e.target.value)
+                      setBaudRate(rate)
+                      setStoredBaudRate(rate)
+                    }}
+                    disabled={pairing !== null}
+                    title="Velocidad del puerto (baudios) — si conecta pero no imprime nada, probá otra"
+                    className="rounded-xl border border-stone-300 bg-white px-3 py-3 text-sm font-bold text-stone-700 outline-none focus:border-orange-300 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {COMMON_BAUD_RATES.map((rate) => (
+                      <option key={rate} value={rate}>
+                        {rate} bps
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={handlePairSerial}
+                    disabled={pairing !== null}
+                    className="rounded-xl bg-stone-800 px-5 py-3 text-sm font-bold text-white shadow transition hover:bg-stone-900 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {pairing === "serial"
+                      ? "Conectando..."
+                      : connected && printer?.transport === "serial"
+                      ? "Reconectar por cable"
+                      : "Conectar por cable"}
+                  </button>
+                </>
               )}
               {connected && (
                 <button
@@ -363,6 +397,14 @@ export default function PrinterPage() {
                 </span>
               )}
             </div>
+          )}
+
+          {connected && printer?.transport === "serial" && (
+            <p className="mt-3 text-[11px] text-stone-400">
+              &quot;Conectado&quot; solo confirma que el puerto está abierto, no que la impresora entendió lo que se
+              envió. Si &quot;Probar impresión&quot; no saca ningún ticket, es casi siempre la velocidad (bps) —
+              probá otra arriba y tocá &quot;Reconectar por cable&quot; de nuevo.
+            </p>
           )}
 
           {previewText && (
