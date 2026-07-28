@@ -2,8 +2,9 @@
 
 import { useState } from "react"
 import { Printer } from "lucide-react"
-import { getKnownPrinter, connectBluetoothPrinter, connectSerialPrinter, sendTicket, isWebBluetoothAvailable, isWebSerialAvailable } from "@/lib/printer"
-import { buildReceiptTicket } from "@/lib/printer/escpos"
+import { getKnownPrinter, connectBluetoothPrinter, sendTicket, isWebBluetoothAvailable } from "@/lib/printer"
+import { buildReceiptTicket, type ReceiptInput } from "@/lib/printer/escpos"
+import { printReceiptViaOsDriver } from "@/lib/printer/osPrint"
 import { FRIENDLY_LABEL } from "./DocumentView"
 import { logger } from "@/lib/logger"
 
@@ -65,20 +66,13 @@ function buildXml(d: Props["doc"], emisor: Props["emisor"]): string {
 export function DocumentActions({ doc, emisor, officialPdfHref }: Props) {
   const [printingThermal, setPrintingThermal] = useState(false)
   const [thermalError, setThermalError] = useState<string | null>(null)
-  const thermalSupported = isWebBluetoothAvailable() || isWebSerialAvailable()
 
   async function printThermal() {
     if (printingThermal) return
     setPrintingThermal(true)
     setThermalError(null)
     try {
-      // Reconecta en silencio a la impresora ya emparejada en /admin/printer
-      // (Bluetooth o cable); solo si no hay ninguna conocida abre el selector.
-      let printer = await getKnownPrinter()
-      if (!printer) {
-        printer = isWebBluetoothAvailable() ? await connectBluetoothPrinter() : await connectSerialPrinter()
-      }
-      const ticket = buildReceiptTicket({
+      const receiptInput: ReceiptInput = {
         restaurantName: emisor.razonSocial || "Restaurante",
         restaurantRut: emisor.rut,
         docLabel: FRIENDLY_LABEL[doc.docType] ?? "Comprobante de pago",
@@ -87,8 +81,21 @@ export function DocumentActions({ doc, emisor, officialPdfHref }: Props) {
         net: doc.net,
         iva: doc.iva,
         total: doc.total,
-      })
-      await sendTicket(printer, ticket)
+      }
+
+      if (isWebBluetoothAvailable()) {
+        try {
+          // Reconecta en silencio a la impresora ya emparejada en
+          // /admin/printer; solo si no hay ninguna conocida abre el selector.
+          const printer = (await getKnownPrinter()) ?? (await connectBluetoothPrinter())
+          await sendTicket(printer, buildReceiptTicket(receiptInput))
+          return
+        } catch (err) {
+          logger.error("bluetooth receipt print failed, usando impresora del sistema", { error: String(err) })
+        }
+      }
+
+      printReceiptViaOsDriver(receiptInput)
     } catch (err) {
       logger.error("thermal receipt print failed", { error: String(err) })
       setThermalError(err instanceof Error ? err.message : "No se pudo imprimir en la impresora térmica")
@@ -131,20 +138,18 @@ export function DocumentActions({ doc, emisor, officialPdfHref }: Props) {
 
   return (
     <div data-print-hide className="flex flex-wrap items-start gap-3 print:hidden">
-      {thermalSupported && (
-        <div className="flex flex-col gap-1">
-          <button
-            type="button"
-            onClick={printThermal}
-            disabled={printingThermal}
-            className="flex items-center gap-2 rounded-xl border border-stone-300 px-4 py-2.5 text-sm font-bold text-stone-700 transition hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <Printer className="h-4 w-4" aria-hidden="true" />
-            {printingThermal ? "Imprimiendo..." : "Imprimir en impresora térmica"}
-          </button>
-          {thermalError && <p className="max-w-xs text-xs font-medium text-red-600">{thermalError}</p>}
-        </div>
-      )}
+      <div className="flex flex-col gap-1">
+        <button
+          type="button"
+          onClick={printThermal}
+          disabled={printingThermal}
+          className="flex items-center gap-2 rounded-xl border border-stone-300 px-4 py-2.5 text-sm font-bold text-stone-700 transition hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <Printer className="h-4 w-4" aria-hidden="true" />
+          {printingThermal ? "Imprimiendo..." : "Imprimir en impresora térmica"}
+        </button>
+        {thermalError && <p className="max-w-xs text-xs font-medium text-red-600">{thermalError}</p>}
+      </div>
       {pdfHref ? (
         <a
           href={pdfHref}

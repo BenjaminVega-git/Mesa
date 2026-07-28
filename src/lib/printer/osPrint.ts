@@ -1,28 +1,31 @@
-import type { TicketInput } from "@/lib/printer/escpos"
+import type { TicketInput, ReceiptInput } from "@/lib/printer/escpos"
 
 /**
  * Impresión vía el controlador del sistema operativo, en vez de hablarle
- * directo a la impresora por Bluetooth/cable (Web Serial). Es la vía
- * universal: funciona con CUALQUIER impresora que Windows/macOS ya sepa
- * imprimir (instalada como impresora normal), sin depender de si el cable
- * expone un puerto serie o de qué chip USB-a-serie tenga.
+ * directo a la impresora por Bluetooth. Es la vía universal: funciona con
+ * CUALQUIER impresora que Windows/macOS ya sepa imprimir (instalada como
+ * impresora normal), delegando todo el ancho/calidad de página al driver
+ * en vez de asumir un tamaño fijo.
  *
  * Contra: window.print() siempre muestra el diálogo de impresión del
- * sistema — a diferencia de Bluetooth/cable, esta vía no es 100% silenciosa
+ * sistema — a diferencia de Bluetooth, esta vía no es 100% silenciosa
  * (hay que confirmar cada ticket).
  *
- * El ticket se construye como HTML (no como texto plano monoespaciado):
- * negritas fuertes + alto contraste + print-color-adjust:exact, porque en
- * varias impresoras/drivers el texto normal a 12px sale MUY tenue —
- * reportado por un usuario ("salió casi sin nada de color").
+ * Dos ajustes clave (reportados por usuarios reales):
+ * - "salió casi sin nada de color": el contenido es HTML con negritas
+ *   fuertes (700-800) + print-color-adjust:exact, no texto plano con peso
+ *   normal (que en varias impresoras/drivers sale muy tenue).
+ * - "no se ajusta a las dimensiones de la impresora": se resetean los
+ *   márgenes de página (@page { margin:0 }) y el ticket usa width:100%
+ *   en vez de un ancho fijo en mm — así ocupa todo el ancho que el driver
+ *   de esa impresora ya tenga configurado (58mm, 80mm, lo que sea) en vez
+ *   de asumir un tamaño y quedar cortado o con espacio de más.
  *
  * Reusa el mismo patrón que src/components/dte/DocumentActions.tsx (marca
  * data-printing en <body> + data-print-root en el elemento a imprimir; la
  * regla @media print ya existe en globals.css) en vez de un elemento
  * siempre montado en el árbol de React.
  */
-
-const TICKET_WIDTH_MM = 58
 
 function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] as string))
@@ -31,13 +34,14 @@ function escapeHtml(s: string): string {
 function ticketShell(bodyHtml: string): string {
   return `
     <div style="
-      width:${TICKET_WIDTH_MM}mm;
+      width:100%;
       background:#fff;
       color:#000;
       font-family:Arial,Helvetica,sans-serif;
       -webkit-print-color-adjust:exact;
       print-color-adjust:exact;
-      padding:2mm 1mm;
+      padding:0 1mm;
+      box-sizing:border-box;
     ">
       ${bodyHtml}
     </div>
@@ -45,6 +49,7 @@ function ticketShell(bodyHtml: string): string {
 }
 
 const HR = `<div style="border-top:2px solid #000; margin:2mm 0;"></div>`
+const HR_DASHED = `<div style="border-top:1.5px dashed #000; margin:2mm 0;"></div>`
 
 /** Comanda de cocina: refleja el pedido real (mesa, N°, ítems y cantidades). */
 export function buildTicketHtml(input: TicketInput): string {
@@ -73,19 +78,62 @@ export function buildTicketHtml(input: TicketInput): string {
   `)
 }
 
+/** Comprobante de pago: mismo contenido que la vía Bluetooth (buildReceiptTicket), en HTML nítido. */
+export function buildReceiptHtml(input: ReceiptInput): string {
+  const clp = (n: number | null) => (n != null ? `$${Math.round(n).toLocaleString("es-CL")}` : "—")
+  const fecha = (() => {
+    if (!input.emittedAt) return "—"
+    const d = new Date(input.emittedAt)
+    return Number.isNaN(d.getTime()) ? "—" : d.toLocaleDateString("es-CL", { day: "2-digit", month: "2-digit", year: "numeric" })
+  })()
+
+  const row = (label: string, value: string, bold = false) => `
+    <div style="display:flex; justify-content:space-between; font-weight:${bold ? 800 : 700}; font-size:${bold ? 14 : 13}px;">
+      <span>${label}</span><span>${value}</span>
+    </div>
+  `
+
+  return ticketShell(`
+    <div style="text-align:center; font-weight:800; font-size:17px; text-transform:uppercase;">
+      ${escapeHtml(input.restaurantName)}
+    </div>
+    ${input.restaurantRut ? `<div style="text-align:center; font-weight:700; font-size:12px;">RUT ${escapeHtml(input.restaurantRut)}</div>` : ""}
+    ${HR}
+    <div style="text-align:center; font-weight:800; font-size:14px;">${escapeHtml(input.docLabel)}</div>
+    ${input.folio != null ? `<div style="text-align:center; font-weight:700; font-size:13px;">N° ${input.folio}</div>` : ""}
+    <div style="text-align:center; font-weight:700; font-size:12px;">${fecha}</div>
+    ${HR_DASHED}
+    ${row("Neto", clp(input.net))}
+    ${row("IVA", clp(input.iva))}
+    ${row("TOTAL", clp(input.total), true)}
+    ${HR}
+    <div style="text-align:center; font-weight:700; font-size:12px;">Gracias por tu visita</div>
+    <div style="text-align:center; font-weight:700; font-size:11px;">tumesaqr.com</div>
+  `)
+}
+
 function printHtml(html: string): void {
   if (typeof window === "undefined") return
 
+  // Sin esto, el margen de página por defecto del navegador (~1-2cm por
+  // lado) se come casi todo el ancho de un rollo térmico de 58/80mm.
+  const pageStyle = document.createElement("style")
+  pageStyle.textContent = "@page { size: auto; margin: 0; }"
+
+  // La regla global body[data-printing] [data-print-root] en globals.css ya
+  // fuerza position:absolute + width:100% + margin/padding:0 en este nodo.
   const root = document.createElement("div")
   root.setAttribute("data-print-root", "")
-  root.style.cssText = "position:fixed;top:0;left:0;"
   root.innerHTML = html
+
+  document.head.appendChild(pageStyle)
   document.body.appendChild(root)
   document.body.setAttribute("data-printing", "")
 
   const cleanup = () => {
     document.body.removeAttribute("data-printing")
     root.remove()
+    pageStyle.remove()
     window.removeEventListener("afterprint", cleanup)
   }
   window.addEventListener("afterprint", cleanup)
@@ -96,4 +144,8 @@ function printHtml(html: string): void {
 
 export function printTicketViaOsDriver(input: TicketInput): void {
   printHtml(buildTicketHtml(input))
+}
+
+export function printReceiptViaOsDriver(input: ReceiptInput): void {
+  printHtml(buildReceiptHtml(input))
 }

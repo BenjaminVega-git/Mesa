@@ -6,15 +6,10 @@ import { useRestaurant } from "@/hooks/useRestaurant"
 import { buildOrderTicket, formatTicketAsText } from "@/lib/printer/escpos"
 import {
   isWebBluetoothAvailable,
-  isWebSerialAvailable,
   connectBluetoothPrinter,
-  connectSerialPrinter,
   sendTicket,
   printerLabel,
   onPrinterDisconnected,
-  COMMON_BAUD_RATES,
-  getStoredBaudRate,
-  setStoredBaudRate,
   type ConnectedPrinter,
 } from "@/lib/printer"
 import { printTicketViaOsDriver } from "@/lib/printer/osPrint"
@@ -45,9 +40,8 @@ export default function PrinterPage() {
   const channelId = useId()
   const [entries, setEntries] = useState<LogEntry[]>([])
   const [printer, setPrinter] = useState<ConnectedPrinter | null>(null)
-  const [pairing, setPairing] = useState<"bluetooth" | "serial" | null>(null)
+  const [pairing, setPairing] = useState(false)
   const [pairError, setPairError] = useState<string | null>(null)
-  const [baudRate, setBaudRate] = useState<number>(() => getStoredBaudRate())
   const [osPrintEnabled, setOsPrintEnabled] = useState<boolean>(() => {
     try {
       return localStorage.getItem(OS_PRINT_STORAGE_KEY) === "1"
@@ -72,16 +66,24 @@ export default function PrinterPage() {
     osPrintEnabledRef.current = osPrintEnabled
   }, [osPrintEnabled])
 
+  // Bluetooth y "impresora del sistema" son EXCLUYENTES: activar una
+  // desactiva la otra. Fue justamente convivir dos vías activas a la vez
+  // (cable + esta) lo que causó tickets impresos por duplicado.
+  function persistOsPrint(next: boolean) {
+    try {
+      localStorage.setItem(OS_PRINT_STORAGE_KEY, next ? "1" : "0")
+    } catch {
+      // no crítico
+    }
+  }
+
   function toggleOsPrint() {
     setOsPrintEnabled((prev) => {
       const next = !prev
-      try {
-        localStorage.setItem(OS_PRINT_STORAGE_KEY, next ? "1" : "0")
-      } catch {
-        // no crítico
-      }
+      persistOsPrint(next)
       return next
     })
+    if (!osPrintEnabled) setPrinter(null)
   }
 
   function appendEntry(partial: Omit<LogEntry, "id" | "at">) {
@@ -123,14 +125,7 @@ export default function PrinterPage() {
       if (currentPrinter) {
         const ticket = buildOrderTicket(buildSampleTicket())
         await sendTicket(currentPrinter, ticket)
-        appendEntry({
-          orderId: 9999,
-          kind: "ok",
-          message:
-            currentPrinter.transport === "serial"
-              ? "Enviado al puerto. Si no salió nada, probá otra velocidad (bps) arriba y reconectá."
-              : "Ticket de prueba enviado",
-        })
+        appendEntry({ orderId: 9999, kind: "ok", message: "Ticket de prueba enviado" })
       } else {
         printTicketViaOsDriver(buildSampleTicket())
         appendEntry({ orderId: 9999, kind: "ok", message: "Se abrió el diálogo de impresión del sistema" })
@@ -149,33 +144,22 @@ export default function PrinterPage() {
 
   async function handlePairBluetooth() {
     if (pairing) return
-    setPairing("bluetooth")
+    setPairing(true)
     setPairError(null)
     try {
       const result = await connectBluetoothPrinter(restaurantRef.current?.printer_bluetooth_name ?? null)
       setPrinter(result)
       onPrinterDisconnected(result, () => setPrinter(null))
+      // Excluyente con la vía del sistema — solo un método activo a la vez.
+      if (osPrintEnabled) {
+        setOsPrintEnabled(false)
+        persistOsPrint(false)
+      }
     } catch (err) {
       logger.error("printer pair failed", { error: String(err) })
       setPairError(err instanceof Error ? err.message : "No se pudo emparejar la impresora")
     } finally {
-      setPairing(null)
-    }
-  }
-
-  async function handlePairSerial() {
-    if (pairing) return
-    setPairing("serial")
-    setPairError(null)
-    try {
-      const result = await connectSerialPrinter(baudRate)
-      setPrinter(result)
-      onPrinterDisconnected(result, () => setPrinter(null))
-    } catch (err) {
-      logger.error("printer serial pair failed", { error: String(err) })
-      setPairError(err instanceof Error ? err.message : "No se pudo conectar la impresora por cable")
-    } finally {
-      setPairing(null)
+      setPairing(false)
     }
   }
 
@@ -228,11 +212,7 @@ export default function PrinterPage() {
       if (currentPrinter) {
         const ticket = buildOrderTicket(ticketInput)
         await sendTicket(currentPrinter, ticket)
-        appendEntry({
-          orderId,
-          kind: "ok",
-          message: currentPrinter.transport === "serial" ? "Enviado al puerto" : "Ticket impreso",
-        })
+        appendEntry({ orderId, kind: "ok", message: "Ticket impreso" })
       } else {
         printTicketViaOsDriver(ticketInput)
         appendEntry({ orderId, kind: "ok", message: "Diálogo de impresión del sistema abierto" })
@@ -304,8 +284,6 @@ export default function PrinterPage() {
 
   const printerEnabled = restaurant.output_mode === "printer"
   const btSupported = isWebBluetoothAvailable()
-  const serialSupported = isWebSerialAvailable()
-  const anyTransportSupported = btSupported || serialSupported
   const connected = Boolean(printer) || osPrintEnabled
   const ready = printerEnabled && connected
 
@@ -318,7 +296,7 @@ export default function PrinterPage() {
             {restaurant.restaurant_name}
           </h1>
           <p className="mt-1 text-sm text-stone-500">
-            Mantené esta pantalla abierta en el dispositivo del local con la impresora ya conectada, por Bluetooth o por cable.
+            Mantené esta pantalla abierta en el dispositivo del local con la impresora ya conectada.
           </p>
         </header>
 
@@ -341,8 +319,6 @@ export default function PrinterPage() {
                 ? "Listo para imprimir"
                 : !printerEnabled
                 ? "Elegí 'Impresora térmica' en /admin/settings"
-                : !anyTransportSupported && !osPrintEnabled
-                ? "Activá 'Usar impresora del sistema' abajo, o usá Chrome/Edge para Bluetooth/cable"
                 : "Falta conectar la impresora"}
             </p>
           </div>
@@ -372,48 +348,11 @@ export default function PrinterPage() {
                 <button
                   type="button"
                   onClick={handlePairBluetooth}
-                  disabled={pairing !== null}
+                  disabled={pairing}
                   className="rounded-xl bg-orange-500 px-5 py-3 text-sm font-bold text-white shadow transition hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {pairing === "bluetooth"
-                    ? "Emparejando..."
-                    : connected && printer?.transport === "bluetooth"
-                    ? "Reemparejar Bluetooth"
-                    : "Emparejar por Bluetooth"}
+                  {pairing ? "Emparejando..." : printer ? "Reemparejar Bluetooth" : "Emparejar por Bluetooth"}
                 </button>
-              )}
-              {serialSupported && (
-                <>
-                  <select
-                    value={baudRate}
-                    onChange={(e) => {
-                      const rate = Number(e.target.value)
-                      setBaudRate(rate)
-                      setStoredBaudRate(rate)
-                    }}
-                    disabled={pairing !== null}
-                    title="Velocidad del puerto (baudios) — si conecta pero no imprime nada, probá otra"
-                    className="rounded-xl border border-stone-300 bg-white px-3 py-3 text-sm font-bold text-stone-700 outline-none focus:border-orange-300 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {COMMON_BAUD_RATES.map((rate) => (
-                      <option key={rate} value={rate}>
-                        {rate} bps
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    type="button"
-                    onClick={handlePairSerial}
-                    disabled={pairing !== null}
-                    className="rounded-xl bg-stone-800 px-5 py-3 text-sm font-bold text-white shadow transition hover:bg-stone-900 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {pairing === "serial"
-                      ? "Conectando..."
-                      : connected && printer?.transport === "serial"
-                      ? "Reconectar por cable"
-                      : "Conectar por cable"}
-                  </button>
-                </>
               )}
               <button
                 type="button"
@@ -452,18 +391,10 @@ export default function PrinterPage() {
             </div>
           )}
 
-          {connected && printer?.transport === "serial" && (
-            <p className="mt-3 text-[11px] text-stone-400">
-              &quot;Conectado&quot; solo confirma que el puerto está abierto, no que la impresora entendió lo que se
-              envió. Si &quot;Probar impresión&quot; no saca ningún ticket, es casi siempre la velocidad (bps) —
-              probá otra arriba y tocá &quot;Reconectar por cable&quot; de nuevo.
-            </p>
-          )}
-
           {osPrintEnabled && !printer && (
             <p className="mt-3 text-[11px] text-stone-400">
               Cada pedido nuevo va a abrir el diálogo de impresión del sistema — elegí la impresora ahí (o dejá la
-              que esté por defecto) y confirmá. No es automático como Bluetooth/cable, pero funciona con cualquier
+              que esté por defecto) y confirmá. No es automático como Bluetooth, pero funciona con cualquier
               impresora que Windows/macOS ya reconozca.
             </p>
           )}

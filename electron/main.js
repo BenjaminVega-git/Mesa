@@ -115,40 +115,16 @@ function createWindow() {
   })
 }
 
-// ── Impresora térmica: Web Serial (cable) y Web Bluetooth ─────────────────
+// ── Impresora térmica: Web Bluetooth ───────────────────────────────────────
 // A diferencia de un navegador normal, Electron NO tiene un selector nativo
-// de dispositivos: sin estos handlers, navigator.serial.requestPort() y
-// navigator.bluetooth.requestDevice() no muestran nada dentro del .exe (el
-// picker de Chrome/Edge solo existe cuando hay "chrome" de navegador). Con
-// un solo dispositivo conectado (el caso típico de un POS) se elige solo;
+// de dispositivos: sin este handler, navigator.bluetooth.requestDevice() no
+// muestra nada dentro del .exe (el picker de Chrome/Edge solo existe cuando
+// hay "chrome" de navegador). Con un solo dispositivo cerca se elige solo;
 // con más de uno se pregunta por diálogo nativo.
+//
+// La vía por cable (Web Serial) se eliminó del producto — ver
+// src/lib/printer/index.ts — así que no hace falta 'select-serial-port'.
 function setupDeviceChoosers(ses) {
-  ses.on('select-serial-port', async (event, portList, webContents, callback) => {
-    event.preventDefault()
-    if (portList.length === 0) {
-      callback('')
-      return
-    }
-    if (portList.length === 1) {
-      callback(portList[0].portId)
-      return
-    }
-    const win = BrowserWindow.fromWebContents(webContents) || mainWindow
-    const labels = portList.map((p) => p.displayName || p.portName || p.portId)
-    try {
-      const { response } = await dialog.showMessageBox(win, {
-        type: 'question',
-        title: 'Elegir impresora',
-        message: 'Hay varios dispositivos conectados por cable. ¿Cuál es la impresora?',
-        buttons: [...labels, 'Cancelar'],
-        cancelId: labels.length,
-      })
-      callback(response < labels.length ? portList[response].portId : '')
-    } catch {
-      callback('')
-    }
-  })
-
   ses.on('select-bluetooth-device', async (event, deviceList, callback) => {
     event.preventDefault()
     if (deviceList.length === 0) {
@@ -175,14 +151,10 @@ function setupDeviceChoosers(ses) {
     }
   })
 
-  // Permite que getPorts()/getDevices() reconecten en silencio a un
-  // dispositivo ya elegido antes, sin repetir el selector cada vez.
-  ses.setDevicePermissionHandler((details) => details.deviceType === 'serial')
-
   // App de un solo origen fijo (tumesaqr.com, con CSP + navegación bloqueada
   // a otros dominios): no hay contenido no confiable al que restringirle
-  // permisos, así que se autoriza todo lo que pida (incluye 'serial' y
-  // 'bluetooth', que sin esto el picker de arriba ni se dispara).
+  // permisos, así que se autoriza todo lo que pida ('bluetooth' incluido —
+  // sin esto el picker de arriba ni se dispara).
   ses.setPermissionCheckHandler(() => true)
 }
 
