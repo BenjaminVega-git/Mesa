@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { Printer } from "lucide-react"
 import { getKnownPrinter, connectBluetoothPrinter, connectSerialPrinter, sendTicket, isWebBluetoothAvailable, isWebSerialAvailable } from "@/lib/printer"
 import { buildReceiptTicket } from "@/lib/printer/escpos"
 import { FRIENDLY_LABEL } from "./DocumentView"
@@ -136,9 +137,10 @@ export function DocumentActions({ doc, emisor, officialPdfHref }: Props) {
             type="button"
             onClick={printThermal}
             disabled={printingThermal}
-            className="rounded-xl border border-stone-300 px-4 py-2.5 text-sm font-bold text-stone-700 transition hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex items-center gap-2 rounded-xl border border-stone-300 px-4 py-2.5 text-sm font-bold text-stone-700 transition hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {printingThermal ? "Imprimiendo..." : "🖨️ Imprimir en impresora térmica"}
+            <Printer className="h-4 w-4" aria-hidden="true" />
+            {printingThermal ? "Imprimiendo..." : "Imprimir en impresora térmica"}
           </button>
           {thermalError && <p className="max-w-xs text-xs font-medium text-red-600">{thermalError}</p>}
         </div>

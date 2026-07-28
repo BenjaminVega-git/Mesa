@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { Sparkles } from "lucide-react"
 import { Modal } from "@/components/ui/Modal"
 import { ProductOptionsEditor } from "@/components/admin/ProductOptionsEditor"
 import { useCreateProduct } from "@/hooks/useCreateProduct"
@@ -144,8 +145,9 @@ export function CreateProductDialog({ open, onClose, onCreated }: Props) {
                 className="mt-0.5 h-4 w-4 shrink-0 rounded border-stone-300 text-violet-500 focus:ring-violet-300 disabled:opacity-50"
               />
               <span>
-                <span className="block text-xs font-semibold text-violet-700">
-                  ✨ Generar receta con IA
+                <span className="flex items-center gap-1 text-xs font-semibold text-violet-700">
+                  <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+                  Generar receta con IA
                 </span>
                 <span className="block text-[11px] text-stone-500">
                   Gemini propondrá los insumos del producto. Podrás revisarlos antes de guardar.

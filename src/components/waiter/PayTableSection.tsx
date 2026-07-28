@@ -1,6 +1,7 @@
 "use client"
 
 import { useMemo, useState } from "react"
+import { Wallet } from "lucide-react"
 import type { WaiterOrder } from "@/services/order-service"
 import { ChargeDialog, type ChargeTarget } from "@/components/charge/ChargeDialog"
 
@@ -228,9 +229,10 @@ export function PayTableSection({ orders, gatewayProvider, onSettled }: Props) {
                           type="button"
                           onClick={() => openDinerCharge(s, d)}
                           disabled={target != null}
-                          className="shrink-0 rounded-full bg-emerald-600 px-2.5 py-1 text-[10px] font-bold text-white shadow transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                          className="flex shrink-0 items-center gap-1 rounded-full bg-emerald-600 px-2.5 py-1 text-[10px] font-bold text-white shadow transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
                         >
-                          Cobrar 💸
+                          <Wallet className="h-3 w-3" aria-hidden="true" />
+                          Cobrar
                         </button>
                       </div>
                     ))}

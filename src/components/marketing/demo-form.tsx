@@ -61,8 +61,14 @@ export function DemoForm({ plan }: { plan?: string }) {
       </div>
       <div className="field"><label>¿Algo que debamos saber? (opcional)</label><textarea placeholder="Cuántas mesas tienes, qué buscas resolver…" value={mensaje} onChange={(e) => setMensaje(e.target.value)} /></div>
       <button className="btn btn-orange btn-block" type="button" onClick={submit} disabled={loading || sent} style={sent ? { background: "var(--orange-dk)" } : undefined}>
-        <span>{sent ? "Solicitud enviada ✓" : loading ? "Enviando…" : "Enviar solicitud"}</span>
-        <span className="ico"><svg viewBox="0 0 24 24" fill="none" stroke="var(--orange)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg></span>
+        <span>{sent ? "Solicitud enviada" : loading ? "Enviando…" : "Enviar solicitud"}</span>
+        <span className="ico">
+          {sent ? (
+            <svg viewBox="0 0 24 24" fill="none" stroke="var(--orange)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
+          ) : (
+            <svg viewBox="0 0 24 24" fill="none" stroke="var(--orange)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+          )}
+        </span>
       </button>
       {error ? <p className="form-note" style={{ color: "var(--orange-dk)" }}>{error}</p> : <p className="form-note">Al enviar aceptas que MESA te contacte para coordinar la demo. No compartimos tus datos.</p>}
       <div className={`form-ok${sent ? " show" : ""}`}>¡Gracias! Recibimos tu solicitud. Te contactaremos dentro de las próximas 24 horas hábiles.</div>

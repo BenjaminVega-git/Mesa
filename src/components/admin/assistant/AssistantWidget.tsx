@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useRef, useState } from "react"
+import { Volume2, VolumeX, Compass, FolderTree, TrendingUp, Package, Ticket, type LucideIcon } from "lucide-react"
 import { useVisibleModules } from "@/hooks/useVisibleModules"
 import { TypewriterMarkdown } from "@/components/admin/assistant/TypewriterMarkdown"
 import { ManuelAvatar } from "@/components/admin/assistant/ManuelAvatar"
@@ -26,11 +27,11 @@ type ChatMessage = { role: "user" | "assistant"; text: string; actions?: ActionC
 const STORAGE_KEY = "mesa-assistant-chat"
 const VOICE_KEY = "mesa-manuel-voice"
 
-const SUGGESTIONS: { emoji: string; text: string }[] = [
-  { emoji: "🗂️", text: "Crea las categorías típicas para mi tipo de restaurante" },
-  { emoji: "📈", text: "¿Qué me recomiendas para vender más?" },
-  { emoji: "📦", text: "Revisa mi inventario y dime qué tengo que reponer" },
-  { emoji: "🎟️", text: "Crea un cupón de 10% de descuento para los lunes" },
+const SUGGESTIONS: { icon: LucideIcon; text: string }[] = [
+  { icon: FolderTree, text: "Crea las categorías típicas para mi tipo de restaurante" },
+  { icon: TrendingUp, text: "¿Qué me recomiendas para vender más?" },
+  { icon: Package, text: "Revisa mi inventario y dime qué tengo que reponer" },
+  { icon: Ticket, text: "Crea un cupón de 10% de descuento para los lunes" },
 ]
 
 function loadStored(): ChatMessage[] {
@@ -313,9 +314,9 @@ export function AssistantWidget() {
                   onClick={toggleVoice}
                   aria-label={voiceOn ? "Silenciar a Manuel" : "Activar la voz de Manuel"}
                   title={voiceOn ? "Voz activada" : "Voz desactivada"}
-                  className={`${iconBtn} text-base ${voiceOn ? "" : "opacity-40 grayscale"}`}
+                  className={`${iconBtn} ${voiceOn ? "" : "opacity-40 grayscale"}`}
                 >
-                  {voiceOn ? "🔊" : "🔇"}
+                  {voiceOn ? <Volume2 className="h-[18px] w-[18px]" aria-hidden="true" /> : <VolumeX className="h-[18px] w-[18px]" aria-hidden="true" />}
                 </button>
               )}
               <button
@@ -323,9 +324,9 @@ export function AssistantWidget() {
                 onClick={launchTour}
                 title="Tour por la plataforma"
                 aria-label="Tour por la plataforma"
-                className={`${iconBtn} text-base`}
+                className={iconBtn}
               >
-                🧭
+                <Compass className="h-[18px] w-[18px]" aria-hidden="true" />
               </button>
               {messages.length > 0 && (
                 <button
@@ -376,8 +377,9 @@ export function AssistantWidget() {
                     onClick={launchTour}
                     className="manuel-gradient-bg group relative overflow-hidden rounded-2xl p-4 text-left shadow-lg shadow-orange-500/25 transition hover:shadow-orange-500/40"
                   >
-                    <p className="text-[14px] font-extrabold text-white">
-                      🧭 Conocer la plataforma
+                    <p className="flex items-center gap-1.5 text-[14px] font-extrabold text-white">
+                      <Compass className="h-4 w-4" aria-hidden="true" />
+                      Conocer la plataforma
                     </p>
                     <p className="mt-0.5 text-[12px] leading-4 text-orange-100">
                       Te llevo módulo por módulo en un tour guiado.
@@ -396,7 +398,7 @@ export function AssistantWidget() {
                         onClick={() => send(s.text)}
                         className="flex flex-col gap-2 rounded-2xl bg-[#F6F4F0] p-3.5 text-left transition hover:bg-orange-50 hover:shadow-md hover:shadow-orange-500/10"
                       >
-                        <span className="text-lg leading-none">{s.emoji}</span>
+                        <s.icon className="h-[18px] w-[18px] text-orange-600" aria-hidden="true" />
                         <span className="text-[12px] leading-4 font-medium text-stone-600">
                           {s.text}
                         </span>

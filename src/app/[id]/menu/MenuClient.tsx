@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
+import { Bell, Check, CreditCard, Receipt } from "lucide-react"
 import { FloatingCartButton } from "@/components/customer/FloatingCartButton"
 import { RecommendationsModal } from "@/components/customer/RecommendationsModal"
 import { TableOrdersHeader } from "@/components/customer/TableOrdersHeader"
@@ -523,11 +524,19 @@ export function MenuClient({ qrCode, menu }: MenuClientProps) {
                     : "border border-[#3f3f46] bg-[#18181b] text-[#fafafa] disabled:opacity-70"
                 }`}
               >
-                {waiterStatus === "requested"
-                  ? "Mesero en camino ✓"
-                  : waiterStatus === "sending"
-                    ? "Llamando..."
-                    : "🙋 Llamar al mesero"}
+                {waiterStatus === "requested" ? (
+                  <>
+                    <Check className="h-3.5 w-3.5" aria-hidden="true" />
+                    Mesero en camino
+                  </>
+                ) : waiterStatus === "sending" ? (
+                  "Llamando..."
+                ) : (
+                  <>
+                    <Bell className="h-3.5 w-3.5" aria-hidden="true" />
+                    Llamar al mesero
+                  </>
+                )}
               </button>
 
               <button
@@ -541,11 +550,19 @@ export function MenuClient({ qrCode, menu }: MenuClientProps) {
                     : "bg-[#fb923c] text-[#1a1a1a] disabled:opacity-70"
                 }`}
               >
-                {billStatus === "requested"
-                  ? "Cuenta pedida ✓"
-                  : billStatus === "sending"
-                    ? "Pidiendo..."
-                    : "🧾 Pedir la cuenta"}
+                {billStatus === "requested" ? (
+                  <>
+                    <Check className="h-3.5 w-3.5" aria-hidden="true" />
+                    Cuenta pedida
+                  </>
+                ) : billStatus === "sending" ? (
+                  "Pidiendo..."
+                ) : (
+                  <>
+                    <Receipt className="h-3.5 w-3.5" aria-hidden="true" />
+                    Pedir la cuenta
+                  </>
+                )}
               </button>
             </div>
           </div>
@@ -619,11 +636,16 @@ export function MenuClient({ qrCode, menu }: MenuClientProps) {
                     type="button"
                     onClick={handlePayOnline}
                     disabled={payStatus !== "idle"}
-                    className="w-full rounded-full bg-emerald-500 px-4 py-2.5 text-[12.5px] font-extrabold text-[#0a0a0a] transition active:scale-95 disabled:opacity-60"
+                    className="flex w-full items-center justify-center gap-1.5 rounded-full bg-emerald-500 px-4 py-2.5 text-[12.5px] font-extrabold text-[#0a0a0a] transition active:scale-95 disabled:opacity-60"
                   >
-                    {payStatus === "paying"
-                      ? "Conectando con la pasarela..."
-                      : `💳 Pagar en línea · ${formatPrice(tableTotal + suggestedTip)}`}
+                    {payStatus === "paying" ? (
+                      "Conectando con la pasarela..."
+                    ) : (
+                      <>
+                        <CreditCard className="h-3.5 w-3.5" aria-hidden="true" />
+                        Pagar en línea · {formatPrice(tableTotal + suggestedTip)}
+                      </>
+                    )}
                   </button>
                   <p className="mt-1.5 text-center text-[10.5px] text-[#71717a]">
                     Pago seguro procesado por {PAYMENT_PROVIDER_LABEL[payProvider] ?? payProvider}

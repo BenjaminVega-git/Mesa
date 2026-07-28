@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
+import { Trash2 } from "lucide-react"
 import { useRestaurantId } from "@/hooks/useRestaurantId"
 import { useAllCategories } from "@/hooks/useAllCategories"
 import { PromotionDialog } from "@/components/admin/PromotionDialog"
@@ -283,7 +284,7 @@ export default function PromocionesPage() {
                     aria-label="Eliminar"
                     className="rounded-lg border border-stone-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-50"
                   >
-                    🗑
+                    <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
                   </button>
                 </div>
               </article>

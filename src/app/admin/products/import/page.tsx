@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { useState } from "react"
+import { Sparkles } from "lucide-react"
 import {
   parseMenuImage,
   bulkImportMenu,
@@ -488,9 +489,10 @@ export default function ImportMenuPage() {
             <button
               type="button"
               onClick={() => setShowBulkRecipe(true)}
-              className="inline-flex rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-bold text-white shadow transition hover:bg-violet-700"
+              className="inline-flex items-center gap-2 rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-bold text-white shadow transition hover:bg-violet-700"
             >
-              ✨ Generar recetas para los productos importados
+              <Sparkles className="h-4 w-4" aria-hidden="true" />
+              Generar recetas para los productos importados
             </button>
             <Link
               href="/admin/products"

@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
+import { X } from "lucide-react"
 import {
   getPosData,
   createPosOrder,
@@ -337,9 +338,10 @@ export function TakeOrderPanel({
         <button
           type="button"
           onClick={onClose}
-          className="rounded-full border border-stone-200 bg-white px-4 py-1.5 text-xs font-bold text-stone-600 shadow-sm transition hover:bg-stone-100"
+          className="flex items-center gap-1.5 rounded-full border border-stone-200 bg-white px-4 py-1.5 text-xs font-bold text-stone-600 shadow-sm transition hover:bg-stone-100"
         >
-          Cerrar ✕
+          Cerrar
+          <X className="h-3.5 w-3.5" aria-hidden="true" />
         </button>
       </header>
 

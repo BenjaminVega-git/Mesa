@@ -1,6 +1,7 @@
 "use client"
 
 import { useRef } from "react"
+import { X } from "lucide-react"
 import { flyToCart } from "@/lib/customer/fly-to-cart"
 import { getTemplateDesign } from "@/lib/menu/templates"
 import type { RecommendedProduct } from "@/services/recommendation-service"
@@ -52,7 +53,7 @@ export function RecommendationsModal({
             className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ring-1 transition hover:opacity-80 ${design.pillInactive}`}
             aria-label="Cerrar recomendaciones"
           >
-            ✕
+            <X className="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
 

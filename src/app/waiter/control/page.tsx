@@ -2,6 +2,7 @@
 
 import React, { Suspense, useState, useEffect, useCallback, useMemo } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
+import { Plus, ChefHat, BellRing, Wallet } from "lucide-react"
 import { isAdminRole } from "@/lib/waiter-session"
 import { DeepLinkSetupNotice } from "@/components/DeepLinkSetupNotice"
 import { ScanQrButton } from "@/components/ScanQrButton"
@@ -342,7 +343,8 @@ function WaiterControlSystem() {
               onClick={() => setPosOpen(true)}
               className="inline-flex items-center gap-1.5 rounded-full bg-orange-500 px-4 py-1.5 text-xs font-bold text-white shadow-lg shadow-orange-500/25 transition hover:bg-orange-600 active:scale-95"
             >
-              ➕ Tomar pedido
+              <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+              Tomar pedido
             </button>
             <ScanQrButton onError={triggerToast} />
           </div>
@@ -770,11 +772,19 @@ function WaiterControlSystem() {
                     await handleAdvance(order)
                   }}
                   disabled={advancingId === selectedOrder.id}
-                  className="rounded-full bg-stone-950 px-5 py-2.5 text-xs font-bold text-white hover:bg-stone-800 transition cursor-pointer disabled:opacity-50"
+                  className="flex items-center gap-1.5 rounded-full bg-stone-950 px-5 py-2.5 text-xs font-bold text-white hover:bg-stone-800 transition cursor-pointer disabled:opacity-50"
                 >
-                  {selectedOrder.statusId === STATUS_NUEVO
-                    ? "Iniciar preparación 🍳"
-                    : "Marcar listo 🛎️"}
+                  {selectedOrder.statusId === STATUS_NUEVO ? (
+                    <>
+                      <ChefHat className="h-3.5 w-3.5" aria-hidden="true" />
+                      Iniciar preparación
+                    </>
+                  ) : (
+                    <>
+                      <BellRing className="h-3.5 w-3.5" aria-hidden="true" />
+                      Marcar listo
+                    </>
+                  )}
                 </button>
               )}
               {selectedOrder.statusId === STATUS_LISTO && (
@@ -785,9 +795,10 @@ function WaiterControlSystem() {
                     await handleMarkPaid(order)
                   }}
                   disabled={advancingId === selectedOrder.id}
-                  className="rounded-full bg-emerald-600 px-5 py-2.5 text-xs font-bold text-white hover:bg-emerald-700 transition cursor-pointer disabled:opacity-50"
+                  className="flex items-center gap-1.5 rounded-full bg-emerald-600 px-5 py-2.5 text-xs font-bold text-white hover:bg-emerald-700 transition cursor-pointer disabled:opacity-50"
                 >
-                  Marcar pagado 💸
+                  <Wallet className="h-3.5 w-3.5" aria-hidden="true" />
+                  Marcar pagado
                 </button>
               )}
             </div>
@@ -890,7 +901,14 @@ function OrderCard({
             disabled={advancing}
             className="flex items-center gap-1 rounded-full bg-emerald-600 px-3 py-1.5 text-[10px] font-semibold text-white shadow transition hover:bg-emerald-700 cursor-pointer disabled:opacity-50"
           >
-            <span>{advancing ? "..." : "Marcar pagado 💸"}</span>
+            {advancing ? (
+              <span>...</span>
+            ) : (
+              <>
+                <Wallet className="h-3 w-3" aria-hidden="true" />
+                <span>Marcar pagado</span>
+              </>
+            )}
           </button>
         ) : (
           <span className="text-[10px] font-semibold text-emerald-600 flex items-center gap-1">

@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { Sparkles } from "lucide-react"
 import { Modal } from "@/components/ui/Modal"
 import {
   listProductsWithoutRecipeAction,
@@ -217,9 +218,10 @@ export function BulkRecipeDialog({ open, onClose, onDone }: Props) {
                 <button
                   type="button"
                   onClick={handleGenerate}
-                  className="rounded-xl bg-violet-600 px-4 py-2 text-xs font-bold text-white shadow transition hover:bg-violet-700"
+                  className="flex items-center gap-1.5 rounded-xl bg-violet-600 px-4 py-2 text-xs font-bold text-white shadow transition hover:bg-violet-700"
                 >
-                  ✨ Generar {total} receta{total === 1 ? "" : "s"}
+                  <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+                  Generar {total} receta{total === 1 ? "" : "s"}
                 </button>
               </div>
             </>

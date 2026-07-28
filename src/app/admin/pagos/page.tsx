@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
+import { X } from "lucide-react"
 import {
   getTaxProfile,
   saveTaxProfile,
@@ -710,7 +711,7 @@ function TaxDocumentsSection() {
                   onClick={() => setPreview(null)}
                   className="rounded-lg px-2 py-1 text-sm font-bold text-stone-500 hover:bg-stone-100"
                 >
-                  ✕
+                  <X className="h-4 w-4" aria-hidden="true" />
                 </button>
               </div>
             </div>

@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { useEffect, useState } from "react"
+import { Sparkles } from "lucide-react"
 import { Pagination } from "@/components/ui/Pagination"
 import { useProductList } from "@/hooks/useProductList"
 import { CreateProductDialog } from "@/components/admin/CreateProductDialog"
@@ -131,7 +132,8 @@ export default function ProductsPage() {
             onClick={() => setShowBulkRecipe(true)}
             className="inline-flex items-center justify-center gap-2 rounded-xl border border-violet-200 bg-violet-50 px-4 py-2.5 text-sm font-bold text-violet-700 shadow-sm transition hover:-translate-y-0.5 hover:bg-violet-100"
           >
-            <span>✨ Generar recetas</span>
+            <Sparkles className="h-4 w-4" aria-hidden="true" />
+            Generar recetas
           </button>
           <button
             type="button"

@@ -142,8 +142,9 @@ export function TourOverlay({
               <span className="manuel-gradient-text text-[10px] font-extrabold tracking-[0.14em] uppercase">
                 Paso {idx + 1} de {steps.length} · Tour de Manuel
               </span>
-              <h3 className="mt-0.5 text-[16.5px] font-extrabold tracking-tight text-stone-900">
-                {step.emoji} {step.title}
+              <h3 className="mt-0.5 flex items-center gap-1.5 text-[16.5px] font-extrabold tracking-tight text-stone-900">
+                <step.icon className="h-4 w-4 shrink-0 text-orange-600" aria-hidden="true" />
+                {step.title}
               </h3>
               {/* min-h evita que la tarjeta "salte" mientras el texto se escribe */}
               <p className="mt-1 min-h-[60px] text-[13px] leading-5 text-stone-600">
@@ -183,7 +184,7 @@ export function TourOverlay({
                 onClick={() => (isLast ? onClose() : setIdx((i) => i + 1))}
                 className="manuel-gradient-bg rounded-full px-6 py-2.5 text-[12px] font-extrabold text-white shadow-lg shadow-orange-500/30 transition hover:shadow-orange-500/50"
               >
-                {isLast ? "🎉 Terminar" : "Siguiente →"}
+                {isLast ? "Terminar" : "Siguiente →"}
               </button>
             </div>
           </div>

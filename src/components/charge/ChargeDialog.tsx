@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useRef, useState } from "react"
+import { Banknote, CreditCard, QrCode, Receipt } from "lucide-react"
 import { QRCodeSVG } from "qrcode.react"
 import {
   createStaffGatewayCharge,
@@ -303,10 +304,13 @@ export function ChargeDialog({
                   disabled={busy}
                   className="flex items-center justify-between rounded-2xl border border-stone-200 bg-white px-4 py-3.5 text-left shadow-sm transition hover:border-emerald-300 hover:bg-emerald-50/50 disabled:opacity-50"
                 >
-                  <span>
-                    <span className="block text-sm font-bold text-stone-900">💵 Efectivo</span>
-                    <span className="block text-[11px] text-stone-500">
-                      Registra el cobro y emite la boleta
+                  <span className="flex items-center gap-3">
+                    <Banknote className="h-5 w-5 shrink-0 text-emerald-600" aria-hidden="true" />
+                    <span>
+                      <span className="block text-sm font-bold text-stone-900">Efectivo</span>
+                      <span className="block text-[11px] text-stone-500">
+                        Registra el cobro y emite la boleta
+                      </span>
                     </span>
                   </span>
                   {step.kind === "charging" && step.method === "cash" && (
@@ -320,10 +324,13 @@ export function ChargeDialog({
                   disabled={busy}
                   className="flex items-center justify-between rounded-2xl border border-stone-200 bg-white px-4 py-3.5 text-left shadow-sm transition hover:border-sky-300 hover:bg-sky-50/50 disabled:opacity-50"
                 >
-                  <span>
-                    <span className="block text-sm font-bold text-stone-900">💳 Tarjeta</span>
-                    <span className="block text-[11px] text-stone-500">
-                      Pagado en tu POS físico · registra y emite boleta
+                  <span className="flex items-center gap-3">
+                    <CreditCard className="h-5 w-5 shrink-0 text-sky-600" aria-hidden="true" />
+                    <span>
+                      <span className="block text-sm font-bold text-stone-900">Tarjeta</span>
+                      <span className="block text-[11px] text-stone-500">
+                        Pagado en tu POS físico · registra y emite boleta
+                      </span>
                     </span>
                   </span>
                   {step.kind === "charging" && step.method === "card" && (
@@ -338,12 +345,15 @@ export function ChargeDialog({
                     disabled={busy}
                     className="flex items-center justify-between rounded-2xl border border-orange-200 bg-orange-50/60 px-4 py-3.5 text-left shadow-sm transition hover:border-orange-300 hover:bg-orange-50 disabled:opacity-50"
                   >
-                    <span>
-                      <span className="block text-sm font-bold text-stone-900">
-                        📱 QR de pago ({providerLabel})
-                      </span>
-                      <span className="block text-[11px] text-stone-500">
-                        El comensal escanea y paga desde su teléfono
+                    <span className="flex items-center gap-3">
+                      <QrCode className="h-5 w-5 shrink-0 text-orange-600" aria-hidden="true" />
+                      <span>
+                        <span className="block text-sm font-bold text-stone-900">
+                          QR de pago ({providerLabel})
+                        </span>
+                        <span className="block text-[11px] text-stone-500">
+                          El comensal escanea y paga desde su teléfono
+                        </span>
                       </span>
                     </span>
                   </button>
@@ -448,8 +458,9 @@ export function ChargeDialog({
 
               {step.boleta ? (
                 <div className="w-full rounded-2xl border border-emerald-200 bg-emerald-50/70 px-4 py-3 text-center">
-                  <p className="text-xs font-bold text-emerald-800">
-                    🧾 Boleta emitida{step.boleta.folio != null ? ` · Folio N° ${step.boleta.folio}` : ""}
+                  <p className="flex items-center justify-center gap-1.5 text-xs font-bold text-emerald-800">
+                    <Receipt className="h-3.5 w-3.5" aria-hidden="true" />
+                    Boleta emitida{step.boleta.folio != null ? ` · Folio N° ${step.boleta.folio}` : ""}
                   </p>
                   <a
                     href={`/boleta/${step.paymentId}`}

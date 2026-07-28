@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
+import { Sparkles } from "lucide-react"
 import {
   getProductRecipeAction,
   listIngredientsAction,
@@ -262,9 +263,16 @@ export function ProductRecipeEditor({
           type="button"
           onClick={handleSuggest}
           disabled={busy}
-          className="shrink-0 rounded-xl border border-violet-200 bg-violet-50 px-3 py-2 text-xs font-bold text-violet-700 transition hover:bg-violet-100 disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex shrink-0 items-center gap-1.5 rounded-xl border border-violet-200 bg-violet-50 px-3 py-2 text-xs font-bold text-violet-700 transition hover:bg-violet-100 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {aiLoading ? "Generando..." : "✨ Sugerir con IA"}
+          {aiLoading ? (
+            "Generando..."
+          ) : (
+            <>
+              <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+              Sugerir con IA
+            </>
+          )}
         </button>
       </div>
 
@@ -278,7 +286,7 @@ export function ProductRecipeEditor({
         <div className="rounded-xl border border-dashed border-stone-300 bg-stone-50 px-5 py-6 text-center">
           <p className="text-sm font-semibold text-stone-700">Aún no tienes insumos</p>
           <p className="mx-auto mt-1 max-w-sm text-xs text-stone-500">
-            Usa <span className="font-bold text-violet-700">✨ Sugerir con IA</span> para generar la
+            Usa <span className="font-bold text-violet-700">Sugerir con IA</span> para generar la
             receta y crear los insumos automáticamente, o créalos a mano en Inventario.
           </p>
           <Link

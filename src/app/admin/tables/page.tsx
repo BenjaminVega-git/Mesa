@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { Printer } from "lucide-react"
 import { QRCodeSVG } from "qrcode.react"
 import { Pagination } from "@/components/ui/Pagination"
 import { useTableList } from "@/hooks/useTableList"
@@ -198,9 +199,10 @@ export default function TablesPage() {
                   <button
                     type="button"
                     onClick={() => handleTableQr(table.qr_codes.qr_code, table.table_number)}
-                    className="min-w-0 rounded-xl border border-stone-200 bg-stone-50 py-2.5 text-center text-xs font-bold text-stone-700 transition hover:bg-stone-100"
+                    className="flex min-w-0 items-center justify-center gap-1.5 rounded-xl border border-stone-200 bg-stone-50 py-2.5 text-center text-xs font-bold text-stone-700 transition hover:bg-stone-100"
                   >
-                    🖨️ Imprimir QR
+                    <Printer className="h-3.5 w-3.5" aria-hidden="true" />
+                    Imprimir QR
                   </button>
 
                   <button

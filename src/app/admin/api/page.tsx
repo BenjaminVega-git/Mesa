@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
+import { Check } from "lucide-react"
 
 import {
   createApiKey,
@@ -160,9 +161,16 @@ export default function ApiPage() {
               <button
                 type="button"
                 onClick={handleCopy}
-                className="inline-flex items-center justify-center rounded-lg bg-stone-900 px-3 py-2 text-xs font-bold text-white transition hover:bg-stone-800"
+                className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-stone-900 px-3 py-2 text-xs font-bold text-white transition hover:bg-stone-800"
               >
-                {copied ? "Copiado ✓" : "Copiar"}
+                {copied ? (
+                  <>
+                    <Check className="h-3.5 w-3.5" aria-hidden="true" />
+                    Copiado
+                  </>
+                ) : (
+                  "Copiar"
+                )}
               </button>
             </div>
           </div>

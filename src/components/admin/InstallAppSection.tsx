@@ -1,3 +1,4 @@
+import { Download } from "lucide-react"
 import { APP_DOWNLOADS } from "@/lib/app-version"
 
 /**
@@ -43,7 +44,8 @@ function DownloadsCard() {
                 href={APP_DOWNLOADS.windows.url}
                 className="mt-3 inline-flex items-center justify-center gap-2 rounded-xl bg-stone-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-stone-700"
               >
-                ⬇ Descargar instalador (.exe)
+                <Download className="h-4 w-4" aria-hidden="true" />
+                Descargar instalador (.exe)
               </a>
               <p className="mt-2 text-[11px] leading-4 text-stone-400">
                 Si Windows muestra un aviso de seguridad, elegí{" "}
@@ -67,7 +69,8 @@ function DownloadsCard() {
                 href={APP_DOWNLOADS.android.url}
                 className="mt-3 inline-flex items-center justify-center gap-2 rounded-xl bg-stone-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-stone-700"
               >
-                ⬇ Descargar app (.apk)
+                <Download className="h-4 w-4" aria-hidden="true" />
+                Descargar app (.apk)
               </a>
               <p className="mt-2 text-[11px] leading-4 text-stone-400">
                 En el teléfono: abrir el archivo y permitir{" "}

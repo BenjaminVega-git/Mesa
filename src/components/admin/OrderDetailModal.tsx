@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { X } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { logger } from "@/lib/logger"
 
@@ -186,7 +187,7 @@ export function OrderDetailModal({ orderId, onClose }: Props) {
               className="flex h-9 w-9 items-center justify-center rounded-full bg-stone-100 text-stone-600 transition hover:bg-stone-200"
               aria-label="Cerrar"
             >
-              ✕
+              <X className="h-4 w-4" aria-hidden="true" />
             </button>
           </div>
         </header>

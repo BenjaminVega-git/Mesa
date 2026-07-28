@@ -1,3 +1,29 @@
+import {
+  LayoutDashboard,
+  FolderTree,
+  UtensilsCrossed,
+  Tag,
+  Ticket,
+  Package,
+  Table2,
+  CalendarDays,
+  Receipt,
+  Users,
+  BarChart3,
+  Printer,
+  ChefHat,
+  Settings,
+  Star,
+  CreditCard,
+  Calculator,
+  Plug,
+  LifeBuoy,
+  Smartphone,
+  Building2,
+  Sparkles,
+  PartyPopper,
+  type LucideIcon,
+} from "lucide-react"
 import { ADMIN_MODULE_BY_ROUTE } from "@/lib/module-visibility"
 
 /**
@@ -18,13 +44,13 @@ export type TourStep = {
   moduleKey: string | null
   /** Ruta a la que navega el paso. null = no navega (p. ej. /screen o cierre). */
   route: string | null
-  emoji: string
+  icon: LucideIcon
   title: string
   text: string
 }
 
 type TourInfo = {
-  emoji: string
+  icon: LucideIcon
   title: string
   text: string
   /** false = el paso se explica sin navegar (rutas fuera de /admin matarían el tour). */
@@ -33,108 +59,108 @@ type TourInfo = {
 
 const TOUR_INFO: Record<string, TourInfo> = {
   dashboard: {
-    emoji: "🏠",
+    icon: LayoutDashboard,
     title: "Resumen",
     text: "Tu punto de partida cada día: ventas del día, pedidos recientes y avisos importantes (como stock crítico) de un vistazo.",
   },
   categories: {
-    emoji: "🗂️",
+    icon: FolderTree,
     title: "Categorías",
     text: "Aquí organizas tu carta en secciones (Hamburguesas, Bebidas, Postres…). El comensal navega el menú QR por estas categorías.",
   },
   products: {
-    emoji: "🍔",
+    icon: UtensilsCrossed,
     title: "Productos",
     text: "El corazón de tu carta: crea productos con precio, foto (puedes quitarle el fondo automáticamente), descripción y variantes. También puedes importar tu menú con IA.",
   },
   promociones: {
-    emoji: "🏷️",
+    icon: Tag,
     title: "Promociones",
     text: 'Dos tipos: combo fijo (productos definidos a precio especial) y "arma tu promo" (el comensal elige por categoría y paga con % de descuento).',
   },
   descuentos: {
-    emoji: "🎟️",
+    icon: Ticket,
     title: "Descuentos",
     text: "Cupones automáticos con reglas: día de la semana, horario, vigencia, monto mínimo. Se muestran solos al comensal cuando aplican — sin códigos que dictar.",
   },
   inventory: {
-    emoji: "📦",
+    icon: Package,
     title: "Inventario",
     text: "Insumos con stock y recetas por producto (la IA puede sugerirlas). Cada venta descuenta stock sola, y puedes elegir si el stock agota productos del menú o solo te alerta.",
   },
   tables: {
-    emoji: "🪑",
+    icon: Table2,
     title: "Mesas",
     text: "Tus mesas con su código QR: genéralos, descárgalos e imprímelos. El comensal escanea el QR de su mesa y pide sin esperar al mesero.",
   },
   reservations: {
-    emoji: "📅",
+    icon: CalendarDays,
     title: "Reservas",
     text: "Reserva mesas por horario. Mientras una mesa está reservada, el QR no acepta pedidos de otros comensales.",
   },
   orders: {
-    emoji: "🧾",
+    icon: Receipt,
     title: "Pedidos",
     text: "Todos los pedidos en vivo con su estado: Nuevo → Preparando → Listo → Pagado. La cocina tiene su propia pantalla (KDS) para trabajar los pedidos.",
   },
   waiters: {
-    emoji: "🧑‍🍳",
+    icon: Users,
     title: "Meseros",
     text: "Las cuentas de tu equipo: meseros y cocina. Cada uno recibe su acceso por correo y usa la app del mesero para atender mesas, cobrar y cerrar caja.",
   },
   reports: {
-    emoji: "📊",
+    icon: BarChart3,
     title: "Reportes",
     text: "Ventas por período, productos más vendidos, margen de ganancia por producto (según tus recetas) y horas peak. Los mismos datos que yo uso para recomendarte.",
   },
   printer: {
-    emoji: "🖨️",
+    icon: Printer,
     title: "Impresora",
     text: "La configuración de tu impresora de comandas: aquí defines cómo salen impresos los pedidos para cocina.",
   },
   screen: {
-    emoji: "🍳",
+    icon: ChefHat,
     title: "Pantalla de cocina",
     text: "El KDS de tu cocina: los pedidos entran en vivo y el equipo los avanza tocando. Vive en pantalla completa aparte (/screen), así que no te llevo ahora para no cortar el tour.",
     navigate: false,
   },
   settings: {
-    emoji: "⚙️",
+    icon: Settings,
     title: "Ajustes",
     text: "Nombre y logo del restaurante, plantilla del menú y si los pedidos entran directo a cocina, entre otros.",
   },
   plan: {
-    emoji: "⭐",
+    icon: Star,
     title: "Mi plan",
     text: "Tu plan contratado y sus límites (mesas, funciones). Para cambios de plan, habla con el equipo de MESA.",
   },
   pagos: {
-    emoji: "💳",
+    icon: CreditCard,
     title: "Pagos",
     text: "Los datos tributarios de tu negocio y las boletas/facturas emitidas. La conexión de tu pasarela de pago (Flow, Mercado Pago o Transbank) vive en Ajustes.",
   },
   caja: {
-    emoji: "🧮",
+    icon: Calculator,
     title: "Caja",
     text: "Abre y cierra el turno de caja, con el desglose de lo cobrado en efectivo, tarjeta y en línea, y el detalle de todos los pagos del día.",
   },
   api: {
-    emoji: "🔌",
+    icon: Plug,
     title: "API",
     text: "Para integrar MESA con otros sistemas: genera llaves de acceso y conecta tu inventario con software externo.",
   },
   soporte: {
-    emoji: "🛟",
+    icon: LifeBuoy,
     title: "Soporte",
     text: "¿Algo no anda o tienes una duda que ni yo pude resolver? Abre un ticket aquí: el equipo de MESA te responde por chat en vivo.",
   },
   instalar: {
-    emoji: "📲",
+    icon: Smartphone,
     title: "Instalar app",
     text: "Los instaladores de MESA: el panel para Windows y la app del mesero para Android. Se actualizan solos con cada mejora.",
   },
   sucursales: {
-    emoji: "🏢",
+    icon: Building2,
     title: "Sucursales",
     text: "Administra todos tus locales desde una sola cuenta: crea sucursales, copia tu carta entre locales y delega administradores por sucursal.",
   },
@@ -143,7 +169,7 @@ const TOUR_INFO: Record<string, TourInfo> = {
 const CLOSING_STEP: TourStep = {
   moduleKey: null,
   route: null,
-  emoji: "🎉",
+  icon: PartyPopper,
   title: "¡Eso es todo!",
   text: "Ya conoces el panel. Recuerda que tu equipo usa la app del mesero (/waiter) y la cocina su pantalla KDS. Y para lo que necesites — crear cosas, analizar ventas o resolver dudas — aquí estoy yo. ¡Pídeme lo que necesites!",
 }
@@ -188,7 +214,7 @@ export function buildTourSteps(ctx: TourContext): TourStep[] {
         return {
           moduleKey: key,
           route,
-          emoji: "✨",
+          icon: Sparkles,
           title: fallbackTitle(key),
           text: "Un módulo nuevo de tu panel. Entra y explóralo — y si tienes dudas, pregúntame por el chat.",
         }
@@ -196,7 +222,7 @@ export function buildTourSteps(ctx: TourContext): TourStep[] {
       return {
         moduleKey: key,
         route: info.navigate === false ? null : route,
-        emoji: info.emoji,
+        icon: info.icon,
         title: info.title,
         text: info.text,
       }

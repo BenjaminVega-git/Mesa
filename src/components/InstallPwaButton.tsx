@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { Smartphone } from "lucide-react"
 
 // Tipo del evento beforeinstallprompt (no está en el lib.dom estándar).
 type BeforeInstallPromptEvent = Event & {
@@ -45,7 +46,8 @@ export function InstallPwaButton() {
       }}
       className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-orange-200 bg-white px-3 py-2.5 text-xs font-semibold text-orange-700 transition hover:border-orange-300 hover:bg-orange-50"
     >
-      📲 Instalar app en mi teléfono
+      <Smartphone className="h-4 w-4" aria-hidden="true" />
+      Instalar app en mi teléfono
     </button>
   )
 }
