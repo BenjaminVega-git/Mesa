@@ -15,7 +15,7 @@ import { useWaiters } from "@/hooks/useWaiters"
 import { useServiceCalls } from "@/hooks/useServiceCalls"
 import { useRestaurantTables } from "@/hooks/useRestaurantTables"
 import { usePushRegistration } from "@/hooks/usePushRegistration"
-import { reassignTableAction } from "@/app/actions/order-actions"
+import { reassignTableAction, claimTableAction } from "@/app/actions/order-actions"
 import { supabase } from "@/lib/supabase"
 import type { WaiterOrder } from "@/services/order-service"
 
@@ -243,6 +243,28 @@ function WaiterControlSystem() {
     [attendServiceCall, staffId, triggerToast]
   )
 
+  const [claimingTableId, setClaimingTableId] = useState<number | null>(null)
+
+  const handleClaimTable = useCallback(
+    async (tableId: number, tableNumber: number | null) => {
+      setClaimingTableId(tableId)
+      const res = await claimTableAction(tableId)
+      setClaimingTableId(null)
+      if (!res.ok) {
+        triggerToast(res.error || "No se pudo tomar la mesa")
+        return
+      }
+      if (!res.data.claimed) {
+        triggerToast("Otro mesero la tomó justo antes")
+        refreshTables()
+        return
+      }
+      triggerToast(`Mesa ${tableNumber ?? tableId} asignada a ti ✓`)
+      refreshTables()
+    },
+    [triggerToast, refreshTables]
+  )
+
   const handleTransfer = useCallback(
     async (tableId: number, newWaiterId: number, waiterName: string) => {
       setTransferBusy(true)
@@ -450,20 +472,31 @@ function WaiterControlSystem() {
                 const isFocused = focusTableId === t.id
 
                 if (isAvailable) {
+                  const isClaiming = claimingTableId === t.id
                   return (
-                    <button
-                      key={t.id}
-                      onClick={() => handleTableClick(t.id, t.tableNumber)}
-                      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] font-bold transition-all duration-200 cursor-pointer hover:scale-105 active:scale-95 shadow-sm ${
-                        isFocused
-                          ? "border-emerald-500 bg-emerald-100/80 text-emerald-900 ring-2 ring-offset-2 ring-emerald-500/70"
-                          : "border-emerald-200/80 bg-emerald-50/70 hover:bg-emerald-50 text-emerald-800 hover:border-emerald-300"
-                      }`}
-                      title="Mesa disponible - Haz clic para filtrar"
-                    >
-                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shadow-[0_0_4px_#10b981]" />
-                      Mesa {t.tableNumber ?? `#${t.id}`}
-                    </button>
+                    <div key={t.id} className="inline-flex items-center gap-1">
+                      <button
+                        onClick={() => handleTableClick(t.id, t.tableNumber)}
+                        className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] font-bold transition-all duration-200 cursor-pointer hover:scale-105 active:scale-95 shadow-sm ${
+                          isFocused
+                            ? "border-emerald-500 bg-emerald-100/80 text-emerald-900 ring-2 ring-offset-2 ring-emerald-500/70"
+                            : "border-emerald-200/80 bg-emerald-50/70 hover:bg-emerald-50 text-emerald-800 hover:border-emerald-300"
+                        }`}
+                        title="Mesa disponible - Haz clic para filtrar"
+                      >
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shadow-[0_0_4px_#10b981]" />
+                        Mesa {t.tableNumber ?? `#${t.id}`}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleClaimTable(t.id, t.tableNumber)}
+                        disabled={isClaiming}
+                        className="rounded-full border border-emerald-200/80 bg-white px-2 py-1 text-[10px] font-bold text-emerald-700 shadow-sm transition hover:bg-emerald-50 hover:border-emerald-300 cursor-pointer active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+                        title="Tomar esta mesa sin escanear el QR"
+                      >
+                        {isClaiming ? "..." : "Tomar"}
+                      </button>
+                    </div>
                   )
                 } else if (isMine) {
                   const isTransferOpen = transferTableId === t.id
@@ -609,7 +642,7 @@ function WaiterControlSystem() {
                 No tienes mesas asignadas
               </p>
               <p className="mt-1 text-xs text-stone-500">
-                Escanea el QR de una mesa para empezar a atenderla.
+                Escanea el QR de una mesa o toca &quot;Tomar&quot; en una mesa disponible para empezar a atenderla.
               </p>
             </div>
           ) : ownOrders.length === 0 ? (

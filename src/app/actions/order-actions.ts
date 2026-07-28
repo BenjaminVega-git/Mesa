@@ -7,6 +7,7 @@ import {
   markOrderAsPaid as markOrderAsPaidService,
   markTableOrdersAsPaid as markTableOrdersAsPaidService,
   reassignTable as reassignTableService,
+  claimTable as claimTableService,
   type CreatedOrder,
   type WaiterOrder,
 } from "@/services/order-service"
@@ -61,4 +62,10 @@ export async function reassignTableAction(
   newWaiterId: number | null
 ): Promise<Result<{ tableId: number }>> {
   return reassignTableService(tableId, newWaiterId)
+}
+
+export async function claimTableAction(
+  tableId: number
+): Promise<Result<{ claimed: boolean }>> {
+  return claimTableService(tableId)
 }

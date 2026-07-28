@@ -1,4 +1,4 @@
-const CACHE_VERSION = "mesa-offline-v40"
+const CACHE_VERSION = "mesa-offline-v41"
 const PAGE_CACHE = `${CACHE_VERSION}-pages`
 const ASSET_CACHE = `${CACHE_VERSION}-assets`
 const IMAGE_CACHE = `${CACHE_VERSION}-images`
@@ -71,6 +71,28 @@ async function cacheFirst(request, cacheName) {
   return response
 }
 
+// Como las fotos de producto son cross-origin (Cloudinary → respuesta
+// opaca, sin status legible), cacheFirst puede quedar pegado a una imagen
+// vieja/rota para siempre dentro de una misma CACHE_VERSION. stale-while-
+// revalidate sirve la copia cacheada al instante (si existe) pero SIEMPRE
+// dispara un refetch en segundo plano que actualiza la caché — así una
+// imagen mala se autocorrige en la próxima carga sin esperar un deploy.
+async function staleWhileRevalidate(request, cacheName) {
+  const cache = await caches.open(cacheName)
+  const cached = await cache.match(request)
+
+  const refresh = fetch(request)
+    .then((response) => cacheResponse(cacheName, request, response))
+    .catch(() => undefined)
+
+  if (cached) {
+    refresh
+    return cached
+  }
+
+  return (await refresh) || Response.error()
+}
+
 self.addEventListener("fetch", (event) => {
   const { request } = event
 
@@ -90,7 +112,7 @@ self.addEventListener("fetch", (event) => {
   }
 
   if (request.destination === "image") {
-    event.respondWith(cacheFirst(request, IMAGE_CACHE))
+    event.respondWith(staleWhileRevalidate(request, IMAGE_CACHE))
     return
   }
 

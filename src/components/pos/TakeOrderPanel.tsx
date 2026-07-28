@@ -1,7 +1,15 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { getPosData, createPosOrder, type PosData, type PosOrderResult } from "@/services/pos-service"
+import {
+  getPosData,
+  createPosOrder,
+  getTableDiners,
+  createTableDiner,
+  type PosData,
+  type PosDiner,
+  type PosOrderResult,
+} from "@/services/pos-service"
 import { BuildPromoDialog } from "@/components/customer/BuildPromoDialog"
 import { calcIngredientExtra } from "@/lib/ingredient-customization"
 import type { MenuPromotion } from "@/types/menu"
@@ -75,6 +83,12 @@ export function TakeOrderPanel({
     added: Set<number>
   } | null>(null)
   const [buildPromo, setBuildPromo] = useState<MenuPromotion | null>(null)
+  // Comensal para el que es este pedido: null = "toda la mesa" (sin dividir).
+  // Al asignarlo, el pedido entra a la división automática por comensal de
+  // Cobrar → Dividir cuenta, igual que si el comensal pidiera por su QR.
+  const [diners, setDiners] = useState<PosDiner[]>([])
+  const [dinerSlot, setDinerSlot] = useState<number | null>(null)
+  const [creatingDiner, setCreatingDiner] = useState(false)
   const [cartOpen, setCartOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -95,6 +109,37 @@ export function TakeOrderPanel({
       cancelled = true
     }
   }, [])
+
+  // Al cambiar de mesa, traer sus comensales activos y limpiar la selección
+  // (el número de comensal es propio de cada mesa).
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset al cambiar de mesa
+    setDinerSlot(null)
+    if (tableId == null) {
+      setDiners([])
+      return
+    }
+    let cancelled = false
+    getTableDiners(tableId).then((res) => {
+      if (!cancelled && res.ok) setDiners(res.data)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [tableId])
+
+  async function handleNewDiner() {
+    if (tableId == null || creatingDiner) return
+    setCreatingDiner(true)
+    const res = await createTableDiner(tableId)
+    setCreatingDiner(false)
+    if (!res.ok) {
+      setError(res.error)
+      return
+    }
+    setDiners((prev) => [...prev, res.data])
+    setDinerSlot(res.data.slot)
+  }
 
   const products = useMemo(() => {
     if (!data) return []
@@ -249,7 +294,7 @@ export function TakeOrderPanel({
       productQuantity: l.quantity,
       notes: l.notes.trim() || null,
     }))
-    const res = await createPosOrder(tableId, items)
+    const res = await createPosOrder(tableId, items, dinerSlot)
     setSubmitting(false)
     if (!res.ok) {
       setError(res.error)
@@ -456,6 +501,50 @@ export function TakeOrderPanel({
               </button>
             </div>
 
+            {/* Para quién es el pedido: null = toda la mesa (sin dividir).
+                Al asignar un comensal, el pedido entra solo a la división
+                automática por comensal al cobrar. */}
+            <div className="border-b border-stone-100 px-4 py-2.5">
+              <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wider text-stone-500">
+                Para quién es
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setDinerSlot(null)}
+                  className={`rounded-full px-3 py-1 text-[11px] font-bold transition ${
+                    dinerSlot == null
+                      ? "bg-stone-950 text-white"
+                      : "bg-stone-100 text-stone-600 hover:bg-stone-200"
+                  }`}
+                >
+                  Toda la mesa
+                </button>
+                {diners.map((d) => (
+                  <button
+                    key={d.slot}
+                    type="button"
+                    onClick={() => setDinerSlot(d.slot)}
+                    className={`rounded-full px-3 py-1 text-[11px] font-bold transition ${
+                      dinerSlot === d.slot
+                        ? "bg-orange-500 text-white"
+                        : "bg-orange-50 text-orange-700 hover:bg-orange-100"
+                    }`}
+                  >
+                    {d.label}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={handleNewDiner}
+                  disabled={creatingDiner}
+                  className="rounded-full bg-stone-50 px-3 py-1 text-[11px] font-bold text-stone-500 ring-1 ring-stone-200 transition hover:bg-stone-100 disabled:opacity-50"
+                >
+                  {creatingDiner ? "…" : "+ Nuevo"}
+                </button>
+              </div>
+            </div>
+
             <div className="min-h-0 flex-1 space-y-2 overflow-y-auto px-4 py-3">
               {lines.length === 0 && (
                 <p className="rounded-2xl border border-dashed border-stone-200 bg-stone-50 px-3 py-6 text-center text-xs text-stone-500">
@@ -574,7 +663,8 @@ export function TakeOrderPanel({
             </div>
             <h3 className="mt-3 text-base font-extrabold text-stone-950">Pedido enviado</h3>
             <p className="mt-1 text-xs text-stone-500">
-              Pedido #{done.id} · Mesa {done.tableNumber ?? "—"} ·{" "}
+              Pedido #{done.id} · Mesa {done.tableNumber ?? "—"}
+              {done.dinerLabel ? ` · ${done.dinerLabel}` : ""} ·{" "}
               <strong className="tabular-nums">{fmt(done.total)}</strong>
             </p>
             <p className="mt-1 text-[11px] text-stone-400">

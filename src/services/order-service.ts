@@ -293,6 +293,22 @@ export async function reassignTable(
   return ok({ tableId })
 }
 
+/**
+ * El mesero reclama una mesa LIBRE desde la app, sin escanear su QR físico.
+ * Atómica (RPC waiter_claim_table: UPDATE ... WHERE current_waiter_id IS
+ * NULL) — si otro mesero la tomó una fracción de segundo antes, devuelve
+ * claimed=false en vez de pisarlo.
+ */
+export async function claimTable(tableId: number): Promise<Result<{ claimed: boolean }>> {
+  if (!tableId || tableId <= 0) return fail("Mesa inválida")
+
+  const supabase = await createSupabaseServerClient()
+  const { data, error } = await supabase.rpc("waiter_claim_table", { p_table_id: tableId })
+
+  if (error) return fail(error.message ?? "No se pudo tomar la mesa")
+  return ok({ claimed: Boolean(data) })
+}
+
 
 export type CreatedOrder = {
   id: number

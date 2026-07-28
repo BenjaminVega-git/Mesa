@@ -60,7 +60,36 @@ export async function getPosData(): Promise<Result<PosData>> {
   })
 }
 
-export type PosOrderResult = CreatedOrder & { tableNumber: number | null }
+export type PosDiner = { slot: number; label: string }
+
+/** Comensales ya reclamados en la mesa (por QR o por el mesero). */
+export async function getTableDiners(tableId: number): Promise<Result<PosDiner[]>> {
+  const auth = await requireCurrentStaff()
+  if (!auth.ok) return fail(auth.error)
+  const { supabase } = auth.data
+
+  const { data, error } = await supabase.rpc("staff_list_diners", { p_table_id: tableId })
+  if (error) return fail(error.message ?? "No se pudieron cargar los comensales")
+
+  const rows = (data ?? []) as Array<{ slot: number; label: string }>
+  return ok(rows.map((r) => ({ slot: r.slot, label: r.label })))
+}
+
+/** Crea un comensal NUEVO para la mesa (siguiente número libre). */
+export async function createTableDiner(tableId: number): Promise<Result<PosDiner>> {
+  const auth = await requireCurrentStaff()
+  if (!auth.ok) return fail(auth.error)
+  const { supabase } = auth.data
+
+  const { data, error } = await supabase.rpc("staff_new_diner_slot", { p_table_id: tableId })
+  if (error) return fail(error.message ?? "No se pudo crear el comensal")
+
+  const row = data as { slot: number; label: string } | null
+  if (!row) return fail("No se pudo crear el comensal")
+  return ok({ slot: row.slot, label: row.label })
+}
+
+export type PosOrderResult = CreatedOrder & { tableNumber: number | null; dinerLabel: string | null }
 
 type StaffOrderRpcResult = {
   id: number
@@ -71,6 +100,7 @@ type StaffOrderRpcResult = {
   restaurant_id: number
   total: number
   discount_amount: number
+  diner_label: string | null
 }
 
 /**
@@ -79,7 +109,8 @@ type StaffOrderRpcResult = {
  */
 export async function createPosOrder(
   tableId: number,
-  items: CreateOrderItemInput[]
+  items: CreateOrderItemInput[],
+  dinerSlot?: number | null
 ): Promise<Result<PosOrderResult>> {
   const auth = await requireCurrentStaff()
   if (!auth.ok) return fail(auth.error)
@@ -106,6 +137,7 @@ export async function createPosOrder(
   const { data, error } = await supabase.rpc("staff_create_order", {
     p_table_id: tableId,
     p_items: rpcItems,
+    p_diner_slot: dinerSlot ?? null,
   })
   if (error) return fail(error.message ?? "No se pudo crear el pedido")
 
@@ -146,5 +178,6 @@ export async function createPosOrder(
     restaurantId: result.restaurant_id,
     total: result.total,
     tableNumber: tableRow?.table_number ?? null,
+    dinerLabel: result.diner_label ?? null,
   })
 }
