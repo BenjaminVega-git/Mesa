@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react"
 import { supabase } from "@/lib/supabase"
 import { useRestaurant } from "@/hooks/useRestaurant"
-import { buildOrderTicket, formatTicketAsText } from "@/lib/printer/escpos"
+import { buildOrderTicket, formatTicketAsText, type TicketInput } from "@/lib/printer/escpos"
 import {
   isWebBluetoothAvailable,
   connectBluetoothPrinter,
@@ -141,7 +141,7 @@ export default function PrinterPage() {
     setPreviewText(formatTicketAsText(buildSampleTicket()))
   }
 
-  const printViaSystemDriver = useCallback(async (input: ReturnType<typeof buildSampleTicket>): Promise<"raw" | "dialog"> => {
+  const printViaSystemDriver = useCallback(async (input: TicketInput): Promise<"raw" | "dialog"> => {
     try {
       if (await printTicketViaRawDriver(input)) return "raw"
     } catch (err) {

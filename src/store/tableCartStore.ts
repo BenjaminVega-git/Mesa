@@ -1,6 +1,7 @@
 import { create } from "zustand"
 import { supabase } from "@/lib/supabase"
 import { logger } from "@/lib/logger"
+import { getOrCreateDinerToken } from "@/lib/diner-token"
 import { getGuestId } from "@/lib/guest-id"
 import type { CartItem, CartPromoSelection, CartIngredientChoice } from "@/types/cart-item"
 import type { TableCartStore } from "@/types/cart-store"
@@ -31,6 +32,8 @@ type CartRow = {
   unit_price: number
   notes: string | null
   added_by: string | null
+  diner_slot: number | null
+  diner_label: string | null
   products: ProductJoin | ProductJoin[]
   product_variants: VariantJoin | VariantJoin[]
   promotion: PromotionJoin | PromotionJoin[]
@@ -72,6 +75,8 @@ function mapRowToItem(row: CartRow): CartItem {
       image: promo?.image_url ?? undefined,
       notes: row.notes,
       addedBy: row.added_by,
+      dinerSlot: row.diner_slot,
+      dinerLabel: row.diner_label,
     }
   }
 
@@ -94,6 +99,8 @@ function mapRowToItem(row: CartRow): CartItem {
     image: image ?? undefined,
     notes: row.notes,
     addedBy: row.added_by,
+    dinerSlot: row.diner_slot,
+    dinerLabel: row.diner_label,
   }
 }
 
@@ -130,8 +137,9 @@ export const useTableCartStore = create<TableCartStore>()((set, get) => ({
   },
 
   addItem: async (input) => {
-    const { qrCode } = get()
+    const { qrCode, tableId } = get()
     if (!qrCode) return
+    const dinerToken = tableId ? getOrCreateDinerToken(tableId) : null
 
     const { error } = await supabase.rpc("cart_add_item_qr", {
       p_qr_token: qrCode,
@@ -140,6 +148,7 @@ export const useTableCartStore = create<TableCartStore>()((set, get) => ({
       p_quantity: input.quantity ?? 1,
       p_notes: input.notes ?? null,
       p_added_by: getGuestId(),
+      p_diner_token: dinerToken,
       p_ingredient_choices: input.ingredientChoices
         ? input.ingredientChoices.map((c) => ({ ingredient_id: c.ingredientId, action: c.action }))
         : null,
@@ -154,14 +163,16 @@ export const useTableCartStore = create<TableCartStore>()((set, get) => ({
   },
 
   addPromo: async (promotionId, quantity = 1, selections = null) => {
-    const { qrCode } = get()
+    const { qrCode, tableId } = get()
     if (!qrCode) return
+    const dinerToken = tableId ? getOrCreateDinerToken(tableId) : null
 
     const { error } = await supabase.rpc("cart_add_promo_qr", {
       p_qr_token: qrCode,
       p_promotion_id: promotionId,
       p_quantity: quantity,
       p_added_by: getGuestId(),
+      p_diner_token: dinerToken,
       // Solo las promos "build" llevan elecciones (snake_case para la RPC).
       p_selections: selections
         ? selections.map((s) => ({

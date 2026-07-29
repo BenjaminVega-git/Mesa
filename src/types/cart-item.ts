@@ -34,4 +34,6 @@ export type CartItem = {
   image?: string
   notes?: string | null
   addedBy?: string | null
+  dinerSlot?: number | null
+  dinerLabel?: string | null
 }

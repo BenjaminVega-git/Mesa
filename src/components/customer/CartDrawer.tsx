@@ -89,6 +89,11 @@ function CartView({
 
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-[14.5px] font-semibold">{item.name}</p>
+                  {item.dinerLabel && (
+                    <p className="text-[11px] font-semibold uppercase text-[#fb923c]">
+                      {item.dinerLabel}
+                    </p>
+                  )}
                   {item.selectionLabels && item.selectionLabels.length > 0 && (
                     <p className="line-clamp-2 text-[11px] leading-4 text-[#71717a]">
                       {item.selectionLabels.join(" · ")}

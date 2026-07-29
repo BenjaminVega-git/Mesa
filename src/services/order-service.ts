@@ -371,34 +371,12 @@ export async function createOrder(input: CreateOrderInput): Promise<Result<Creat
     return fail(validation.error.issues[0]?.message ?? "Datos inválidos")
   }
 
-  const { qrToken, items, dinerToken, couponCode } = validation.data
-
-  // Construir el array jsonb que espera la RPC (snake_case). Una línea es un
-  // producto (product_id) o una promoción (promotion_id). Las promos "build"
-  // llevan además las elecciones del comensal (selections).
-  const rpcItems = items.map((item) => ({
-    product_id: item.productId ?? null,
-    variant_id: item.variantId ?? null,
-    promotion_id: item.promotionId ?? null,
-    selections: item.selections
-      ? item.selections.map((s) => ({
-          group_id: s.groupId,
-          product_id: s.productId,
-          variant_id: s.variantId ?? null,
-        }))
-      : null,
-    ingredient_choices: item.ingredientChoices
-      ? item.ingredientChoices.map((c) => ({ ingredient_id: c.ingredientId, action: c.action }))
-      : null,
-    quantity: item.productQuantity,
-    notes: item.notes ?? null,
-  }))
+  const { qrToken, dinerToken, couponCode } = validation.data
 
   const supabase = await createSupabaseServerClient()
 
-  const { data, error } = await supabase.rpc("create_public_order_qr", {
+  const { data, error } = await supabase.rpc("create_public_orders_from_cart_qr", {
     p_qr_token: qrToken,
-    p_items: rpcItems,
     p_diner_token: dinerToken ?? null,
     p_coupon_code: couponCode ?? null,
   })
