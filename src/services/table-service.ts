@@ -21,6 +21,12 @@ export type TableForEdit = {
   qrCodeId: number
 }
 
+export type ResetTableResult = {
+  tableId: number
+  canceledIds: number[]
+  stockReversals: number
+}
+
 /**
  * Lee restaurant_id de una mesa. Helper interno para validar permisos
  * cuando la action recibe solo tableId (update/delete/read).
@@ -169,4 +175,42 @@ export async function deleteTable(input: DeleteTableInput): Promise<Result<{ id:
   }
 
   return ok({ id: tableId })
+}
+
+// ============ RESET (admin) ============
+
+export async function resetTable(
+  tableId: number,
+  reason?: string
+): Promise<Result<ResetTableResult>> {
+  if (!tableId || tableId <= 0) return fail("Mesa no encontrada")
+
+  const restaurantId = await getRestaurantIdForTable(tableId)
+  if (!restaurantId) return fail("Mesa no encontrada")
+
+  const guard = await requireAdminForRestaurant(restaurantId)
+  if (!guard.ok) return fail(guard.error)
+  const { supabase } = guard.data
+
+  const { data, error } = await supabase.rpc("admin_reset_table", {
+    p_table_id: tableId,
+    p_reason: reason?.trim() || null,
+  })
+
+  if (error) return fail(error.message ?? "No se pudo resetear la mesa")
+
+  const result = data as {
+    ok?: boolean
+    table_id?: number
+    canceled_ids?: number[]
+    stock_reversals?: number
+  } | null
+
+  if (!result?.ok || !result.table_id) return fail("No se pudo resetear la mesa")
+
+  return ok({
+    tableId: Number(result.table_id),
+    canceledIds: (result.canceled_ids ?? []).map(Number),
+    stockReversals: Number(result.stock_reversals ?? 0),
+  })
 }

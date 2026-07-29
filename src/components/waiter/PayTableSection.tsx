@@ -47,8 +47,6 @@ type TableSummary = {
 export function PayTableSection({ orders, gatewayProvider, onSettled }: Props) {
   const [confirmTable, setConfirmTable] = useState<TableSummary | null>(null)
   const [target, setTarget] = useState<ChargeTarget | null>(null)
-  const [splitTable, setSplitTable] = useState<TableSummary | null>(null)
-  const [splitPicked, setSplitPicked] = useState<Set<number>>(new Set())
 
   const summaries = useMemo<TableSummary[]>(() => {
     const map = new Map<number, TableSummary>()
@@ -126,39 +124,6 @@ export function PayTableSection({ orders, gatewayProvider, onSettled }: Props) {
       total: diner.total,
       ordersCount: diner.ordersCount,
     })
-  }
-
-  const splitOrders = useMemo(
-    () =>
-      splitTable
-        ? orders.filter((o) => o.tableId === splitTable.tableId && o.statusId !== 4)
-        : [],
-    [orders, splitTable]
-  )
-  const splitSelectedTotal = splitOrders
-    .filter((o) => splitPicked.has(o.id))
-    .reduce((s, o) => s + o.total, 0)
-
-  function toggleSplitPick(orderId: number) {
-    setSplitPicked((prev) => {
-      const next = new Set(prev)
-      if (next.has(orderId)) next.delete(orderId)
-      else next.add(orderId)
-      return next
-    })
-  }
-
-  function confirmSplit() {
-    if (!splitTable || splitPicked.size === 0) return
-    const ids = Array.from(splitPicked)
-    setTarget({
-      scope: { tableId: splitTable.tableId, orderIds: ids },
-      label: `${splitTable.tableLabel} · ${ids.length} pedido${ids.length === 1 ? "" : "s"} seleccionado${ids.length === 1 ? "" : "s"}`,
-      total: splitSelectedTotal,
-      ordersCount: ids.length,
-    })
-    setSplitTable(null)
-    setSplitPicked(new Set())
   }
 
   if (summaries.length === 0) return null
@@ -254,18 +219,11 @@ export function PayTableSection({ orders, gatewayProvider, onSettled }: Props) {
                     : `Cobrar ${s.tableLabel} con advertencia`}
                 </button>
 
-                {s.ordersCount >= 2 && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSplitTable(s)
-                      setSplitPicked(new Set())
-                    }}
-                    disabled={target != null}
-                    className="mt-1.5 w-full rounded-full border border-stone-200 px-4 py-2 text-[11px] font-bold text-stone-600 transition hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    Dividir cuenta
-                  </button>
+                {s.ordersCount >= 2 && !hasMultipleDiners && (
+                  <p className="mt-2 rounded-xl bg-stone-50 px-3 py-2 text-[11px] font-semibold leading-relaxed text-stone-500 ring-1 ring-stone-100">
+                    Para dividir la cuenta, toma los pedidos marcando el comensal en
+                    &quot;Tomar pedido&quot;. La division se cobra por comensal, no por pedido.
+                  </p>
                 )}
               </article>
             )
@@ -320,77 +278,6 @@ export function PayTableSection({ orders, gatewayProvider, onSettled }: Props) {
               >
                 Cobrar igual
               </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {splitTable && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-900/50 p-4 backdrop-blur-sm animate-fade-in">
-          <div className="w-full max-w-md overflow-hidden rounded-3xl border border-stone-200 bg-white shadow-2xl">
-            <div className="border-b border-stone-100 p-5">
-              <h3 className="text-base font-bold tracking-tight text-stone-950">
-                Dividir cuenta · {splitTable.tableLabel}
-              </h3>
-              <p className="mt-1 text-xs text-stone-500">
-                Marca los pedidos que forman este grupo de cobro (por ejemplo, lo que pidió cada
-                persona). El resto de la mesa queda pendiente para cobrarlo aparte.
-              </p>
-            </div>
-
-            <div className="max-h-[50vh] space-y-2 overflow-y-auto p-4">
-              {splitOrders.map((o) => {
-                const itemsLabel = o.items.map((it) => `${it.productQuantity}× ${it.productName}`).join(", ")
-                return (
-                  <label
-                    key={o.id}
-                    className="flex items-start gap-2.5 rounded-2xl border border-stone-200 px-3.5 py-2.5"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={splitPicked.has(o.id)}
-                      onChange={() => toggleSplitPick(o.id)}
-                      className="mt-0.5 h-4 w-4 accent-orange-500"
-                    />
-                    <span className="min-w-0 flex-1">
-                      <span className="flex items-center justify-between gap-2">
-                        <span className="text-xs font-bold text-stone-900">Pedido #{o.id}</span>
-                        <span className="text-xs font-extrabold tabular-nums text-stone-800">
-                          ${o.total.toLocaleString("es-CL")}
-                        </span>
-                      </span>
-                      {itemsLabel && (
-                        <span className="mt-0.5 block truncate text-[11px] text-stone-500">
-                          {itemsLabel}
-                        </span>
-                      )}
-                    </span>
-                  </label>
-                )
-              })}
-            </div>
-
-            <div className="flex items-center justify-between gap-2 border-t border-stone-100 bg-stone-50 p-4">
-              <span className="text-xs font-bold text-stone-600">
-                Seleccionado: ${splitSelectedTotal.toLocaleString("es-CL")}
-              </span>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setSplitTable(null)}
-                  className="rounded-full border border-stone-300 bg-white px-4 py-2 text-xs font-semibold text-stone-700 shadow-sm transition hover:bg-stone-100"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="button"
-                  onClick={confirmSplit}
-                  disabled={splitPicked.size === 0}
-                  className="rounded-full bg-orange-500 px-4 py-2 text-xs font-bold text-white shadow transition hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  Cobrar selección
-                </button>
-              </div>
             </div>
           </div>
         </div>
