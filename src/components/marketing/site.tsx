@@ -211,23 +211,32 @@ export function RecipeShot() {
   )
 }
 
+function ApiLine({ children }: { children: React.ReactNode }) {
+  return <div className="api-ln">{children}</div>
+}
+
+function ApiString({ t }: { t: string }) {
+  return <span className="s">{t}</span>
+}
+
+function ApiNumber({ t }: { t: string }) {
+  return <span className="n">{t}</span>
+}
+
 export function ApiShot() {
-  const Ln = ({ children }: { children: React.ReactNode }) => <div className="api-ln">{children}</div>
-  const S = ({ t }: { t: string }) => <span className="s">{t}</span>
-  const N = ({ t }: { t: string }) => <span className="n">{t}</span>
   return (
     <div className="shot"><Corners />
       <div className="api">
         <div className="api-top"><span className="api-dot o" /><span className="api-dot" /><span className="api-dot" /><b>GET /v1/inventory</b></div>
         <div className="api-body">
-          <Ln>{"{"}</Ln>
-          <Ln>&nbsp;&nbsp;<S t={'"product"'} />: <S t={'"Ceviche del día"'} />,</Ln>
-          <Ln>&nbsp;&nbsp;<S t={'"sku"'} />: <S t={'"CEV-01"'} />,</Ln>
-          <Ln>&nbsp;&nbsp;<S t={'"stock"'} />: <N t="38" />,</Ln>
-          <Ln>&nbsp;&nbsp;<S t={'"min"'} />: <N t="10" />,</Ln>
-          <Ln>&nbsp;&nbsp;<S t={'"status"'} />: <S t={'"ok"'} />,</Ln>
-          <Ln>&nbsp;&nbsp;<S t={'"updated"'} />: <S t={'"live"'} /></Ln>
-          <Ln>{"}"}</Ln>
+          <ApiLine>{"{"}</ApiLine>
+          <ApiLine>&nbsp;&nbsp;<ApiString t={'"product"'} />: <ApiString t={'"Ceviche del día"'} />,</ApiLine>
+          <ApiLine>&nbsp;&nbsp;<ApiString t={'"sku"'} />: <ApiString t={'"CEV-01"'} />,</ApiLine>
+          <ApiLine>&nbsp;&nbsp;<ApiString t={'"stock"'} />: <ApiNumber t="38" />,</ApiLine>
+          <ApiLine>&nbsp;&nbsp;<ApiString t={'"min"'} />: <ApiNumber t="10" />,</ApiLine>
+          <ApiLine>&nbsp;&nbsp;<ApiString t={'"status"'} />: <ApiString t={'"ok"'} />,</ApiLine>
+          <ApiLine>&nbsp;&nbsp;<ApiString t={'"updated"'} />: <ApiString t={'"live"'} /></ApiLine>
+          <ApiLine>{"}"}</ApiLine>
         </div>
       </div>
     </div>
@@ -240,7 +249,10 @@ export function Counter({ to, prefix = "", suffix = "", decimals = 0 }: { to: nu
   useEffect(() => {
     const el = ref.current
     if (!el) return
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) { setVal(to); return }
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      const id = window.setTimeout(() => setVal(to), 0)
+      return () => window.clearTimeout(id)
+    }
     let raf = 0
     const io = new IntersectionObserver((es) => es.forEach((e) => {
       if (!e.isIntersecting) return
@@ -290,7 +302,10 @@ export function Shell({ children }: { children: React.ReactNode }) {
     return () => clearInterval(id)
   }, [])
 
-  useEffect(() => { setMOpen(false) }, [pathname])
+  useEffect(() => {
+    const id = window.setTimeout(() => setMOpen(false), 0)
+    return () => window.clearTimeout(id)
+  }, [pathname])
 
   useEffect(() => {
     const els = document.querySelectorAll(".mesa-site .reveal:not(.in)")

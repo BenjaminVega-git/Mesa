@@ -62,14 +62,14 @@ async function main() {
   console.log("")
   if (allBlocked) {
     console.log("✓ Todas las tablas sensibles están protegidas frente a anon.")
-    process.exit(0)
+    process.exitCode = 0
   } else {
     console.error("✗ Una o más tablas son legibles por anon. Revisá las policies/grants.")
-    process.exit(1)
+    process.exitCode = 1
   }
 }
 
 main().catch((err) => {
   console.error("✗ Error ejecutando el smoke test:", err)
-  process.exit(1)
+  process.exitCode = 1
 })

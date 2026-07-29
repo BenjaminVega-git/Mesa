@@ -31,7 +31,10 @@ export function useCashShift() {
   }, [])
 
   useEffect(() => {
-    void reload()
+    const id = window.setTimeout(() => {
+      void reload()
+    }, 0)
+    return () => window.clearTimeout(id)
   }, [reload])
 
   useEffect(() => {

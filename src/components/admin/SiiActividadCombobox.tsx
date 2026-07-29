@@ -111,7 +111,10 @@ export function SiiActividadCombobox({
 
   // El input refleja el valor guardado salvo mientras se está buscando.
   useEffect(() => {
-    setQuery(value ?? "")
+    const id = window.setTimeout(() => {
+      setQuery(value ?? "")
+    }, 0)
+    return () => window.clearTimeout(id)
   }, [value])
 
   const results = useMemo(() => {

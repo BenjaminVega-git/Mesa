@@ -1,3 +1,4 @@
+import Link from "next/link"
 import { Btn } from "@/components/marketing/site"
 
 export const metadata = { title: "Precios | MESA — planes para cada tipo de restaurante", description: "Planes de MESA en pesos chilenos para restaurantes, cafeterías y bares. Sin contratos largos. Empieza con una demo gratis y elige el plan que te acomode." }
@@ -194,7 +195,7 @@ export default function Page() {
             <div className="halo" />
             <h2>Empieza hoy, sin compromiso.</h2>
             <p className="lead">Configuramos tu carta, generamos los QR de cada mesa y te dejamos recibiendo comandas el mismo día.</p>
-            <div className="row"><Btn label="Solicita una demo" href="/demo" /><a className="btn btn-ghost" href="/como-funciona">Ver cómo funciona →</a></div>
+            <div className="row"><Btn label="Solicita una demo" href="/demo" /><Link className="btn btn-ghost" href="/como-funciona">Ver cómo funciona →</Link></div>
           </div>
         </div>
       </section>

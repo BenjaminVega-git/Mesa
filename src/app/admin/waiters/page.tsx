@@ -1,6 +1,7 @@
 "use client"
 
 import { useMemo, useState } from "react"
+import Link from "next/link"
 
 import { reassignTableAction } from "@/app/actions/order-actions"
 import { useCreateWaiter } from "@/hooks/useCreateWaiter"
@@ -161,7 +162,7 @@ export default function WaitersPage() {
           </button>
 
           {waiterMgmtLocked && (
-            <a
+            <Link
               href="/admin/plan"
               className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-stone-500 transition hover:text-stone-700"
             >
@@ -169,7 +170,7 @@ export default function WaitersPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
               </svg>
               <span>La gestión completa de meseros está disponible en Plan 50+.</span>
-            </a>
+            </Link>
           )}
         </div>
       </div>
