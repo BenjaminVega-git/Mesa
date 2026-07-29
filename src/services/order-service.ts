@@ -361,6 +361,16 @@ type CreatePublicOrderRpcResult = {
   total: number
 }
 
+function shouldRetryWithLegacyOrderRpc(error: { message?: string; code?: string } | null): boolean {
+  const message = error?.message?.toLowerCase() ?? ""
+  return (
+    error?.code === "PGRST202" ||
+    message.includes("create_public_orders_from_cart_qr") ||
+    message.includes("schema cache") ||
+    message.includes("could not find the function")
+  )
+}
+
 export async function createOrder(input: CreateOrderInput): Promise<Result<CreatedOrder>> {
 
   // productos/variantes y recalcula el total.
@@ -371,15 +381,44 @@ export async function createOrder(input: CreateOrderInput): Promise<Result<Creat
     return fail(validation.error.issues[0]?.message ?? "Datos inválidos")
   }
 
-  const { qrToken, dinerToken, couponCode } = validation.data
+  const { qrToken, items, dinerToken, couponCode } = validation.data
+
+  const rpcItems = items.map((item) => ({
+    product_id: item.productId ?? null,
+    variant_id: item.variantId ?? null,
+    promotion_id: item.promotionId ?? null,
+    selections: item.selections
+      ? item.selections.map((s) => ({
+          group_id: s.groupId,
+          product_id: s.productId,
+          variant_id: s.variantId ?? null,
+        }))
+      : null,
+    ingredient_choices: item.ingredientChoices
+      ? item.ingredientChoices.map((c) => ({ ingredient_id: c.ingredientId, action: c.action }))
+      : null,
+    quantity: item.productQuantity,
+    notes: item.notes ?? null,
+  }))
 
   const supabase = await createSupabaseServerClient()
 
-  const { data, error } = await supabase.rpc("create_public_orders_from_cart_qr", {
+  let { data, error } = await supabase.rpc("create_public_orders_from_cart_qr", {
     p_qr_token: qrToken,
     p_diner_token: dinerToken ?? null,
     p_coupon_code: couponCode ?? null,
   })
+
+  if (error && shouldRetryWithLegacyOrderRpc(error)) {
+    const retry = await supabase.rpc("create_public_order_qr", {
+      p_qr_token: qrToken,
+      p_items: rpcItems,
+      p_diner_token: dinerToken ?? null,
+      p_coupon_code: couponCode ?? null,
+    })
+    data = retry.data
+    error = retry.error
+  }
 
 if (error) {
     if (error.message?.includes("rate_limit_exceeded")) {
