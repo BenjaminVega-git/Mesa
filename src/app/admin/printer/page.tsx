@@ -18,12 +18,11 @@ import {
   listElectronPrinters,
   getStoredElectronPrinter,
   setStoredElectronPrinter,
+  OS_PRINT_STORAGE_KEY,
 } from "@/lib/printer/osPrint"
 import { logger } from "@/lib/logger"
 
 type ElectronPrinterInfo = { name: string; displayName: string; isDefault: boolean }
-
-const OS_PRINT_STORAGE_KEY = "mesa-printer-os-fallback"
 
 type FetchedOrder = {
   id: number
@@ -84,10 +83,10 @@ export default function PrinterPage() {
     osPrintEnabledRef.current = osPrintEnabled
   }, [osPrintEnabled])
 
-  // Solo existe dentro de la app de escritorio (window.electronAPI). Ahí, y
-  // solo ahí, se puede elegir una impresora del sistema para imprimir en
-  // SILENCIO — en cualquier navegador normal window.print() siempre pide
-  // confirmar, sin excepción (restricción del navegador, no de MESA).
+  // Solo existe dentro de la app de escritorio (window.electronAPI). Listamos
+  // impresoras del sistema para mostrar nombres útiles, pero la vía cableada
+  // imprime con diálogo porque algunos drivers térmicos imprimen blanco con
+  // `webContents.print({ silent:true, deviceName })`.
   useEffect(() => {
     if (!isElectronPrintAvailable()) return
     listElectronPrinters().then(setElectronPrinters)
@@ -375,7 +374,7 @@ export default function PrinterPage() {
                   ? printerLabel(printer)
                   : osPrintEnabled
                   ? isElectron && electronDevice
-                    ? `${electronDevice} (automática, sin diálogo)`
+                    ? `${electronDevice} (diálogo del sistema)`
                     : "Impresora del sistema (diálogo por ticket)"
                   : restaurant.printer_bluetooth_name ?? "—"}
               </dd>
@@ -397,7 +396,7 @@ export default function PrinterPage() {
               <button
                 type="button"
                 onClick={toggleOsPrint}
-                title="Imprime con la impresora que ya tengas configurada en Windows/macOS. En el navegador pide confirmar cada ticket; en la app de escritorio, elegí abajo una impresora para que sea automática."
+                title="Imprime con la impresora que ya tengas configurada en Windows/macOS. Para impresoras cableadas se usa el diálogo del sistema, que es la ruta más confiable con drivers térmicos."
                 className={`rounded-xl px-5 py-3 text-sm font-bold shadow-sm transition ${
                   osPrintEnabled
                     ? "bg-emerald-600 text-white hover:bg-emerald-700"
@@ -415,7 +414,7 @@ export default function PrinterPage() {
                   }}
                   className="rounded-xl border border-stone-300 bg-white px-3 py-3 text-sm font-bold text-stone-700 outline-none focus:border-orange-300"
                 >
-                  <option value="">Elegí una impresora (queda con diálogo)</option>
+                  <option value="">Elegí en el diálogo al imprimir</option>
                   {electronPrinters.map((p) => (
                     <option key={p.name} value={p.name}>
                       {p.displayName || p.name}
@@ -452,10 +451,10 @@ export default function PrinterPage() {
           {osPrintEnabled && !printer && (
             <p className="mt-3 text-[11px] text-stone-400">
               {isElectron && electronDevice
-                ? `Cada pedido nuevo se va a imprimir SOLO en "${electronDevice}", sin ningún diálogo — igual de automático que Bluetooth.`
+                ? `Cada pedido nuevo abrirá el diálogo del sistema; dejá seleccionada "${electronDevice}" o la impresora correcta en Windows/macOS.`
                 : isElectron
-                ? "Elegí una impresora arriba para que sea automática, sin diálogo. Si no elegís ninguna, va a pedir confirmar cada ticket."
-                : "Cada pedido nuevo va a abrir el diálogo de impresión del sistema — elegí la impresora ahí (o dejá la que esté por defecto) y confirmá. Esto solo es 100% automático (sin diálogo) desde la app de escritorio de Windows."}
+                ? "Cada pedido nuevo va a abrir el diálogo de impresión del sistema. Es la ruta más estable para cable/USB."
+                : "Cada pedido nuevo va a abrir el diálogo de impresión del sistema — elegí la impresora ahí (o dejá la que esté por defecto) y confirmá."}
             </p>
           )}
 

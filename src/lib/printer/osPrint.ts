@@ -7,13 +7,11 @@ import type { TicketInput, ReceiptInput } from "@/lib/printer/escpos"
  * impresora normal), delegando todo el ancho/calidad de página al driver
  * en vez de asumir un tamaño fijo.
  *
- * Desde un navegador normal, window.print() SIEMPRE muestra el diálogo del
- * sistema — es una restricción de seguridad que ninguna página web puede
- * evitar. Dentro de la app de escritorio (Electron) SÍ es posible imprimir
- * en silencio: electron/preload.js expone window.electronAPI.printSilently,
- * que llama a webContents.print({silent:true}) desde el proceso principal.
- * Si hay una impresora de Electron configurada (ver getStoredElectronPrinter),
- * se usa esa vía silenciosa; si no, cae al diálogo de siempre.
+ * Esta ruta usa SIEMPRE el diálogo del sistema. Con algunos drivers cableados
+ * de impresoras térmicas, Electron `webContents.print({ silent:true,
+ * deviceName })` acepta el trabajo pero el driver imprime blanco. En cambio,
+ * el diálogo nativo rasteriza bien el mismo HTML; por eso privilegiamos la
+ * salida correcta por sobre la impresión silenciosa.
  *
  * Dos ajustes clave (reportados por usuarios reales):
  * - "salió casi sin nada de color": el contenido es HTML con negritas
@@ -116,6 +114,7 @@ export function buildReceiptHtml(input: ReceiptInput): string {
   `)
 }
 
+export const OS_PRINT_STORAGE_KEY = "mesa-printer-os-fallback"
 const ELECTRON_PRINTER_STORAGE_KEY = "mesa-printer-electron-device"
 
 /** true solo dentro de la app de escritorio (nunca en un navegador normal). */
@@ -174,15 +173,6 @@ async function waitForPrintContentReady(root: HTMLElement): Promise<void> {
 async function printHtml(html: string): Promise<void> {
   if (typeof window === "undefined") return
 
-  const electronDevice = getStoredElectronPrinter()
-  if (isElectronPrintAvailable() && electronDevice && window.electronAPI?.printHtmlSilently) {
-    const result = await window.electronAPI.printHtmlSilently(electronDevice, html)
-    if (!result.success) {
-      throw new Error(result.errorType || "La app de escritorio no pudo imprimir")
-    }
-    return
-  }
-
   // La regla global body[data-printing] [data-print-root] en globals.css ya
   // fuerza position:absolute + width:100% + margin/padding:0 en este nodo.
   const root = document.createElement("div")
@@ -196,20 +186,7 @@ async function printHtml(html: string): Promise<void> {
     root.remove()
   }
 
-  if (isElectronPrintAvailable() && electronDevice) {
-    try {
-      await waitForPrintContentReady(root)
-      const result = await window.electronAPI!.printSilently(electronDevice)
-      if (!result.success) {
-        throw new Error(result.errorType || "La app de escritorio no pudo imprimir")
-      }
-    } finally {
-      cleanup()
-    }
-    return
-  }
-
-  // Navegador normal (o Electron sin impresora elegida todavía): diálogo del
+  // Navegador normal y Electron con impresora por cable: diálogo del
   // sistema. Sin esto, el margen de página por defecto (~1-2cm por lado) se
   // come casi todo el ancho de un rollo térmico de 58/80mm.
   const pageStyle = document.createElement("style")
