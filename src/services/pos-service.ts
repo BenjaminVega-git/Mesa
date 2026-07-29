@@ -16,6 +16,7 @@ import type { CreatedOrder } from "@/services/order-service"
 import type { CreateOrderItemInput } from "@/lib/validation/order"
 import { ok, fail, type Result } from "@/services/result"
 import type { MenuData } from "@/types/menu"
+import { logger } from "@/lib/logger"
 
 export type PosTable = {
   id: number
@@ -43,14 +44,25 @@ export async function getPosData(): Promise<Result<PosData>> {
   const { supabase } = auth.data
 
   const { error: receptionError } = await supabase.rpc("ensure_reception_table")
-  if (receptionError) return fail("No se pudo preparar la opción Recepción")
+  if (receptionError) {
+    logger.warn("No se pudo preparar la opcion Recepcion", {
+      message: receptionError.message,
+      code: receptionError.code,
+      details: receptionError.details,
+    })
+  }
 
   const { data, error } = await supabase.rpc("staff_get_menu")
-  if (error || !data) return fail("No se pudo cargar la carta")
+  if (error || !data) return fail(error?.message ?? "No se pudo cargar la carta")
 
   const result = data as StaffMenuRpcResult
+  const tables = result.tables ?? []
+  const tablesWithReception = tables.some((t) => t.table_number === 0)
+    ? tables
+    : [{ id: 0, table_number: 0, claimed: false }, ...tables]
+
   return ok({
-    tables: result.tables.map((t) => ({
+    tables: tablesWithReception.map((t) => ({
       id: t.id,
       tableNumber: t.table_number,
       claimed: t.claimed,
@@ -118,6 +130,15 @@ export async function createPosOrder(
   const auth = await requireCurrentStaff()
   if (!auth.ok) return fail(auth.error)
   const { supabase, roleId, userId } = auth.data
+  let resolvedTableId = tableId
+
+  if (tableId === 0) {
+    const { data: receptionTableId, error: receptionError } = await supabase.rpc("ensure_reception_table")
+    if (receptionError || !receptionTableId) {
+      return fail(receptionError?.message ?? "No se pudo preparar la opcion Recepcion")
+    }
+    resolvedTableId = Number(receptionTableId)
+  }
 
   const rpcItems = items.map((item) => ({
     product_id: item.productId ?? null,
@@ -138,7 +159,7 @@ export async function createPosOrder(
   }))
 
   const { data, error } = await supabase.rpc("staff_create_order", {
-    p_table_id: tableId,
+    p_table_id: resolvedTableId,
     p_items: rpcItems,
     p_diner_slot: dinerSlot ?? null,
   })
@@ -148,11 +169,11 @@ export async function createPosOrder(
   if (!result?.id) return fail("No se pudo crear el pedido")
 
   // Mesero en mesa libre → reclamarla (best-effort; el pedido ya existe).
-  if (roleId === 1) {
+  if (roleId === 1 && tableId !== 0) {
     const { data: table } = await supabase
       .from("tables")
       .select("current_waiter_id, table_number")
-      .eq("id", tableId)
+      .eq("id", resolvedTableId)
       .maybeSingle()
     if (table && table.current_waiter_id == null) {
       const { data: me } = await supabase
@@ -161,7 +182,7 @@ export async function createPosOrder(
         .eq("auth_user_id", userId)
         .maybeSingle()
       if (me?.id) {
-        await supabase.rpc("reassign_table", { p_table_id: tableId, p_new_waiter_id: me.id })
+        await supabase.rpc("reassign_table", { p_table_id: resolvedTableId, p_new_waiter_id: me.id })
       }
     }
   }
@@ -169,7 +190,7 @@ export async function createPosOrder(
   const { data: tableRow } = await supabase
     .from("tables")
     .select("table_number")
-    .eq("id", tableId)
+    .eq("id", resolvedTableId)
     .maybeSingle()
 
   return ok({
