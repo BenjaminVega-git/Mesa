@@ -176,16 +176,24 @@ function setupPrinterIpc() {
     return printers.map((p) => ({ name: p.name, displayName: p.displayName, isDefault: Boolean(p.isDefault) }))
   })
 
-  ipcMain.handle('printer:print-silent', (_event, deviceName) => {
+  ipcMain.handle('printer:print-silent', async (_event, deviceName) => {
     return new Promise((resolve) => {
       if (!mainWindow) {
         resolve({ success: false, errorType: 'Ventana no disponible' })
         return
       }
-      mainWindow.webContents.print(
-        { silent: true, deviceName, printBackground: true, margins: { marginType: 'none' } },
-        (success, errorType) => resolve({ success, errorType })
-      )
+      mainWindow.webContents
+        .executeJavaScript(
+          "new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))",
+          true
+        )
+        .catch(() => undefined)
+        .finally(() => {
+          mainWindow.webContents.print(
+            { silent: true, deviceName, printBackground: true, margins: { marginType: 'none' } },
+            (success, errorType) => resolve({ success, errorType })
+          )
+        })
     })
   })
 }

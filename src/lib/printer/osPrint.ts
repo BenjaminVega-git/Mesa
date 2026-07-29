@@ -148,6 +148,29 @@ export function setStoredElectronPrinter(deviceName: string): void {
   }
 }
 
+async function waitForPrintContentReady(root: HTMLElement): Promise<void> {
+  await Promise.resolve(document.fonts?.ready).catch(() => undefined)
+
+  const images = Array.from(root.querySelectorAll("img"))
+  await Promise.all(
+    images.map((img) => {
+      if (img.complete) return Promise.resolve()
+      return new Promise<void>((resolve) => {
+        img.addEventListener("load", () => resolve(), { once: true })
+        img.addEventListener("error", () => resolve(), { once: true })
+      })
+    })
+  )
+
+  await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+  await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+
+  // Forzar layout antes de la impresion silenciosa. Sin dialogo nativo no hay
+  // pausa humana, y algunos drivers capturan blanco si se imprime en el mismo
+  // tick en que se inserto el ticket.
+  root.getBoundingClientRect()
+}
+
 async function printHtml(html: string): Promise<void> {
   if (typeof window === "undefined") return
 
@@ -167,6 +190,7 @@ async function printHtml(html: string): Promise<void> {
   const electronDevice = getStoredElectronPrinter()
   if (isElectronPrintAvailable() && electronDevice) {
     try {
+      await waitForPrintContentReady(root)
       const result = await window.electronAPI!.printSilently(electronDevice)
       if (!result.success) {
         throw new Error(result.errorType || "La app de escritorio no pudo imprimir")
@@ -183,6 +207,8 @@ async function printHtml(html: string): Promise<void> {
   const pageStyle = document.createElement("style")
   pageStyle.textContent = "@page { size: auto; margin: 0; }"
   document.head.appendChild(pageStyle)
+
+  await waitForPrintContentReady(root)
 
   await new Promise<void>((resolve) => {
     const finish = () => {
