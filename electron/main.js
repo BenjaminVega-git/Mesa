@@ -1,5 +1,8 @@
 ﻿const { app, BrowserWindow, shell, Menu, session, dialog, ipcMain } = require('electron')
 const path = require('path')
+const fs = require('fs')
+const os = require('os')
+const { execFile } = require('child_process')
 
 const BASE_URL = 'https://tumesaqr.com'
 const APP_URL = `${BASE_URL}/admin`
@@ -265,6 +268,115 @@ function setupPrinterIpc() {
       return { success: false, errorType: err?.message || 'La app de escritorio no pudo imprimir' }
     } finally {
       if (printWindow && !printWindow.isDestroyed()) printWindow.close()
+    }
+  })
+
+  ipcMain.handle('printer:print-raw', async (_event, deviceName, bytes) => {
+    if (process.platform !== 'win32') {
+      return { success: false, errorType: 'La impresión silenciosa RAW solo está disponible en Windows' }
+    }
+    if (!deviceName || typeof deviceName !== 'string') {
+      return { success: false, errorType: 'Impresora no seleccionada' }
+    }
+    if (!Array.isArray(bytes) || bytes.length === 0) {
+      return { success: false, errorType: 'Ticket vacío' }
+    }
+    if (bytes.length > 65536) {
+      return { success: false, errorType: 'Ticket demasiado grande' }
+    }
+
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mesa-raw-print-'))
+    const binPath = path.join(dir, 'ticket.bin')
+    const psPath = path.join(dir, 'print-raw.ps1')
+
+    try {
+      fs.writeFileSync(binPath, Buffer.from(bytes))
+      fs.writeFileSync(psPath, `
+param(
+  [Parameter(Mandatory=$true)][string]$PrinterName,
+  [Parameter(Mandatory=$true)][string]$FilePath
+)
+
+$source = @"
+using System;
+using System.Runtime.InteropServices;
+
+public class RawPrinterHelper {
+  [StructLayout(LayoutKind.Sequential, CharSet=CharSet.Ansi)]
+  public class DOCINFOA {
+    [MarshalAs(UnmanagedType.LPStr)] public string pDocName;
+    [MarshalAs(UnmanagedType.LPStr)] public string pOutputFile;
+    [MarshalAs(UnmanagedType.LPStr)] public string pDataType;
+  }
+
+  [DllImport("winspool.Drv", EntryPoint="OpenPrinterA", SetLastError=true, CharSet=CharSet.Ansi, ExactSpelling=true, CallingConvention=CallingConvention.StdCall)]
+  public static extern bool OpenPrinter(string szPrinter, out IntPtr hPrinter, IntPtr pd);
+  [DllImport("winspool.Drv", SetLastError=true, ExactSpelling=true, CallingConvention=CallingConvention.StdCall)]
+  public static extern bool ClosePrinter(IntPtr hPrinter);
+  [DllImport("winspool.Drv", EntryPoint="StartDocPrinterA", SetLastError=true, CharSet=CharSet.Ansi, ExactSpelling=true, CallingConvention=CallingConvention.StdCall)]
+  public static extern bool StartDocPrinter(IntPtr hPrinter, Int32 level, [In, MarshalAs(UnmanagedType.LPStruct)] DOCINFOA di);
+  [DllImport("winspool.Drv", SetLastError=true, ExactSpelling=true, CallingConvention=CallingConvention.StdCall)]
+  public static extern bool EndDocPrinter(IntPtr hPrinter);
+  [DllImport("winspool.Drv", SetLastError=true, ExactSpelling=true, CallingConvention=CallingConvention.StdCall)]
+  public static extern bool StartPagePrinter(IntPtr hPrinter);
+  [DllImport("winspool.Drv", SetLastError=true, ExactSpelling=true, CallingConvention=CallingConvention.StdCall)]
+  public static extern bool EndPagePrinter(IntPtr hPrinter);
+  [DllImport("winspool.Drv", SetLastError=true, ExactSpelling=true, CallingConvention=CallingConvention.StdCall)]
+  public static extern bool WritePrinter(IntPtr hPrinter, byte[] pBytes, Int32 dwCount, out Int32 dwWritten);
+
+  public static void SendBytesToPrinter(string printerName, byte[] bytes) {
+    IntPtr hPrinter;
+    if (!OpenPrinter(printerName, out hPrinter, IntPtr.Zero)) {
+      throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error(), "No se pudo abrir la impresora");
+    }
+    try {
+      DOCINFOA di = new DOCINFOA();
+      di.pDocName = "MESA ticket";
+      di.pDataType = "RAW";
+      if (!StartDocPrinter(hPrinter, 1, di)) throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error(), "No se pudo iniciar el documento");
+      try {
+        if (!StartPagePrinter(hPrinter)) throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error(), "No se pudo iniciar la página");
+        try {
+          Int32 written;
+          if (!WritePrinter(hPrinter, bytes, bytes.Length, out written) || written != bytes.Length) {
+            throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error(), "No se pudo escribir el ticket completo");
+          }
+        } finally {
+          EndPagePrinter(hPrinter);
+        }
+      } finally {
+        EndDocPrinter(hPrinter);
+      }
+    } finally {
+      ClosePrinter(hPrinter);
+    }
+  }
+}
+"@
+
+Add-Type -TypeDefinition $source
+$rawBytes = [System.IO.File]::ReadAllBytes($FilePath)
+[RawPrinterHelper]::SendBytesToPrinter($PrinterName, $rawBytes)
+`, 'utf8')
+
+      return await new Promise((resolve) => {
+        execFile(
+          'powershell.exe',
+          ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', psPath, '-PrinterName', deviceName, '-FilePath', binPath],
+          { windowsHide: true, timeout: 30000 },
+          (error, stdout, stderr) => {
+            if (error) {
+              resolve({ success: false, errorType: stderr?.trim() || stdout?.trim() || error.message })
+            } else {
+              resolve({ success: true })
+            }
+          }
+        )
+      })
+    } catch (err) {
+      return { success: false, errorType: err?.message || 'No se pudo imprimir RAW' }
+    } finally {
+      fs.rm(dir, { recursive: true, force: true }, () => undefined)
     }
   })
 }

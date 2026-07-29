@@ -9,6 +9,7 @@ interface ElectronPrinterAPI {
   listPrinters: () => Promise<ElectronPrinterInfo[]>
   printSilently: (deviceName: string) => Promise<ElectronPrintResult>
   printHtmlSilently: (deviceName: string, html: string) => Promise<ElectronPrintResult>
+  printRaw: (deviceName: string, bytes: number[]) => Promise<ElectronPrintResult>
 }
 
 declare global {

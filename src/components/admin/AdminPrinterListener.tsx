@@ -4,7 +4,11 @@ import { useCallback, useEffect, useId, useRef } from "react"
 import { usePathname } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import { useRestaurant } from "@/hooks/useRestaurant"
-import { printTicketViaOsDriver, OS_PRINT_STORAGE_KEY } from "@/lib/printer/osPrint"
+import {
+  printTicketViaOsDriver,
+  printTicketViaRawDriver,
+  OS_PRINT_STORAGE_KEY,
+} from "@/lib/printer/osPrint"
 import { logger } from "@/lib/logger"
 
 const EN_PREPARACION_STATUS_ID = 2
@@ -68,7 +72,7 @@ export function AdminPrinterListener() {
 
       if (data.status_id !== EN_PREPARACION_STATUS_ID) return
 
-      await printTicketViaOsDriver({
+      const ticketInput = {
         restaurantName: current.restaurant_name ?? "Restaurante",
         tableNumber: data.tables?.table_number ?? data.table_id,
         orderId: data.id,
@@ -78,7 +82,15 @@ export function AdminPrinterListener() {
             ? `${item.product_name ?? "Producto"} · ${item.variant_name}`
             : item.product_name ?? "Producto",
         })),
-      })
+      }
+
+      try {
+        const printedRaw = await printTicketViaRawDriver(ticketInput)
+        if (!printedRaw) await printTicketViaOsDriver(ticketInput)
+      } catch (err) {
+        logger.warn("global raw cable print failed, usando diálogo", { error: String(err) })
+        await printTicketViaOsDriver(ticketInput)
+      }
 
       printedOrderIds.current.add(orderId)
     } catch (err) {

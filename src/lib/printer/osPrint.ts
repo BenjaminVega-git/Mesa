@@ -1,4 +1,4 @@
-import type { TicketInput, ReceiptInput } from "@/lib/printer/escpos"
+import { buildOrderTicket, type TicketInput, type ReceiptInput } from "@/lib/printer/escpos"
 
 /**
  * Impresión vía el controlador del sistema operativo, en vez de hablarle
@@ -145,6 +145,20 @@ export function setStoredElectronPrinter(deviceName: string): void {
   } catch {
     // no crítico
   }
+}
+
+export async function printTicketViaRawDriver(input: TicketInput): Promise<boolean> {
+  const electronDevice = getStoredElectronPrinter()
+  if (!isElectronPrintAvailable() || !electronDevice || !window.electronAPI?.printRaw) {
+    return false
+  }
+
+  const ticket = buildOrderTicket(input)
+  const result = await window.electronAPI.printRaw(electronDevice, Array.from(ticket))
+  if (!result.success) {
+    throw new Error(result.errorType || "La app de escritorio no pudo imprimir RAW")
+  }
+  return true
 }
 
 async function waitForPrintContentReady(root: HTMLElement): Promise<void> {

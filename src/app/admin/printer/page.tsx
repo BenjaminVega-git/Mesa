@@ -14,6 +14,7 @@ import {
 } from "@/lib/printer"
 import {
   printTicketViaOsDriver,
+  printTicketViaRawDriver,
   isElectronPrintAvailable,
   listElectronPrinters,
   getStoredElectronPrinter,
@@ -140,6 +141,16 @@ export default function PrinterPage() {
     setPreviewText(formatTicketAsText(buildSampleTicket()))
   }
 
+  const printViaSystemDriver = useCallback(async (input: ReturnType<typeof buildSampleTicket>): Promise<"raw" | "dialog"> => {
+    try {
+      if (await printTicketViaRawDriver(input)) return "raw"
+    } catch (err) {
+      logger.warn("raw cable print failed, usando diálogo", { error: String(err) })
+    }
+    await printTicketViaOsDriver(input)
+    return "dialog"
+  }, [])
+
   async function handleTestPrint() {
     if (testing) return
     const current = restaurantRef.current
@@ -153,8 +164,12 @@ export default function PrinterPage() {
         await sendTicket(currentPrinter, ticket)
         appendEntry({ orderId: 9999, kind: "ok", message: "Ticket de prueba enviado" })
       } else {
-        await printTicketViaOsDriver(buildSampleTicket())
-        appendEntry({ orderId: 9999, kind: "ok", message: "Se abrió el diálogo de impresión del sistema" })
+        const mode = await printViaSystemDriver(buildSampleTicket())
+        if (mode === "raw") {
+          appendEntry({ orderId: 9999, kind: "ok", message: "Ticket RAW enviado en silencio" })
+        } else {
+          appendEntry({ orderId: 9999, kind: "ok", message: "Se abrió el diálogo de impresión del sistema" })
+        }
       }
     } catch (err) {
       logger.error("test print failed", { error: String(err) })
@@ -245,8 +260,12 @@ export default function PrinterPage() {
         await sendTicket(currentPrinter, ticket)
         appendEntry({ orderId, kind: "ok", message: "Ticket impreso" })
       } else {
-        await printTicketViaOsDriver(ticketInput)
-        appendEntry({ orderId, kind: "ok", message: "Diálogo de impresión del sistema abierto" })
+        const mode = await printViaSystemDriver(ticketInput)
+        if (mode === "raw") {
+          appendEntry({ orderId, kind: "ok", message: "Ticket RAW enviado en silencio" })
+        } else {
+          appendEntry({ orderId, kind: "ok", message: "Diálogo de impresión del sistema abierto" })
+        }
       }
 
       // Marcar impreso solo tras éxito real: si falló, otro evento posterior
@@ -262,7 +281,7 @@ export default function PrinterPage() {
     } finally {
       processingOrderIds.current.delete(orderId)
     }
-  }, [])
+  }, [printViaSystemDriver])
 
   useEffect(() => {
     if (!restaurant?.id) return
@@ -374,7 +393,7 @@ export default function PrinterPage() {
                   ? printerLabel(printer)
                   : osPrintEnabled
                   ? isElectron && electronDevice
-                    ? `${electronDevice} (diálogo del sistema)`
+                    ? `${electronDevice} (RAW silencioso)`
                     : "Impresora del sistema (diálogo por ticket)"
                   : restaurant.printer_bluetooth_name ?? "—"}
               </dd>
@@ -396,7 +415,7 @@ export default function PrinterPage() {
               <button
                 type="button"
                 onClick={toggleOsPrint}
-                title="Imprime con la impresora que ya tengas configurada en Windows/macOS. Para impresoras cableadas se usa el diálogo del sistema, que es la ruta más confiable con drivers térmicos."
+                title="Imprime con la impresora que ya tengas configurada en Windows/macOS. En la app de escritorio intentamos RAW silencioso; si no hay impresora elegida, se usa el diálogo."
                 className={`rounded-xl px-5 py-3 text-sm font-bold shadow-sm transition ${
                   osPrintEnabled
                     ? "bg-emerald-600 text-white hover:bg-emerald-700"
@@ -451,9 +470,9 @@ export default function PrinterPage() {
           {osPrintEnabled && !printer && (
             <p className="mt-3 text-[11px] text-stone-400">
               {isElectron && electronDevice
-                ? `Cada pedido nuevo abrirá el diálogo del sistema; dejá seleccionada "${electronDevice}" o la impresora correcta en Windows/macOS.`
+                ? `Cada pedido nuevo intentará imprimirse en silencio por RAW en "${electronDevice}". Si el driver no acepta RAW, se abrirá el diálogo como respaldo.`
                 : isElectron
-                ? "Cada pedido nuevo va a abrir el diálogo de impresión del sistema. Es la ruta más estable para cable/USB."
+                ? "Elegí una impresora arriba para intentar RAW silencioso. Sin impresora elegida, se abrirá el diálogo."
                 : "Cada pedido nuevo va a abrir el diálogo de impresión del sistema — elegí la impresora ahí (o dejá la que esté por defecto) y confirmá."}
             </p>
           )}
