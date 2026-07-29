@@ -50,7 +50,7 @@ function normalize(value: string) {
     .trim()
 }
 
-const TERMINAL_STATUS_NAMES = new Set(["pagado", "pagada"])
+const TERMINAL_STATUS_NAMES = new Set(["pagado", "pagada", "cancelado", "cancelada"])
 
 function isOrderActive(statusName: string | null) {
   if (!statusName) return true
