@@ -309,7 +309,8 @@ export function TakeOrderPanel({
 
   const tableLabel = (id: number | null) => {
     const t = data?.tables.find((x) => x.id === id)
-    return t ? `Mesa ${t.tableNumber ?? t.id}` : "—"
+    if (!t) return "—"
+    return t.tableNumber === 0 ? "Recepción" : `Mesa ${t.tableNumber ?? t.id}`
   }
 
   return (
@@ -328,7 +329,7 @@ export function TakeOrderPanel({
             >
               {data.tables.map((t) => (
                 <option key={t.id} value={t.id}>
-                  Mesa {t.tableNumber ?? t.id}
+                  {t.tableNumber === 0 ? "Recepción" : `Mesa ${t.tableNumber ?? t.id}`}
                   {t.claimed ? " · ocupada" : ""}
                 </option>
               ))}
@@ -665,7 +666,7 @@ export function TakeOrderPanel({
             </div>
             <h3 className="mt-3 text-base font-extrabold text-stone-950">Pedido enviado</h3>
             <p className="mt-1 text-xs text-stone-500">
-              Pedido #{done.id} · Mesa {done.tableNumber ?? "—"}
+              Pedido #{done.id} · {done.tableNumber === 0 ? "Recepción" : `Mesa ${done.tableNumber ?? "—"}`}
               {done.dinerLabel ? ` · ${done.dinerLabel}` : ""} ·{" "}
               <strong className="tabular-nums">{fmt(done.total)}</strong>
             </p>

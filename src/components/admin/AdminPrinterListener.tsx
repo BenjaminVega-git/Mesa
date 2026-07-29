@@ -74,7 +74,7 @@ export function AdminPrinterListener() {
 
       const ticketInput = {
         restaurantName: current.restaurant_name ?? "Restaurante",
-        tableNumber: data.tables?.table_number ?? data.table_id,
+        tableNumber: data.tables?.table_number === 0 ? "Recepción" : data.tables?.table_number ?? data.table_id,
         orderId: data.id,
         items: data.order_items.map((item) => ({
           quantity: item.product_quantity,

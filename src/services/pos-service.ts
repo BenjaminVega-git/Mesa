@@ -42,6 +42,9 @@ export async function getPosData(): Promise<Result<PosData>> {
   if (!auth.ok) return fail(auth.error)
   const { supabase } = auth.data
 
+  const { error: receptionError } = await supabase.rpc("ensure_reception_table")
+  if (receptionError) return fail("No se pudo preparar la opción Recepción")
+
   const { data, error } = await supabase.rpc("staff_get_menu")
   if (error || !data) return fail("No se pudo cargar la carta")
 

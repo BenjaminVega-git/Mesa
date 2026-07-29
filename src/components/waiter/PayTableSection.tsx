@@ -54,7 +54,11 @@ export function PayTableSection({ orders, gatewayProvider, onSettled }: Props) {
       if (o.tableId == null) continue
       if (o.statusId === 4) continue // ya pagado
       const label =
-        o.tableNumber != null ? `Mesa ${o.tableNumber}` : `Mesa #${o.tableId}`
+        o.tableNumber === 0
+          ? "Recepción"
+          : o.tableNumber != null
+            ? `Mesa ${o.tableNumber}`
+            : `Mesa #${o.tableId}`
       const existing = map.get(o.tableId) ?? {
         tableId: o.tableId,
         tableLabel: label,

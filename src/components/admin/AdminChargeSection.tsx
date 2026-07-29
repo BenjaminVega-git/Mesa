@@ -43,9 +43,11 @@ export function AdminChargeSection({ orders }: { orders: Order[] }) {
       const tableNumber = Array.isArray(tablesData)
         ? tablesData[0]?.table_number
         : tablesData?.table_number
+      const label =
+        tableNumber === 0 ? "Recepción" : `Mesa ${tableNumber ?? o.table_id}`
       const g = map.get(o.table_id) ?? {
         tableId: o.table_id,
-        label: `Mesa ${tableNumber ?? o.table_id}`,
+        label,
         ordersCount: 0,
         total: 0,
         unreadyCount: 0,
