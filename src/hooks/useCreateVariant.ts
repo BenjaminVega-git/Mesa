@@ -9,6 +9,7 @@ import { CreateVariantSchema } from "@/lib/validation/variant"
 type PendingCreateVariant = {
   productId: number
   name: string
+  description?: string | null
   price: number
   imageUrl: string | null
   imagePublicId: string | null
@@ -18,6 +19,7 @@ export function useCreateVariant(productId: number) {
   const { uploadImage, uploading } = useUploadImage()
 
   const [variantName, setVariantName] = useState("")
+  const [variantDescription, setVariantDescription] = useState("")
   const [variantPrice, setVariantPrice] = useState("")
   const [variantImage, setVariantImage] = useState<File | null>(null)
 
@@ -64,6 +66,7 @@ export function useCreateVariant(productId: number) {
       const payload = {
         productId,
         name: variantName.trim(),
+        description: variantDescription.trim() || null,
         price: Number(variantPrice),
         imageUrl,
         imagePublicId,
@@ -78,6 +81,7 @@ export function useCreateVariant(productId: number) {
       await createVariantWithRetry()
 
       setVariantName("")
+      setVariantDescription("")
       setVariantPrice("")
       setVariantImage(null)
     } catch (err: unknown) {
@@ -93,6 +97,7 @@ export function useCreateVariant(productId: number) {
 
   return {
     variantName, setVariantName,
+    variantDescription, setVariantDescription,
     variantPrice, setVariantPrice,
     variantImage, setVariantImage,
     loading: loading || uploading || isPending,

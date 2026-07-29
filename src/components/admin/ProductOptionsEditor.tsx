@@ -9,6 +9,7 @@ type ProductOptionsEditorProps = {
   onAddOption: () => void
   onRemoveOption: (localId: string) => void
   onOptionNameChange: (localId: string, value: string) => void
+  onOptionDescriptionChange: (localId: string, value: string) => void
   onOptionPriceChange: (localId: string, value: string) => void
   onOptionImageChange: (localId: string, file: File | null) => void
   onOptionRemoveBgChange: (localId: string, value: boolean) => void
@@ -133,6 +134,7 @@ export function ProductOptionsEditor({
   onAddOption,
   onRemoveOption,
   onOptionNameChange,
+  onOptionDescriptionChange,
   onOptionPriceChange,
   onOptionImageChange,
   onOptionRemoveBgChange,
@@ -227,6 +229,22 @@ export function ProductOptionsEditor({
                       value={option.name}
                       onChange={(event) => onOptionNameChange(option.localId, event.target.value)}
                       className="w-full rounded-xl border border-stone-200 bg-stone-50 px-3 py-2 text-sm text-stone-900 outline-none transition focus:border-orange-300 focus:bg-white focus:ring-2 focus:ring-orange-100"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-1.5 block text-xs font-semibold text-stone-700">
+                      Descripcion opcional
+                    </label>
+                    <textarea
+                      placeholder="Ej: masa delgada, mas queso, tamano familiar..."
+                      value={option.description}
+                      disabled={disabled}
+                      maxLength={1000}
+                      onChange={(event) =>
+                        onOptionDescriptionChange(option.localId, event.target.value)
+                      }
+                      className="min-h-[68px] w-full resize-y rounded-xl border border-stone-200 bg-stone-50 px-3 py-2 text-sm text-stone-900 outline-none transition focus:border-orange-300 focus:bg-white focus:ring-2 focus:ring-orange-100"
                     />
                   </div>
 

@@ -24,6 +24,7 @@ function createLocalOption(values?: Partial<ProductOptionForm>): ProductOptionFo
   return {
     localId: `option-${Date.now()}-${optionIdSeed}`,
     name: "",
+    description: "",
     price: "",
     imageFile: null,
     processedFile: null,
@@ -83,6 +84,7 @@ export function useEditProduct(productId: number | null) {
           createLocalOption({
             variantId: variant.id,
             name: variant.name,
+            description: variant.description ?? "",
             price: String(variant.price),
             imageUrl: variant.imageUrl,
             imagePublicId: variant.imagePublicId,
@@ -179,6 +181,10 @@ export function useEditProduct(productId: number | null) {
 
   function setOptionName(localId: string, value: string) {
     updateOption(localId, { name: value })
+  }
+
+  function setOptionDescription(localId: string, value: string) {
+    updateOption(localId, { description: value })
   }
 
   function setOptionPrice(localId: string, value: string) {
@@ -336,6 +342,7 @@ export function useEditProduct(productId: number | null) {
       const rawOption = {
         ...(option.variantId ? { variantId: option.variantId } : {}),
         name: option.name.trim() || "Principal",
+        description: option.description.trim() || null,
         price: Number(option.price),
         imageUrl,
         imagePublicId,
@@ -432,6 +439,7 @@ export function useEditProduct(productId: number | null) {
     setCategoryId,
     options,
     setOptionName,
+    setOptionDescription,
     setOptionPrice,
     setOptionImage,
     setOptionRemoveBg,

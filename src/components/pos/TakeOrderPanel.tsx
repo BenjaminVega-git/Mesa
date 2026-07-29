@@ -716,7 +716,14 @@ export function TakeOrderPanel({
                           : "border-stone-200 hover:border-orange-300 hover:bg-orange-50/50"
                       }`}
                     >
-                      <span className="text-xs font-bold text-stone-800">{v.variant_name}</span>
+                      <span className="min-w-0">
+                        <span className="block text-xs font-bold text-stone-800">{v.variant_name}</span>
+                        {v.variant_description ? (
+                          <span className="mt-0.5 block text-[11px] font-medium leading-4 text-stone-500">
+                            {v.variant_description}
+                          </span>
+                        ) : null}
+                      </span>
                       <span className="text-xs font-extrabold text-orange-700 tabular-nums">
                         {fmt(v.variant_price)}
                       </span>

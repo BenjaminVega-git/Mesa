@@ -24,6 +24,7 @@ export function CreateProductDialog({ open, onClose, onCreated }: Props) {
     categoryId, setCategoryId,
     options,
     setOptionName,
+    setOptionDescription,
     setOptionPrice,
     setOptionImage,
     setOptionRemoveBg,
@@ -111,6 +112,7 @@ export function CreateProductDialog({ open, onClose, onCreated }: Props) {
           onAddOption={addOption}
           onRemoveOption={removeOption}
           onOptionNameChange={setOptionName}
+          onOptionDescriptionChange={setOptionDescription}
           onOptionPriceChange={setOptionPrice}
           onOptionImageChange={setOptionImage}
           onOptionRemoveBgChange={setOptionRemoveBg}

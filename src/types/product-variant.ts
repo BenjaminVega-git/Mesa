@@ -2,6 +2,7 @@ export type ProductVariant = {
   id: number
   product_id: number
   variant_name: string
+  variant_description: string | null
   variant_price: number
   variant_image: string | null
   variant_image_public_id: string | null
