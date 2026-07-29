@@ -85,6 +85,9 @@ async function fetchProfileRoleIdWithRetry(authUserId: string): Promise<number |
 
     if (!error && data?.role_id != null) return data.role_id
 
+    const { data: roleId } = await supabase.rpc("get_my_role_id")
+    if (roleId != null) return Number(roleId)
+
     // Espera corta para dar tiempo a que PostgREST vea el JWT nuevo.
     await new Promise((resolve) => setTimeout(resolve, 200 * (attempt + 1)))
   }

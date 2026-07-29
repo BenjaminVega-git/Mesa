@@ -49,6 +49,10 @@ async function fetchProfileRoleIdWithRetry(authUserId: string): Promise<number |
       .eq("auth_user_id", authUserId)
       .maybeSingle()
     if (!error && data?.role_id != null) return data.role_id
+
+    const { data: roleId } = await supabase.rpc("get_my_role_id")
+    if (roleId != null) return Number(roleId)
+
     await new Promise((resolve) => setTimeout(resolve, 200 * (attempt + 1)))
   }
   return null
@@ -95,7 +99,9 @@ export default function WaiterLoginPage() {
             .select("role_id")
             .eq("auth_user_id", claims.userId)
             .single()
-          const role = roleIdToRole(profile?.role_id ?? 1)
+          const { data: fallbackRoleId } =
+            profile?.role_id == null ? await supabase.rpc("get_my_role_id") : { data: null }
+          const role = roleIdToRole(profile?.role_id ?? Number(fallbackRoleId ?? 1))
           if (!isAdminRole(role)) {
             router.replace(getHomeRouteForRole(role))
             return
