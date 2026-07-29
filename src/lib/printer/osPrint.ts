@@ -1,4 +1,4 @@
-import { buildOrderTicket, type TicketInput, type ReceiptInput } from "@/lib/printer/escpos"
+import { buildOrderTicket, buildReceiptTicket, type TicketInput, type ReceiptInput } from "@/lib/printer/escpos"
 
 /**
  * Impresión vía el controlador del sistema operativo, en vez de hablarle
@@ -36,13 +36,14 @@ function escapeHtml(s: string): string {
 function ticketShell(bodyHtml: string): string {
   return `
     <div style="
-      width:100%;
+      width:72mm;
+      max-width:100%;
       background:#fff;
       color:#000;
       font-family:Arial,Helvetica,sans-serif;
       -webkit-print-color-adjust:exact;
       print-color-adjust:exact;
-      padding:0 1mm;
+      padding:0 2mm;
       box-sizing:border-box;
     ">
       ${bodyHtml}
@@ -94,6 +95,19 @@ export function buildReceiptHtml(input: ReceiptInput): string {
       <span>${label}</span><span>${value}</span>
     </div>
   `
+  const items = input.items && input.items.length > 0
+    ? `
+      ${HR_DASHED}
+      <table style="width:100%; border-collapse:collapse;">
+        ${input.items.map((item) => `
+          <tr>
+            <td style="font-weight:800; font-size:12px; padding-right:2mm; vertical-align:top;">${item.quantity}x</td>
+            <td style="font-weight:700; font-size:12px; vertical-align:top;">${escapeHtml(item.name)}</td>
+          </tr>
+        `).join("")}
+      </table>
+    `
+    : ""
 
   return ticketShell(`
     <div style="text-align:center; font-weight:800; font-size:17px; text-transform:uppercase;">
@@ -104,6 +118,7 @@ export function buildReceiptHtml(input: ReceiptInput): string {
     <div style="text-align:center; font-weight:800; font-size:14px;">${escapeHtml(input.docLabel)}</div>
     ${input.folio != null ? `<div style="text-align:center; font-weight:700; font-size:13px;">N° ${input.folio}</div>` : ""}
     <div style="text-align:center; font-weight:700; font-size:12px;">${fecha}</div>
+    ${items}
     ${HR_DASHED}
     ${row("Neto", clp(input.net))}
     ${row("IVA", clp(input.iva))}
@@ -154,6 +169,20 @@ export async function printTicketViaRawDriver(input: TicketInput): Promise<boole
   }
 
   const ticket = buildOrderTicket(input)
+  const result = await window.electronAPI.printRaw(electronDevice, Array.from(ticket))
+  if (!result.success) {
+    throw new Error(result.errorType || "La app de escritorio no pudo imprimir RAW")
+  }
+  return true
+}
+
+export async function printReceiptViaRawDriver(input: ReceiptInput): Promise<boolean> {
+  const electronDevice = getStoredElectronPrinter()
+  if (!isElectronPrintAvailable() || !electronDevice || !window.electronAPI?.printRaw) {
+    return false
+  }
+
+  const ticket = buildReceiptTicket(input)
   const result = await window.electronAPI.printRaw(electronDevice, Array.from(ticket))
   if (!result.success) {
     throw new Error(result.errorType || "La app de escritorio no pudo imprimir RAW")
