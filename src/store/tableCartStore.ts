@@ -304,7 +304,7 @@ export function startCartPolling() {
   pollTimer = setInterval(() => {
     if (typeof document !== "undefined" && document.visibilityState !== "visible") return
     useTableCartStore.getState().fetchItems()
-  }, 4000)
+  }, 1000)
 }
 
 export function stopCartPolling() {
