@@ -174,6 +174,15 @@ async function waitForPrintContentReady(root: HTMLElement): Promise<void> {
 async function printHtml(html: string): Promise<void> {
   if (typeof window === "undefined") return
 
+  const electronDevice = getStoredElectronPrinter()
+  if (isElectronPrintAvailable() && electronDevice && window.electronAPI?.printHtmlSilently) {
+    const result = await window.electronAPI.printHtmlSilently(electronDevice, html)
+    if (!result.success) {
+      throw new Error(result.errorType || "La app de escritorio no pudo imprimir")
+    }
+    return
+  }
+
   // La regla global body[data-printing] [data-print-root] en globals.css ya
   // fuerza position:absolute + width:100% + margin/padding:0 en este nodo.
   const root = document.createElement("div")
@@ -187,7 +196,6 @@ async function printHtml(html: string): Promise<void> {
     root.remove()
   }
 
-  const electronDevice = getStoredElectronPrinter()
   if (isElectronPrintAvailable() && electronDevice) {
     try {
       await waitForPrintContentReady(root)

@@ -193,8 +193,79 @@ function setupPrinterIpc() {
             { silent: true, deviceName, printBackground: true, margins: { marginType: 'none' } },
             (success, errorType) => resolve({ success, errorType })
           )
-        })
+      })
     })
+  })
+
+  ipcMain.handle('printer:print-html-silent', async (_event, deviceName, html) => {
+    if (!mainWindow) return { success: false, errorType: 'Ventana no disponible' }
+    if (typeof html !== 'string' || html.trim().length === 0) {
+      return { success: false, errorType: 'Ticket vacío' }
+    }
+    if (html.length > 250000) {
+      return { success: false, errorType: 'Ticket demasiado grande' }
+    }
+
+    let printWindow
+    try {
+      printWindow = new BrowserWindow({
+        width: 384,
+        height: 900,
+        show: false,
+        parent: mainWindow,
+        webPreferences: {
+          nodeIntegration: false,
+          contextIsolation: true,
+          sandbox: true,
+        },
+        backgroundColor: '#ffffff',
+      })
+
+      const page = `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    @page { size: auto; margin: 0; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      min-height: 100%;
+      background: #fff;
+      color: #000;
+    }
+    body {
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    * {
+      box-sizing: border-box;
+    }
+  </style>
+</head>
+<body>${html}</body>
+</html>`
+
+      const encoded = Buffer.from(page, 'utf8').toString('base64')
+      await printWindow.loadURL(`data:text/html;base64,${encoded}`)
+      await printWindow.webContents.executeJavaScript(
+        "new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))",
+        true
+      )
+
+      return await new Promise((resolve) => {
+        printWindow.webContents.print(
+          { silent: true, deviceName, printBackground: true, margins: { marginType: 'none' } },
+          (success, errorType) => resolve({ success, errorType })
+        )
+      })
+    } catch (err) {
+      return { success: false, errorType: err?.message || 'La app de escritorio no pudo imprimir' }
+    } finally {
+      if (printWindow && !printWindow.isDestroyed()) printWindow.close()
+    }
   })
 }
 
