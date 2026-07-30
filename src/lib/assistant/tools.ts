@@ -394,7 +394,11 @@ function refreshMenu(restaurantId: number) {
 }
 
 function rangeFromDays(diasRaw: unknown) {
-  const dias = Math.max(1, Math.min(90, Number(diasRaw) || 7))
+  // `Number(x) || 7` trataba dias:0 igual que "no especificado" (caía a 7 en
+  // vez de 1 = hoy, como documentan las tool declarations). Solo se usa el
+  // default cuando el valor no es un número válido, no cuando es 0.
+  const parsed = Number(diasRaw)
+  const dias = Math.max(1, Math.min(90, Number.isFinite(parsed) ? parsed : 7))
   const to = new Date()
   const from = new Date(to.getTime() - dias * 24 * 60 * 60 * 1000)
   return {
@@ -472,13 +476,16 @@ async function crearCategorias(ctx: AssistantContext, args: ToolArgs) {
     .slice(0, 20)
   if (nombres.length === 0) return { error: "No se recibieron nombres de categorías" }
 
-  const creadas: { id: number; nombre: string }[] = []
-  const errores: string[] = []
-  for (const nombre of nombres) {
-    const res = await createCategory({ name: nombre, restaurantId: ctx.restaurantId })
-    if (res.ok) creadas.push({ id: (res.data as { id: number }).id, nombre })
-    else errores.push(`${nombre}: ${res.error}`)
-  }
+  const resultados = await Promise.all(
+    nombres.map(async (nombre) => {
+      const res = await createCategory({ name: nombre, restaurantId: ctx.restaurantId })
+      return res.ok
+        ? { id: (res.data as { id: number }).id, nombre, ok: true }
+        : { id: 0, nombre, ok: false, error: res.error }
+    })
+  )
+  const creadas = resultados.filter((r) => r.ok).map((r) => ({ id: r.id, nombre: r.nombre }))
+  const errores = resultados.filter((r) => !r.ok).map((r) => `${r.nombre}: ${r.error}`)
   return { creadas, errores }
 }
 
@@ -491,24 +498,40 @@ async function crearProductos(ctx: AssistantContext, args: ToolArgs) {
   }[]
   if (items.length === 0) return { error: "No se recibieron productos" }
 
-  const creados: { id: number; nombre: string }[] = []
-  const errores: string[] = []
-  for (const it of items) {
-    const nombre = String(it.nombre ?? "").trim()
-    const precio = Math.round(Number(it.precio) || 0)
-    const categoriaId = Number(it.categoria_id) || 0
-    const res = await createProduct({
-      name: nombre,
-      description: it.descripcion ? String(it.descripcion).trim() : null,
-      categoryId: categoriaId,
-      restaurantId: ctx.restaurantId,
-      options: [
-        { name: nombre, price: precio, imageUrl: null, imagePublicId: null, imageRecortada: false },
-      ],
+  // Categorías del PROPIO restaurante: sin este chequeo, un categoria_id de
+  // otro tenant (los ids son correlativos globales, adivinables) quedaba
+  // aceptado igual — el producto terminaba agrupado bajo la categoría de otro
+  // restaurante en el menú público y desaparecía de obtener_resumen_negocio.
+  const { data: categoriasPropias } = await ctx.supabase
+    .from("categories")
+    .select("id")
+    .eq("restaurant_id", ctx.restaurantId)
+  const categoriaIds = new Set((categoriasPropias ?? []).map((c) => c.id as number))
+
+  const resultados = await Promise.all(
+    items.map(async (it) => {
+      const nombre = String(it.nombre ?? "").trim() || "(sin nombre)"
+      const precio = Math.round(Number(it.precio) || 0)
+      const categoriaId = Number(it.categoria_id) || 0
+      if (!categoriaIds.has(categoriaId)) {
+        return { id: 0, nombre, ok: false, error: `la categoría ${categoriaId} no existe en tu restaurante` }
+      }
+      const res = await createProduct({
+        name: nombre,
+        description: it.descripcion ? String(it.descripcion).trim() : null,
+        categoryId: categoriaId,
+        restaurantId: ctx.restaurantId,
+        options: [
+          { name: nombre, price: precio, imageUrl: null, imagePublicId: null, imageRecortada: false },
+        ],
+      })
+      return res.ok
+        ? { id: (res.data as { id: number }).id, nombre, ok: true }
+        : { id: 0, nombre, ok: false, error: res.error }
     })
-    if (res.ok) creados.push({ id: (res.data as { id: number }).id, nombre })
-    else errores.push(`${nombre || "(sin nombre)"}: ${res.error}`)
-  }
+  )
+  const creados = resultados.filter((r) => r.ok).map((r) => ({ id: r.id, nombre: r.nombre }))
+  const errores = resultados.filter((r) => !r.ok).map((r) => `${r.nombre}: ${r.error}`)
   return { creados, errores }
 }
 
@@ -522,69 +545,67 @@ async function actualizarProductos(ctx: AssistantContext, args: ToolArgs) {
   }[]
   if (cambios.length === 0) return { error: "No se recibieron cambios" }
 
-  const actualizados: number[] = []
-  const errores: string[] = []
-
-  for (const c of cambios) {
-    const id = Number(c.producto_id) || 0
-    // Leer el producto del propio restaurante (scope explícito además de RLS).
-    const { data: prod } = await ctx.supabase
-      .from("products")
-      .select("id, product_name, product_variants(id)")
-      .eq("id", id)
-      .eq("restaurant_id", ctx.restaurantId)
-      .maybeSingle()
-    if (!prod) {
-      errores.push(`Producto ${id}: no encontrado en tu restaurante`)
-      continue
-    }
-
-    const patch: Record<string, unknown> = {}
-    if (c.nombre != null && String(c.nombre).trim()) patch.product_name = String(c.nombre).trim()
-    if (c.descripcion != null) patch.product_description = String(c.descripcion).trim() || null
-    if (c.categoria_id != null) {
-      const catId = Number(c.categoria_id) || 0
-      const { data: cat } = await ctx.supabase
-        .from("categories")
-        .select("id")
-        .eq("id", catId)
+  const resultados = await Promise.all(
+    cambios.map(async (c) => {
+      const id = Number(c.producto_id) || 0
+      // Leer el producto del propio restaurante (scope explícito además de RLS).
+      const { data: prod } = await ctx.supabase
+        .from("products")
+        .select("id, product_name, product_variants(id)")
+        .eq("id", id)
         .eq("restaurant_id", ctx.restaurantId)
         .maybeSingle()
-      if (!cat) {
-        errores.push(`Producto ${id}: la categoría ${catId} no existe en tu restaurante`)
-        continue
-      }
-      patch.category_id = catId
-    }
-    if (c.precio != null) {
-      const hasVariants = ((prod.product_variants as { id: number }[] | null) ?? []).length > 0
-      if (hasVariants) {
-        errores.push(
-          `Producto ${id} (${prod.product_name}): tiene variantes; el precio se edita por variante desde el panel`
-        )
-        continue
-      }
-      const precio = Math.round(Number(c.precio) || 0)
-      if (precio <= 0) {
-        errores.push(`Producto ${id}: precio inválido`)
-        continue
-      }
-      patch.product_price = precio
-    }
+      if (!prod) return { id, ok: false, errores: ["no encontrado en tu restaurante"] }
 
-    if (Object.keys(patch).length === 0) {
-      errores.push(`Producto ${id}: sin campos para cambiar`)
-      continue
-    }
+      // Cada campo se valida por separado y los válidos se aplican aunque
+      // OTRO campo del mismo producto falle — antes, si p.ej. la categoría no
+      // existía, se perdía también el nombre/descripción ya validados del
+      // mismo item porque el `continue` saltaba el update completo.
+      const patch: Record<string, unknown> = {}
+      const erroresCampo: string[] = []
 
-    const { error } = await ctx.supabase
-      .from("products")
-      .update(patch)
-      .eq("id", id)
-      .eq("restaurant_id", ctx.restaurantId)
-    if (error) errores.push(`Producto ${id}: ${error.message}`)
-    else actualizados.push(id)
-  }
+      if (c.nombre != null && String(c.nombre).trim()) patch.product_name = String(c.nombre).trim()
+      if (c.descripcion != null) patch.product_description = String(c.descripcion).trim() || null
+
+      if (c.categoria_id != null) {
+        const catId = Number(c.categoria_id) || 0
+        const { data: cat } = await ctx.supabase
+          .from("categories")
+          .select("id")
+          .eq("id", catId)
+          .eq("restaurant_id", ctx.restaurantId)
+          .maybeSingle()
+        if (!cat) erroresCampo.push(`la categoría ${catId} no existe en tu restaurante`)
+        else patch.category_id = catId
+      }
+
+      if (c.precio != null) {
+        const hasVariants = ((prod.product_variants as { id: number }[] | null) ?? []).length > 0
+        if (hasVariants) {
+          erroresCampo.push("tiene variantes; el precio se edita por variante desde el panel")
+        } else {
+          const precio = Math.round(Number(c.precio) || 0)
+          if (precio <= 0) erroresCampo.push("precio inválido")
+          else patch.product_price = precio
+        }
+      }
+
+      if (Object.keys(patch).length === 0) {
+        return { id, ok: false, errores: erroresCampo.length > 0 ? erroresCampo : ["sin campos para cambiar"] }
+      }
+
+      const { error } = await ctx.supabase
+        .from("products")
+        .update(patch)
+        .eq("id", id)
+        .eq("restaurant_id", ctx.restaurantId)
+      if (error) return { id, ok: false, errores: [...erroresCampo, error.message] }
+      return { id, ok: true, errores: erroresCampo }
+    })
+  )
+
+  const actualizados = resultados.filter((r) => r.ok).map((r) => r.id)
+  const errores = resultados.flatMap((r) => r.errores.map((e) => `Producto ${r.id}: ${e}`))
 
   if (actualizados.length > 0) refreshMenu(ctx.restaurantId)
   return { actualizados, errores }
@@ -597,24 +618,23 @@ async function cambiarDisponibilidad(ctx: AssistantContext, args: ToolArgs) {
   }[]
   const map: Record<string, number> = { disponible: 1, agotado: 2, deshabilitado: 3 }
 
-  const actualizados: number[] = []
-  const errores: string[] = []
-  for (const c of cambios) {
-    const id = Number(c.producto_id) || 0
-    const statusId = map[String(c.estado ?? "").toLowerCase()]
-    if (!statusId) {
-      errores.push(`Producto ${id}: estado inválido "${c.estado}"`)
-      continue
-    }
-    const { data, error } = await ctx.supabase
-      .from("products")
-      .update({ status_id: statusId })
-      .eq("id", id)
-      .eq("restaurant_id", ctx.restaurantId)
-      .select("id")
-    if (error || !data?.length) errores.push(`Producto ${id}: ${error?.message ?? "no encontrado"}`)
-    else actualizados.push(id)
-  }
+  const resultados = await Promise.all(
+    cambios.map(async (c) => {
+      const id = Number(c.producto_id) || 0
+      const statusId = map[String(c.estado ?? "").toLowerCase()]
+      if (!statusId) return { id, ok: false, error: `estado inválido "${c.estado}"` }
+      const { data, error } = await ctx.supabase
+        .from("products")
+        .update({ status_id: statusId })
+        .eq("id", id)
+        .eq("restaurant_id", ctx.restaurantId)
+        .select("id")
+      if (error || !data?.length) return { id, ok: false, error: error?.message ?? "no encontrado" }
+      return { id, ok: true }
+    })
+  )
+  const actualizados = resultados.filter((r) => r.ok).map((r) => r.id)
+  const errores = resultados.filter((r) => !r.ok).map((r) => `Producto ${r.id}: ${r.error}`)
 
   if (actualizados.length > 0) refreshMenu(ctx.restaurantId)
   return { actualizados, errores }
@@ -630,6 +650,18 @@ async function crearCupon(ctx: AssistantContext, args: ToolArgs) {
       : alcanceRaw === "producto" || alcanceRaw === "product"
         ? "product"
         : "all"
+  // La RPC trata "solo una de las dos" como SIN restricción horaria (queda
+  // disponible todo el día) — eso contradice la intención de un cupón "desde
+  // las 18:00", así que se exigen ambas juntas o ninguna.
+  const horaDesde = args.hora_desde ? String(args.hora_desde) : null
+  const horaHasta = args.hora_hasta ? String(args.hora_hasta) : null
+  if ((horaDesde && !horaHasta) || (!horaDesde && horaHasta)) {
+    return {
+      error:
+        "Para restringir el cupón por horario hay que indicar hora_desde Y hora_hasta juntas; si falta una, el cupón queda disponible todo el día.",
+    }
+  }
+
   const { data, error } = await ctx.supabase.rpc("discount_save", {
     p_id: null,
     p_code: String(args.codigo ?? "").trim(),
@@ -642,8 +674,8 @@ async function crearCupon(ctx: AssistantContext, args: ToolArgs) {
     p_days_of_week: Array.isArray(args.dias_semana)
       ? (args.dias_semana as unknown[]).map((d) => Number(d)).filter((d) => d >= 0 && d <= 6)
       : null,
-    p_time_from: args.hora_desde ? String(args.hora_desde) : null,
-    p_time_to: args.hora_hasta ? String(args.hora_hasta) : null,
+    p_time_from: horaDesde,
+    p_time_to: horaHasta,
     p_valid_from: args.valido_desde ? String(args.valido_desde) : null,
     p_valid_to: args.valido_hasta ? String(args.valido_hasta) : null,
     p_min_order_amount: args.monto_minimo ? Math.round(Number(args.monto_minimo)) : null,
@@ -758,17 +790,18 @@ async function gestionarCupones(ctx: AssistantContext, args: ToolArgs) {
     cupon_id?: unknown
     activo?: unknown
   }[]
-  const actualizados: number[] = []
-  const errores: string[] = []
-  for (const c of cambios) {
-    const id = Number(c.cupon_id) || 0
-    const { error } = await ctx.supabase.rpc("discount_set_active", {
-      p_id: id,
-      p_active: Boolean(c.activo),
+  const resultados = await Promise.all(
+    cambios.map(async (c) => {
+      const id = Number(c.cupon_id) || 0
+      const { error } = await ctx.supabase.rpc("discount_set_active", {
+        p_id: id,
+        p_active: Boolean(c.activo),
+      })
+      return error ? { id, ok: false, error: error.message } : { id, ok: true }
     })
-    if (error) errores.push(`Cupón ${id}: ${error.message}`)
-    else actualizados.push(id)
-  }
+  )
+  const actualizados = resultados.filter((r) => r.ok).map((r) => r.id)
+  const errores = resultados.filter((r) => !r.ok).map((r) => `Cupón ${r.id}: ${r.error}`)
   return { actualizados, errores }
 }
 
@@ -777,17 +810,18 @@ async function gestionarPromociones(ctx: AssistantContext, args: ToolArgs) {
     promocion_id?: unknown
     activa?: unknown
   }[]
-  const actualizados: number[] = []
-  const errores: string[] = []
-  for (const c of cambios) {
-    const id = Number(c.promocion_id) || 0
-    const { error } = await ctx.supabase.rpc("promo_set_active", {
-      p_id: id,
-      p_active: Boolean(c.activa),
+  const resultados = await Promise.all(
+    cambios.map(async (c) => {
+      const id = Number(c.promocion_id) || 0
+      const { error } = await ctx.supabase.rpc("promo_set_active", {
+        p_id: id,
+        p_active: Boolean(c.activa),
+      })
+      return error ? { id, ok: false, error: error.message } : { id, ok: true }
     })
-    if (error) errores.push(`Promoción ${id}: ${error.message}`)
-    else actualizados.push(id)
-  }
+  )
+  const actualizados = resultados.filter((r) => r.ok).map((r) => r.id)
+  const errores = resultados.filter((r) => !r.ok).map((r) => `Promoción ${r.id}: ${r.error}`)
   if (actualizados.length > 0) refreshMenu(ctx.restaurantId)
   return { actualizados, errores }
 }
@@ -800,24 +834,24 @@ async function reponerInsumos(_ctx: AssistantContext, args: ToolArgs) {
   }[]
   if (items.length === 0) return { error: "No se recibieron reposiciones" }
 
-  const repuestos: number[] = []
-  const errores: string[] = []
-  for (const it of items) {
-    const id = Number(it.insumo_id) || 0
-    const cantidad = Number(it.cantidad) || 0
-    if (cantidad <= 0) {
-      errores.push(`Insumo ${id}: la cantidad debe ser positiva`)
-      continue
-    }
-    // restockIngredient hace su propio guard de admin + scope de restaurante.
-    const res = await restockIngredient({
-      id,
-      cantidad,
-      nota: it.nota ? String(it.nota).slice(0, 200) : null,
+  // restockIngredient hace su propio guard de admin + scope de restaurante
+  // (no toma ctx); en paralelo, esas verificaciones repetidas corren a la vez
+  // en vez de una tras otra para cada ítem del lote.
+  const resultados = await Promise.all(
+    items.map(async (it) => {
+      const id = Number(it.insumo_id) || 0
+      const cantidad = Number(it.cantidad) || 0
+      if (cantidad <= 0) return { id, ok: false, error: "la cantidad debe ser positiva" }
+      const res = await restockIngredient({
+        id,
+        cantidad,
+        nota: it.nota ? String(it.nota).slice(0, 200) : null,
+      })
+      return res.ok ? { id, ok: true } : { id, ok: false, error: res.error }
     })
-    if (res.ok) repuestos.push(id)
-    else errores.push(`Insumo ${id}: ${res.error}`)
-  }
+  )
+  const repuestos = resultados.filter((r) => r.ok).map((r) => r.id)
+  const errores = resultados.filter((r) => !r.ok).map((r) => `Insumo ${r.id}: ${r.error}`)
   return { repuestos, errores }
 }
 

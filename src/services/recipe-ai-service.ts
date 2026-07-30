@@ -2,6 +2,7 @@ import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai"
 import { z } from "zod"
 import { ok, fail, type Result } from "@/services/result"
 import { requireCurrentAdmin } from "@/services/auth-guard"
+import { checkRecipeAiLimit, checkGeminiGlobalLimit } from "@/lib/rate-limit"
 import type { IngredientUnit } from "@/types/ingredient"
 import type { SuggestedRecipeItem } from "@/types/product-recipe"
 
@@ -57,6 +58,18 @@ export async function suggestProductRecipe(
 
   const apiKey = process.env.GEMINI_API_KEY
   if (!apiKey) return fail("GEMINI_API_KEY no configurada en el server")
+
+  // Límite propio por restaurante (se puede invocar en lote, un producto a la
+  // vez, desde BulkRecipeDialog) + presupuesto global compartido con Manuel y
+  // las otras IAs de la misma GEMINI_API_KEY.
+  const restaurantLimit = await checkRecipeAiLimit(restaurantId)
+  if (!restaurantLimit.success) {
+    return fail("Alcanzaste el límite de sugerencias de receta de tu restaurante. Probá de nuevo más tarde.")
+  }
+  const globalLimit = await checkGeminiGlobalLimit()
+  if (!globalLimit.success) {
+    return fail("El servicio de IA está con mucha demanda en este momento. Probá de nuevo en unos segundos.")
+  }
 
   const rawCat = product.categories as
     | { category_name: string }

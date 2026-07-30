@@ -49,8 +49,14 @@ export function TypewriterMarkdown({
       }
       return
     }
-    // Respuestas largas teclean más rápido (caracteres por tick).
-    const step = text.length > 700 ? 4 : text.length > 300 ? 2 : 1
+    // El texto ya llegó completo del servidor — esto es puro efecto visual,
+    // no hay que esperar nada real. Antes, con un paso fijo de hasta 4
+    // caracteres/tick a 14ms, una respuesta de 2000 caracteres (dentro de
+    // maxOutputTokens) tardaba ~7s en verse completa aunque ya estuviera
+    // lista. Con el paso escalado al largo del texto, la animación entera
+    // dura ~1.1s sin importar cuán larga sea la respuesta.
+    const TARGET_TICKS = 80
+    const step = Math.max(1, Math.ceil(text.length / TARGET_TICKS))
     const id = setInterval(() => {
       setShown((prev) => {
         if (prev >= text.length) {

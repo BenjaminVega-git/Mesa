@@ -39,7 +39,18 @@ function loadStored(): ChatMessage[] {
     const raw = sessionStorage.getItem(STORAGE_KEY)
     if (!raw) return []
     const parsed = JSON.parse(raw)
-    return Array.isArray(parsed) ? (parsed as ChatMessage[]).slice(-40) : []
+    if (!Array.isArray(parsed)) return []
+    // Se restaura después de recargar/cerrar la pestaña: cualquier acción que
+    // haya quedado "en ejecución" nunca va a resolver (el stream que la iba a
+    // cerrar ya no existe), y si el turno se cortó antes del evento "reply"
+    // no hay texto que mostrar — sin esto, quedaban chips parpadeando para
+    // siempre y turnos completamente en blanco sin ningún aviso.
+    return (parsed as ChatMessage[]).slice(-40).map((m) => {
+      if (m.role !== "assistant") return m
+      const actions = (m.actions ?? []).map((a) => (a.status === "run" ? { ...a, status: "error" as const } : a))
+      const text = m.text || "La respuesta no llegó a completarse (se cortó la conexión). Intenta de nuevo."
+      return { ...m, actions, text }
+    })
   } catch {
     return []
   }
@@ -62,6 +73,13 @@ export function AssistantWidget() {
   // Índice del mensaje recién llegado por el stream: es el ÚNICO que se
   // anima con el typewriter (el historial restaurado aparece completo).
   const freshReplyRef = useRef<number | null>(null)
+  // Se incrementa en cada send() nuevo y en "Nueva conversación": un send()
+  // en vuelo cuya generación ya no es la vigente deja de tocar el estado.
+  // Sin esto, cancelar/vaciar el chat mientras Manuel respondía podía dejar
+  // que la respuesta VIEJA (que llega después, ya en el catch/finally del
+  // fetch abortado) sobrescribiera el turno nuevo, o reactivara `busy` de
+  // golpe en medio de la conversación siguiente.
+  const generationRef = useRef(0)
 
   // Cargar historial de la sesión + preferencia de voz al montar (evita
   // hydration mismatch).
@@ -130,6 +148,9 @@ export function AssistantWidget() {
       const clean = text.trim()
       if (!clean || busy) return
 
+      const myGeneration = ++generationRef.current
+      const isStale = () => generationRef.current !== myGeneration
+
       const nextMessages: ChatMessage[] = [...messages, { role: "user", text: clean }]
       setMessages(nextMessages)
       setInput("")
@@ -144,6 +165,7 @@ export function AssistantWidget() {
       abortRef.current = controller
 
       function patchLast(patch: (m: ChatMessage) => ChatMessage) {
+        if (isStale()) return
         setMessages((prev) => {
           const copy = [...prev]
           copy[copy.length - 1] = patch(copy[copy.length - 1])
@@ -165,11 +187,12 @@ export function AssistantWidget() {
         })
 
         if (!res.ok || !res.body) {
-          const data = await res.json().catch(() => null)
-          patchLast((m) => ({
-            ...m,
-            text: (data as { error?: string } | null)?.error ?? "El asistente no está disponible ahora.",
-          }))
+          const data = (await res.json().catch(() => null)) as
+            | { error?: string; retryAfterSeconds?: number }
+            | null
+          const base = data?.error ?? "El asistente no está disponible ahora."
+          const retry = data?.retryAfterSeconds ? ` (intenta de nuevo en ~${data.retryAfterSeconds}s)` : ""
+          patchLast((m) => ({ ...m, text: base + retry }))
           return
         }
 
@@ -178,6 +201,7 @@ export function AssistantWidget() {
         let buffer = ""
 
         for (;;) {
+          if (isStale()) break
           const { done, value } = await reader.read()
           if (done) break
           buffer += decoder.decode(value, { stream: true })
@@ -241,8 +265,13 @@ export function AssistantWidget() {
           text: m.text || "Se cortó la conexión con el asistente. Prueba de nuevo.",
         }))
       } finally {
-        setBusy(false)
-        abortRef.current = null
+        // Si mientras tanto arrancó una conversación nueva (o esta se
+        // canceló), esos `busy`/`abortRef` ya pertenecen a ESA generación —
+        // tocarlos acá los pisaría de forma incorrecta.
+        if (!isStale()) {
+          setBusy(false)
+          abortRef.current = null
+        }
       }
     },
     [busy, messages]
@@ -332,6 +361,10 @@ export function AssistantWidget() {
                 <button
                   type="button"
                   onClick={() => {
+                    // Invalida cualquier send() en vuelo ANTES de abortar: su
+                    // catch/finally ya no va a tocar el estado de esta
+                    // conversación nueva (ver `isStale()` dentro de send()).
+                    generationRef.current++
                     abortRef.current?.abort()
                     stopSpeaking()
                     setSpeaking(false)

@@ -7,6 +7,7 @@ import { ok, fail, type Result } from "@/services/result"
 import { cloudinary } from "@/lib/cloudinary/config"
 import { fetchImageSafely } from "@/lib/security/safe-image-url"
 import { logger } from "@/lib/logger"
+import { checkMenuImportLimit, checkGeminiGlobalLimit } from "@/lib/rate-limit"
 
 // ============ TYPES ============
 
@@ -88,6 +89,18 @@ export async function parseMenuImage(input: ParseInput): Promise<Result<ParsedMe
 
   const apiKey = process.env.GEMINI_API_KEY
   if (!apiKey) return fail("GEMINI_API_KEY no configurada en el server")
+
+  // Es la operación más pesada de las 4 que comparten GEMINI_API_KEY (hasta 6
+  // imágenes por llamada) — límite propio por restaurante, además del
+  // presupuesto global compartido con el chat de Manuel y las otras IAs.
+  const restaurantLimit = await checkMenuImportLimit(auth.data.restaurantId)
+  if (!restaurantLimit.success) {
+    return fail("Alcanzaste el límite de importaciones de menú de tu restaurante. Probá de nuevo más tarde.")
+  }
+  const globalLimit = await checkGeminiGlobalLimit()
+  if (!globalLimit.success) {
+    return fail("El servicio de IA está con mucha demanda en este momento. Probá de nuevo en unos segundos.")
+  }
 
   try {
     const genAI = new GoogleGenerativeAI(apiKey)

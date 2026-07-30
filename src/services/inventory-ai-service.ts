@@ -2,6 +2,7 @@ import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai"
 import { z } from "zod"
 import { ok, fail, type Result } from "@/services/result"
 import { requireCurrentAdmin } from "@/services/auth-guard"
+import { checkInventoryAiLimit, checkGeminiGlobalLimit } from "@/lib/rate-limit"
 
 export type HeaderColumnMap = {
   name: number
@@ -41,6 +42,15 @@ export async function mapInventoryHeaders(
 
   const apiKey = process.env.GEMINI_API_KEY
   if (!apiKey) return fail("GEMINI_API_KEY no configurada en el server")
+
+  const restaurantLimit = await checkInventoryAiLimit(auth.data.restaurantId)
+  if (!restaurantLimit.success) {
+    return fail("Alcanzaste el límite de mapeos de inventario con IA de tu restaurante. Probá de nuevo más tarde.")
+  }
+  const globalLimit = await checkGeminiGlobalLimit()
+  if (!globalLimit.success) {
+    return fail("El servicio de IA está con mucha demanda en este momento. Probá de nuevo en unos segundos.")
+  }
 
   const cols = headers.slice(0, 40)
   const samples = sampleRows.slice(0, 3)

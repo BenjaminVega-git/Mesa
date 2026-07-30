@@ -45,16 +45,41 @@ export const assistantRatelimit = new Ratelimit({
   analytics: true,
 })
 
-// Todos los restaurantes comparten UNA sola GEMINI_API_KEY (ver también
-// menu-import/recipe-ai/inventory-ai-service). El límite de arriba protege a
-// cada restaurante de sí mismo, pero con muchos restaurantes distintos
-// activos a la vez no hay ningún tope agregado sobre la cuota real — este es
-// ese tope: frecuencia global (ráfagas en poco tiempo) independiente de
-// cuántos restaurantes distintos las generen.
-export const assistantGlobalRatelimit = new Ratelimit({
+// TODAS las funciones de IA de la plataforma (chat de Manuel, importar menú,
+// sugerir receta, mapear CSV de inventario) comparten UNA sola
+// GEMINI_API_KEY. Sin un presupuesto agregado y COMPARTIDO entre las 4, una
+// ráfaga de importaciones de menú en un restaurante puede agotar la cuota
+// real de Gemini y hacer que Manuel devuelva 429 en otro restaurante que
+// nunca tocó el chat — antes, ninguna de las otras 3 pasaba por ningún límite
+// propio. Este es ese presupuesto único: frecuencia global independiente de
+// cuál de las 4 funciones o cuántos restaurantes distintos la generen.
+export const geminiGlobalRatelimit = new Ratelimit({
   redis,
   limiter: Ratelimit.slidingWindow(Number(process.env.ASSISTANT_GLOBAL_RATE_LIMIT) || 20, "1 m"),
-  prefix: "rl:assistant-global",
+  prefix: "rl:gemini-global",
+  analytics: true,
+})
+
+// Límites propios (por restaurante) de las 3 funciones de IA NO
+// conversacionales — antes no tenían ninguno, así que un solo restaurante
+// podía por sí solo consumir buena parte del presupuesto global de arriba.
+// Números bajos porque son operaciones pesadas/ocasionales, no chat.
+export const menuImportRatelimit = new Ratelimit({
+  redis,
+  limiter: Ratelimit.slidingWindow(5, "1 h"),
+  prefix: "rl:menu-import",
+  analytics: true,
+})
+export const recipeAiRatelimit = new Ratelimit({
+  redis,
+  limiter: Ratelimit.slidingWindow(30, "1 h"),
+  prefix: "rl:recipe-ai",
+  analytics: true,
+})
+export const inventoryAiRatelimit = new Ratelimit({
+  redis,
+  limiter: Ratelimit.slidingWindow(10, "1 h"),
+  prefix: "rl:inventory-ai",
   analytics: true,
 })
 
@@ -63,12 +88,21 @@ export const assistantGlobalRatelimit = new Ratelimit({
 // maxDuration=300s y hacer varias llamadas secuenciales a Gemini) — sin esto,
 // una ráfaga de usuarios distintos podría seguir sumando llamadas simultáneas
 // mientras las anteriores aún no terminan, aunque cada una respete el límite
-// de frecuencia por minuto.
-const ASSISTANT_MAX_CONCURRENCY = Number(process.env.ASSISTANT_MAX_CONCURRENCY) || 6
+// de frecuencia por minuto. Default subido de 6 a 10: con 6, bastaban 6-7
+// admins con Manuel abierto a la vez (normal en hora punta) para que el resto
+// de la plataforma recibiera 429 sin que hubiera abuso real. Si la cuota real
+// de Gemini sigue en tier gratis (~10 RPM), subir esto NO alcanza por sí solo
+// — hay que revisar el plan contratado en Google AI Studio.
+const ASSISTANT_MAX_CONCURRENCY = Number(process.env.ASSISTANT_MAX_CONCURRENCY) || 10
 const ASSISTANT_CONCURRENCY_KEY = "rl:assistant:inflight"
 // Red de seguridad: si un proceso muere sin liberar su cupo, el contador no
 // debe quedar atascado para siempre. Mismo orden de magnitud que maxDuration.
 const ASSISTANT_CONCURRENCY_TTL_SECONDS = 300
+
+/** Segundos hasta el `reset` (timestamp ms) de un Ratelimit — para el header/campo Retry-After. */
+export function secondsUntilReset(resetMs: number): number {
+  return Math.max(1, Math.ceil((resetMs - Date.now()) / 1000))
+}
 
 export async function getClientIp(): Promise<string> {
   const h = await headers()
@@ -111,9 +145,24 @@ export async function checkAssistantLimit(restaurantId: number) {
   return assistantRatelimit.limit(`restaurant:${restaurantId}`)
 }
 
-/** Asistente IA: frecuencia agregada de TODOS los restaurantes juntos. */
-export async function checkAssistantGlobalLimit() {
-  return assistantGlobalRatelimit.limit("global")
+/** Presupuesto de Gemini: frecuencia agregada de LAS 4 funciones de IA, en TODOS los restaurantes juntos. */
+export async function checkGeminiGlobalLimit() {
+  return geminiGlobalRatelimit.limit("global")
+}
+
+/** Importar menú con IA: por restaurante (operación pesada y ocasional). */
+export async function checkMenuImportLimit(restaurantId: number) {
+  return menuImportRatelimit.limit(`restaurant:${restaurantId}`)
+}
+
+/** Sugerir receta con IA: por restaurante. */
+export async function checkRecipeAiLimit(restaurantId: number) {
+  return recipeAiRatelimit.limit(`restaurant:${restaurantId}`)
+}
+
+/** Mapear columnas de inventario con IA: por restaurante. */
+export async function checkInventoryAiLimit(restaurantId: number) {
+  return inventoryAiRatelimit.limit(`restaurant:${restaurantId}`)
 }
 
 /**

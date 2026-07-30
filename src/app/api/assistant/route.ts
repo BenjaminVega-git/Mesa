@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server"
-import { GoogleGenerativeAI, type Content } from "@google/generative-ai"
+import { GoogleGenerativeAI, type ChatSession, type Content, type Part } from "@google/generative-ai"
 import { requireCurrentAdmin } from "@/services/auth-guard"
 import {
   checkAssistantLimit,
-  checkAssistantGlobalLimit,
+  checkGeminiGlobalLimit,
   acquireAssistantSlot,
   releaseAssistantSlot,
+  secondsUntilReset,
 } from "@/lib/rate-limit"
 import {
   functionDeclarations,
@@ -14,6 +15,7 @@ import {
   WRITE_TOOLS,
   type AssistantContext,
 } from "@/lib/assistant/tools"
+import { tryDeterministicReply } from "@/lib/assistant/intent-router"
 
 export const dynamic = "force-dynamic"
 export const maxDuration = 300
@@ -27,11 +29,22 @@ export const maxDuration = 300
  *   {type:"reply", text}   respuesta final del asistente
  *   {type:"error", message}
  *   {type:"done"}
+ *
+ * Antes de tocar a Gemini se intenta lib/assistant/intent-router: para
+ * preguntas frecuentes de solo lectura (estado del día, ventas, inventario,
+ * cupones, promociones), FAQ de la plataforma y el tour guiado, se responde
+ * directo con datos reales (misma executeTool de siempre) sin gastar cuota
+ * de la GEMINI_API_KEY compartida — es el "motor propio" que reduce la
+ * dependencia del servicio externo para el tráfico más común.
  */
 
 const MAX_TOOL_ITERATIONS = 8
 const MAX_HISTORY_MESSAGES = 20
 const MAX_MESSAGE_CHARS = 4000
+// Techo por llamada individual a Gemini: sin esto, una llamada colgada podía
+// retener un cupo de acquireAssistantSlot() hasta los 300s de maxDuration,
+// aunque nadie más esté abusando — con esto se libera mucho antes.
+const GEMINI_CALL_TIMEOUT_MS = 60_000
 
 const SYSTEM_PROMPT = `Te llamas MANUEL y eres el asistente de MESA, el sistema de gestión de restaurantes con pedidos por QR. Trabajas para el administrador del restaurante que te habla. Hablas ESPAÑOL LATINOAMERICANO NEUTRO, cercano y profesional — con la calidez de un buen maître, sin caer en lo caricaturesco. SIEMPRE tuteo estándar ("tú puedes", "crea", "revisa", "dime"); JAMÁS uses "vosotros" ni voseo ("podés", "tenés", "creá", "pedile" están PROHIBIDOS). Preséntate como Manuel solo cuando corresponda (primer saludo o si te preguntan quién eres); no repitas tu nombre en cada mensaje. Fecha actual: {FECHA}.
 
@@ -80,6 +93,24 @@ function sanitizeHistory(raw: unknown): ClientMessage[] {
   return msgs
 }
 
+/** Un reintento corto ante 429 transitorio de Gemini — el rate limiting propio ya reduce
+ *  la probabilidad, pero cuando ocurre igual, hoy se lo mostrábamos al usuario de inmediato
+ *  sin darle ninguna chance de resolverse solo. */
+async function sendMessageWithRetry(
+  chat: ChatSession,
+  content: string | Array<string | Part>
+): Promise<Awaited<ReturnType<ChatSession["sendMessage"]>>> {
+  try {
+    return await chat.sendMessage(content, { timeout: GEMINI_CALL_TIMEOUT_MS })
+  } catch (err) {
+    if (err instanceof Error && err.message.includes("429")) {
+      await new Promise((r) => setTimeout(r, 800))
+      return await chat.sendMessage(content, { timeout: GEMINI_CALL_TIMEOUT_MS })
+    }
+    throw err
+  }
+}
+
 export async function POST(req: Request) {
   // Autenticación/autorización real: el asistente actúa como el admin logueado.
   const auth = await requireCurrentAdmin()
@@ -91,28 +122,15 @@ export async function POST(req: Request) {
     restaurantId: auth.data.restaurantId,
   }
 
-  const { success } = await checkAssistantLimit(ctx.restaurantId)
-  if (!success) {
+  const restaurantCheck = await checkAssistantLimit(ctx.restaurantId)
+  if (!restaurantCheck.success) {
     return NextResponse.json(
-      { error: "Límite de uso del asistente alcanzado. Intenta de nuevo en un rato." },
+      {
+        error: "Límite de uso del asistente alcanzado. Intenta de nuevo en un rato.",
+        retryAfterSeconds: secondsUntilReset(restaurantCheck.reset),
+      },
       { status: 429 }
     )
-  }
-
-  // Todos los restaurantes comparten una sola API key de Gemini: este límite
-  // protege esa cuota agregada de ráfagas de MUCHOS restaurantes distintos a
-  // la vez (el de arriba solo protege a cada restaurante de sí mismo).
-  const globalCheck = await checkAssistantGlobalLimit()
-  if (!globalCheck.success) {
-    return NextResponse.json(
-      { error: "Manuel está con mucha demanda en este momento. Probá de nuevo en unos segundos." },
-      { status: 429 }
-    )
-  }
-
-  const apiKey = process.env.GEMINI_API_KEY
-  if (!apiKey) {
-    return NextResponse.json({ error: "El asistente no está configurado (falta la API key)." }, { status: 503 })
   }
 
   let body: { messages?: unknown }
@@ -126,6 +144,79 @@ export async function POST(req: Request) {
   if (history.length === 0 || history[history.length - 1].role !== "user") {
     return NextResponse.json({ error: "Falta el mensaje del usuario" }, { status: 400 })
   }
+  const userText = history[history.length - 1].text
+
+  const encoder = new TextEncoder()
+  const ndjson = (events: Record<string, unknown>[]) =>
+    new Response(events.map((e) => JSON.stringify(e) + "\n").join(""), {
+      headers: {
+        "Content-Type": "application/x-ndjson; charset=utf-8",
+        "Cache-Control": "no-store",
+        "X-Accel-Buffering": "no",
+      },
+    })
+
+  // Motor de intención propio: si matchea, responde con datos reales SIN
+  // gastar nada de la cuota de Gemini (ni el límite global ni un cupo de
+  // concurrencia) — ver lib/assistant/intent-router.ts.
+  const deterministic = await tryDeterministicReply(userText, ctx)
+  if (deterministic) {
+    if (deterministic.kind === "tour") {
+      return ndjson([
+        { type: "client_action", action: "start_tour" },
+        {
+          type: "tool",
+          name: "iniciar_tour",
+          label: TOOL_LABELS.iniciar_tour,
+          write: false,
+          status: "ok",
+        },
+        {
+          type: "reply",
+          text: "Ya abrí el tour guiado en pantalla — puedes seguirlo con los botones Siguiente y Anterior.",
+        },
+        { type: "done" },
+      ])
+    }
+    if (deterministic.kind === "faq") {
+      return ndjson([{ type: "reply", text: deterministic.reply }, { type: "done" }])
+    }
+    return ndjson([
+      {
+        type: "tool",
+        name: deterministic.tool,
+        label: TOOL_LABELS[deterministic.tool] ?? deterministic.tool,
+        write: false,
+        status: "run",
+      },
+      {
+        type: "tool",
+        name: deterministic.tool,
+        label: TOOL_LABELS[deterministic.tool] ?? deterministic.tool,
+        write: false,
+        status: "ok",
+      },
+      { type: "reply", text: deterministic.reply },
+      { type: "done" },
+    ])
+  }
+
+  // A partir de aquí sí se necesita a Gemini.
+  const globalCheck = await checkGeminiGlobalLimit()
+  if (!globalCheck.success) {
+    return NextResponse.json(
+      {
+        error: "Manuel está con mucha demanda en este momento. Probá de nuevo en unos segundos.",
+        retryAfterSeconds: secondsUntilReset(globalCheck.reset),
+      },
+      { status: 429 }
+    )
+  }
+
+  const apiKey = process.env.GEMINI_API_KEY
+  if (!apiKey) {
+    return NextResponse.json({ error: "El asistente no está configurado (falta la API key)." }, { status: 503 })
+  }
 
   // Tope de conversaciones del asistente EN VUELO al mismo tiempo (cada una
   // puede tardar hasta maxDuration=300s y hacer varias llamadas seguidas a
@@ -135,7 +226,10 @@ export async function POST(req: Request) {
   const gotSlot = await acquireAssistantSlot()
   if (!gotSlot) {
     return NextResponse.json(
-      { error: "Manuel está atendiendo a mucha gente en este momento. Probá de nuevo en unos segundos." },
+      {
+        error: "Manuel está atendiendo a mucha gente en este momento. Probá de nuevo en unos segundos.",
+        retryAfterSeconds: 5,
+      },
       { status: 429 }
     )
   }
@@ -154,65 +248,83 @@ export async function POST(req: Request) {
   const chatHistory: Content[] = history
     .slice(0, -1)
     .map((m) => ({ role: m.role, parts: [{ text: m.text }] }))
-  const userText = history[history.length - 1].text
 
-  const encoder = new TextEncoder()
+  let cancelled = false
   const stream = new ReadableStream({
     async start(controller) {
-      const emit = (event: Record<string, unknown>) =>
-        controller.enqueue(encoder.encode(JSON.stringify(event) + "\n"))
+      const emit = (event: Record<string, unknown>) => {
+        if (cancelled) return
+        try {
+          controller.enqueue(encoder.encode(JSON.stringify(event) + "\n"))
+        } catch {
+          // el controller ya puede estar cerrado (cliente abortó) — no crítico
+        }
+      }
 
       try {
         const chat = model.startChat({ history: chatHistory })
-        let response = await chat.sendMessage(userText)
+        let response = await sendMessageWithRetry(chat, userText)
 
-        for (let i = 0; i < MAX_TOOL_ITERATIONS; i += 1) {
+        for (let i = 0; i < MAX_TOOL_ITERATIONS && !cancelled; i += 1) {
           const calls = response.response.functionCalls()
           if (!calls || calls.length === 0) break
 
-          const parts = []
+          // Se avisa que TODAS empezaron antes de ejecutar nada, y luego se
+          // corren en paralelo (antes era secuencial): cuando Gemini pide
+          // varias tools en el mismo turno (p.ej. listar cupones y
+          // promociones juntos) ya no esperan una a la otra.
           for (const call of calls) {
-            const label = TOOL_LABELS[call.name] ?? call.name
-            const write = WRITE_TOOLS.has(call.name)
-            emit({ type: "tool", name: call.name, label, write, status: "run" })
-
-            // iniciar_tour se ejecuta en el CLIENTE: se avisa al widget para
-            // que abra el tour guiado y al modelo se le confirma para que
-            // cierre con una despedida corta.
-            if (call.name === "iniciar_tour") {
-              emit({ type: "client_action", action: "start_tour" })
-              emit({ type: "tool", name: call.name, label, write, status: "ok" })
-              parts.push({
-                functionResponse: {
-                  name: call.name,
-                  response: {
-                    ok: true,
-                    mensaje:
-                      "El tour guiado ya se abrió en pantalla. Despídete en UNA línea invitando a seguirlo con los botones Siguiente/Anterior.",
-                  },
-                },
-              })
-              continue
-            }
-
-            const result = await executeTool(call.name, (call.args ?? {}) as Record<string, unknown>, ctx)
-            const failed =
-              typeof result.error === "string" &&
-              Object.keys(result).length === 1
-
-            emit({ type: "tool", name: call.name, label, write, status: failed ? "error" : "ok" })
-            parts.push({ functionResponse: { name: call.name, response: result } })
+            emit({
+              type: "tool",
+              name: call.name,
+              label: TOOL_LABELS[call.name] ?? call.name,
+              write: WRITE_TOOLS.has(call.name),
+              status: "run",
+            })
           }
 
-          response = await chat.sendMessage(parts)
+          const parts = await Promise.all(
+            calls.map(async (call) => {
+              const label = TOOL_LABELS[call.name] ?? call.name
+              const write = WRITE_TOOLS.has(call.name)
+
+              // iniciar_tour se ejecuta en el CLIENTE: se avisa al widget para
+              // que abra el tour guiado y al modelo se le confirma para que
+              // cierre con una despedida corta.
+              if (call.name === "iniciar_tour") {
+                emit({ type: "client_action", action: "start_tour" })
+                emit({ type: "tool", name: call.name, label, write, status: "ok" })
+                return {
+                  functionResponse: {
+                    name: call.name,
+                    response: {
+                      ok: true,
+                      mensaje:
+                        "El tour guiado ya se abrió en pantalla. Despídete en UNA línea invitando a seguirlo con los botones Siguiente/Anterior.",
+                    },
+                  },
+                }
+              }
+
+              const result = await executeTool(call.name, (call.args ?? {}) as Record<string, unknown>, ctx)
+              const failed = typeof result.error === "string" && Object.keys(result).length === 1
+              emit({ type: "tool", name: call.name, label, write, status: failed ? "error" : "ok" })
+              return { functionResponse: { name: call.name, response: result } }
+            })
+          )
+
+          if (cancelled) break
+          response = await sendMessageWithRetry(chat, parts)
         }
 
-        const text = response.response.text()
-        emit({
-          type: "reply",
-          text: text?.trim() || "Listo. ¿Necesitás algo más?",
-        })
-        emit({ type: "done" })
+        if (!cancelled) {
+          const text = response.response.text()
+          emit({
+            type: "reply",
+            text: text?.trim() || "Listo. ¿Necesitás algo más?",
+          })
+          emit({ type: "done" })
+        }
       } catch (err) {
         emit({
           type: "error",
@@ -223,8 +335,19 @@ export async function POST(req: Request) {
         })
       } finally {
         await releaseAssistantSlot()
-        controller.close()
+        try {
+          controller.close()
+        } catch {
+          // ya puede estar cerrado si el cliente abortó
+        }
       }
+    },
+    cancel() {
+      // El cliente cortó la conexión (p.ej. "Nueva conversación" mientras
+      // Manuel respondía): sin esto, el bucle seguía llamando a Gemini y
+      // ejecutando tools de ESCRITURA en segundo plano para una conversación
+      // que el usuario ya descartó.
+      cancelled = true
     },
   })
 
