@@ -28,6 +28,7 @@ export function useRestaurantTables(restaurantId: number | null) {
       .from("tables")
       .select("id, table_number, current_waiter_id")
       .eq("restaurant_id", rid)
+      .neq("table_number", 0)
       .order("table_number", { ascending: true })
 
     if (error) {

@@ -70,6 +70,7 @@ function elapsedMinutes(
 }
 
 function tableLabel(o: WaiterOrder): string {
+  if (o.tableNumber === 0) return "Recepción"
   if (o.tableNumber != null) return `Mesa ${o.tableNumber}`
   if (o.tableId != null) return `Mesa #${o.tableId}`
   return "Sin mesa"
@@ -226,7 +227,11 @@ function WaiterControlSystem() {
   const handleMarkPaid = useCallback((order: WaiterOrder) => {
     if (order.tableId == null) return
     const tableLabel =
-      order.tableNumber != null ? `Mesa ${order.tableNumber}` : `Mesa #${order.tableId}`
+      order.tableNumber === 0
+        ? "Recepción"
+        : order.tableNumber != null
+          ? `Mesa ${order.tableNumber}`
+          : `Mesa #${order.tableId}`
     setOrderChargeTarget({
       scope: { tableId: order.tableId, orderId: order.id },
       label: `Pedido #${order.id} · ${tableLabel}`,
@@ -288,7 +293,10 @@ function WaiterControlSystem() {
   // ultima escaneada. La mesa escaneada (focusTableId) solo sirve para
   // resaltar/identificar en la UI; no restringe la lista.
   const ownOrders = useMemo(
-    () => orders.filter((o) => o.tableId != null && assignedTableIds.has(o.tableId)),
+    () =>
+      orders.filter(
+        (o) => o.tableNumber === 0 || (o.tableId != null && assignedTableIds.has(o.tableId))
+      ),
     [orders, assignedTableIds]
   )
 
@@ -621,7 +629,11 @@ function WaiterControlSystem() {
           <TakeOrderPanel
             onClose={() => setPosOpen(false)}
             onCreated={(order) =>
-              triggerToast(`Pedido #${order.id} enviado a Mesa ${order.tableNumber ?? "—"} 🧾`)
+              triggerToast(
+                `Pedido #${order.id} enviado a ${
+                  order.tableNumber === 0 ? "Recepción" : `Mesa ${order.tableNumber ?? "—"}`
+                } 🧾`
+              )
             }
           />
         )}

@@ -10,6 +10,7 @@ import type { ProductVariant } from "@/types/product-variant"
 type PendingUpdateVariant = {
   variantId: number
   name: string
+  description?: string | null
   price: number
   imageUrl: string | null
   imagePublicId: string | null
@@ -19,6 +20,7 @@ export function useEditVariant(variant: ProductVariant) {
   const { uploadImage, uploading } = useUploadImage()
 
   const [variantName, setVariantName] = useState(variant.variant_name)
+  const [variantDescription, setVariantDescription] = useState(variant.variant_description ?? "")
   const [variantPrice, setVariantPrice] = useState(String(variant.variant_price))
   const [variantImage, setVariantImage] = useState<File | null>(null)
   const [currentImageUrl] = useState<string | null>(variant.variant_image)
@@ -67,6 +69,7 @@ export function useEditVariant(variant: ProductVariant) {
       const payload = {
         variantId: variant.id,
         name: variantName.trim(),
+        description: variantDescription.trim() || null,
         price: Number(variantPrice),
         imageUrl,
         imagePublicId,
@@ -92,6 +95,7 @@ export function useEditVariant(variant: ProductVariant) {
 
   return {
     variantName, setVariantName,
+    variantDescription, setVariantDescription,
     variantPrice, setVariantPrice,
     variantImage, setVariantImage,
     currentImageUrl,

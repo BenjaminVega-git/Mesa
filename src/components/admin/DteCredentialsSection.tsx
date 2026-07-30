@@ -65,7 +65,10 @@ export function DteCredentialsSection() {
   }
 
   useEffect(() => {
-    load()
+    const id = window.setTimeout(() => {
+      void load()
+    }, 0)
+    return () => window.clearTimeout(id)
   }, [])
 
   async function handleSaveCert() {

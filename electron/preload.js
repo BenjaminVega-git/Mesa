@@ -13,4 +13,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   isElectron: true,
   listPrinters: () => ipcRenderer.invoke('printer:list'),
   printSilently: (deviceName) => ipcRenderer.invoke('printer:print-silent', deviceName),
+  printHtmlSilently: (deviceName, html) => ipcRenderer.invoke('printer:print-html-silent', deviceName, html),
+  printRaw: (deviceName, bytes) => ipcRenderer.invoke('printer:print-raw', deviceName, bytes),
 })

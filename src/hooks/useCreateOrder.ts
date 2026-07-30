@@ -15,8 +15,39 @@ type UseCreateOrderProps = {
   couponCode?: string | null
 }
 
+const ORDER_SUBMIT_COOLDOWN_MS = 3000
+const lastSubmitByTable = new Map<number, number>()
+
+function getSubmitCooldownKey(tableId: number) {
+  return `order-submit-cooldown-${tableId}`
+}
+
+function getLastSubmitAt(tableId: number): number {
+  const memoryValue = lastSubmitByTable.get(tableId) ?? 0
+  if (typeof window === "undefined") return memoryValue
+
+  try {
+    const stored = Number(window.localStorage.getItem(getSubmitCooldownKey(tableId)) ?? 0)
+    return Math.max(memoryValue, Number.isFinite(stored) ? stored : 0)
+  } catch {
+    return memoryValue
+  }
+}
+
+function markSubmitAt(tableId: number, timestamp: number) {
+  lastSubmitByTable.set(tableId, timestamp)
+  if (typeof window === "undefined") return
+
+  try {
+    window.localStorage.setItem(getSubmitCooldownKey(tableId), String(timestamp))
+  } catch {
+    // ignore
+  }
+}
+
 export function useCreateOrder({ items, tableId, restaurantId, couponCode }: UseCreateOrderProps) {
   const clearCart = useTableCartStore((state) => state.clear)
+  const fetchItems = useTableCartStore((state) => state.fetchItems)
   // Credencial pública de la mesa: las RPC ya no aceptan table_id.
   const qrCode = useTableCartStore((state) => state.qrCode)
   const setLastOrder = useCartStore((state) => state.setLastOrder)
@@ -70,13 +101,21 @@ export function useCreateOrder({ items, tableId, restaurantId, couponCode }: Use
       setError("No se pudo identificar la mesa del pedido.")
       return
     }
+    const now = Date.now()
+    const lastSubmitAt = getLastSubmitAt(tableId)
+    if (now - lastSubmitAt < ORDER_SUBMIT_COOLDOWN_MS) {
+      setError("El pedido ya se esta enviando. Espera unos segundos.")
+      return
+    }
 
+    markSubmitAt(tableId, now)
     setIsLoading(true)
     setError(null)
 
     try {
       await createOrderWithRetry()
     } catch (err) {
+      await fetchItems()
       handleMutationError(err, {
         logTag: "Error creando pedido",
         fallback: "Error al crear el pedido, intenta de nuevo.",

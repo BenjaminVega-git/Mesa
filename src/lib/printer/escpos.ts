@@ -109,6 +109,7 @@ export type ReceiptInput = {
   net: number | null
   iva: number | null
   total: number | null
+  items?: TicketItem[]
 }
 
 function clpLine(label: string, amount: number | null, width: number): string {
@@ -134,6 +135,12 @@ export function formatReceiptAsText(input: ReceiptInput, width: number = DEFAULT
   if (input.folio != null) lines.push(centerLine(`N° ${input.folio}`, width))
   lines.push(centerLine(fmtFecha(input.emittedAt), width))
   lines.push("-".repeat(width))
+  if (input.items && input.items.length > 0) {
+    for (const item of input.items) {
+      lines.push(`${item.quantity}x  ${item.name}`)
+    }
+    lines.push("-".repeat(width))
+  }
   lines.push(clpLine("Neto", input.net, width))
   lines.push(clpLine("IVA", input.iva, width))
   lines.push(clpLine("TOTAL", input.total, width))
@@ -162,6 +169,12 @@ export function buildReceiptTicket(input: ReceiptInput, width: number = DEFAULT_
   lines.push(separator, NEWLINE)
 
   lines.push(ALIGN_LEFT)
+  if (input.items && input.items.length > 0) {
+    for (const item of input.items) {
+      lines.push(encodeText(`${item.quantity}x  ${item.name}`), NEWLINE)
+    }
+    lines.push(separator, NEWLINE)
+  }
   lines.push(encodeText(clpLine("Neto", input.net, width)), NEWLINE)
   lines.push(encodeText(clpLine("IVA", input.iva, width)), NEWLINE)
   lines.push(BOLD_ON, encodeText(clpLine("TOTAL", input.total, width)), NEWLINE, BOLD_OFF)

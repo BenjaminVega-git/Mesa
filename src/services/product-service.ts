@@ -27,6 +27,7 @@ export type ProductForEdit = {
   variants: Array<{
     id: number
     name: string
+    description: string | null
     price: number
     imageUrl: string | null
     imagePublicId: string | null
@@ -74,7 +75,7 @@ export async function getProductForEdit(productId: number): Promise<Result<Produ
       .maybeSingle(),
     supabase
       .from("product_variants")
-      .select("id, variant_name, variant_price, variant_image, variant_image_public_id")
+      .select("id, variant_name, variant_description, variant_price, variant_image, variant_image_public_id")
       .eq("product_id", productId)
       .order("created_at", { ascending: true }),
   ])
@@ -95,6 +96,7 @@ export async function getProductForEdit(productId: number): Promise<Result<Produ
     variants: (variantsRes.data ?? []).map((variant) => ({
       id: variant.id,
       name: variant.variant_name,
+      description: variant.variant_description ?? null,
       price: variant.variant_price,
       imageUrl: variant.variant_image,
       imagePublicId: variant.variant_image_public_id,
@@ -146,6 +148,7 @@ export async function createProduct(input: CreateProductInput): Promise<Result<C
         options.map((option) => ({
           product_id: productData.id,
           variant_name: option.name,
+          variant_description: option.description ?? null,
           variant_price: option.price,
           variant_image: option.imageUrl,
           variant_image_public_id: option.imagePublicId,
@@ -265,6 +268,7 @@ export async function updateProduct(input: UpdateProductInput): Promise<Result<{
           .from("product_variants")
           .update({
             variant_name: option.name,
+            variant_description: option.description ?? null,
             variant_price: option.price,
             variant_image: option.imageUrl,
             variant_image_public_id: option.imagePublicId,
@@ -278,6 +282,7 @@ export async function updateProduct(input: UpdateProductInput): Promise<Result<{
           .insert({
             product_id: productId,
             variant_name: option.name,
+            variant_description: option.description ?? null,
             variant_price: option.price,
             variant_image: option.imageUrl,
             variant_image_public_id: option.imagePublicId,

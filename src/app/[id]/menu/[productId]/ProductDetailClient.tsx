@@ -185,6 +185,11 @@ export function ProductDetailClient({
                   </button>
                 ))}
               </div>
+              {activeVariant?.variant_description ? (
+                <p className="mt-2 text-[12px] leading-5 text-[#a1a1aa]">
+                  {activeVariant.variant_description}
+                </p>
+              ) : null}
             </div>
           ) : null}
 

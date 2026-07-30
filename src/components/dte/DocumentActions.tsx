@@ -4,7 +4,7 @@ import { useState } from "react"
 import { Printer } from "lucide-react"
 import { getKnownPrinter, connectBluetoothPrinter, sendTicket, isWebBluetoothAvailable } from "@/lib/printer"
 import { buildReceiptTicket, getStoredTicketWidth, type ReceiptInput } from "@/lib/printer/escpos"
-import { printReceiptViaOsDriver } from "@/lib/printer/osPrint"
+import { printReceiptViaOsDriver, printReceiptViaRawDriver } from "@/lib/printer/osPrint"
 import { FRIENDLY_LABEL } from "./DocumentView"
 import { logger } from "@/lib/logger"
 
@@ -28,6 +28,7 @@ type Props = {
   /** Link al PDF oficial del proveedor (con timbre real). Solo con proveedor
    *  DTE real; tiene prioridad sobre el print HTML. */
   officialPdfHref?: string | null
+  items?: Array<{ name: string; variantName: string | null; quantity: number }>
 }
 
 /** XML representativo del documento (para el modo simulado). NO es un DTE válido. */
@@ -63,7 +64,7 @@ function buildXml(d: Props["doc"], emisor: Props["emisor"]): string {
 </DTE>`
 }
 
-export function DocumentActions({ doc, emisor, officialPdfHref }: Props) {
+export function DocumentActions({ doc, emisor, officialPdfHref, items }: Props) {
   const [printingThermal, setPrintingThermal] = useState(false)
   const [thermalError, setThermalError] = useState<string | null>(null)
 
@@ -81,7 +82,13 @@ export function DocumentActions({ doc, emisor, officialPdfHref }: Props) {
         net: doc.net,
         iva: doc.iva,
         total: doc.total,
+        items: items?.map((item) => ({
+          quantity: item.quantity,
+          name: item.variantName ? `${item.name} - ${item.variantName}` : item.name,
+        })),
       }
+
+      if (await printReceiptViaRawDriver(receiptInput)) return
 
       if (isWebBluetoothAvailable()) {
         try {
@@ -153,7 +160,7 @@ export function DocumentActions({ doc, emisor, officialPdfHref }: Props) {
           className="flex items-center gap-2 rounded-xl border border-stone-300 px-4 py-2.5 text-sm font-bold text-stone-700 transition hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-50"
         >
           <Printer className="h-4 w-4" aria-hidden="true" />
-          {printingThermal ? "Imprimiendo..." : "Imprimir en impresora térmica"}
+          {printingThermal ? "Imprimiendo..." : "Imprimir boleta"}
         </button>
         {thermalError && <p className="max-w-xs text-xs font-medium text-red-600">{thermalError}</p>}
       </div>

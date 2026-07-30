@@ -361,6 +361,16 @@ type CreatePublicOrderRpcResult = {
   total: number
 }
 
+function shouldRetryWithLegacyOrderRpc(error: { message?: string; code?: string } | null): boolean {
+  const message = error?.message?.toLowerCase() ?? ""
+  return (
+    error?.code === "PGRST202" ||
+    message.includes("create_public_orders_from_cart_qr") ||
+    message.includes("schema cache") ||
+    message.includes("could not find the function")
+  )
+}
+
 export async function createOrder(input: CreateOrderInput): Promise<Result<CreatedOrder>> {
 
   // productos/variantes y recalcula el total.
@@ -373,9 +383,6 @@ export async function createOrder(input: CreateOrderInput): Promise<Result<Creat
 
   const { qrToken, items, dinerToken, couponCode } = validation.data
 
-  // Construir el array jsonb que espera la RPC (snake_case). Una línea es un
-  // producto (product_id) o una promoción (promotion_id). Las promos "build"
-  // llevan además las elecciones del comensal (selections).
   const rpcItems = items.map((item) => ({
     product_id: item.productId ?? null,
     variant_id: item.variantId ?? null,
@@ -396,12 +403,22 @@ export async function createOrder(input: CreateOrderInput): Promise<Result<Creat
 
   const supabase = await createSupabaseServerClient()
 
-  const { data, error } = await supabase.rpc("create_public_order_qr", {
+  let { data, error } = await supabase.rpc("create_public_orders_from_cart_qr", {
     p_qr_token: qrToken,
-    p_items: rpcItems,
     p_diner_token: dinerToken ?? null,
     p_coupon_code: couponCode ?? null,
   })
+
+  if (error && shouldRetryWithLegacyOrderRpc(error)) {
+    const retry = await supabase.rpc("create_public_order_qr", {
+      p_qr_token: qrToken,
+      p_items: rpcItems,
+      p_diner_token: dinerToken ?? null,
+      p_coupon_code: couponCode ?? null,
+    })
+    data = retry.data
+    error = retry.error
+  }
 
 if (error) {
     if (error.message?.includes("rate_limit_exceeded")) {

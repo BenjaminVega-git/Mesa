@@ -9,6 +9,7 @@ type Params = Promise<{ slug: string; productId: string }>
 type Variant = {
   id: number
   variant_name: string
+  variant_description: string | null
   variant_price: number
   variant_image: string | null
 }

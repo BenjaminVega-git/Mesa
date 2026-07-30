@@ -1,6 +1,7 @@
 import { create } from "zustand"
 import { supabase } from "@/lib/supabase"
 import { logger } from "@/lib/logger"
+import { getOrCreateDinerToken } from "@/lib/diner-token"
 import { getGuestId } from "@/lib/guest-id"
 import type { CartItem, CartPromoSelection, CartIngredientChoice } from "@/types/cart-item"
 import type { TableCartStore } from "@/types/cart-store"
@@ -31,6 +32,8 @@ type CartRow = {
   unit_price: number
   notes: string | null
   added_by: string | null
+  diner_slot: number | null
+  diner_label: string | null
   products: ProductJoin | ProductJoin[]
   product_variants: VariantJoin | VariantJoin[]
   promotion: PromotionJoin | PromotionJoin[]
@@ -55,6 +58,17 @@ function mapIngredientChoices(raw: RawIngredientChoice[] | null): CartIngredient
   return raw.map((c) => ({ ingredientId: c.ingredient_id, action: c.action }))
 }
 
+function shouldRetryWithoutDinerToken(error: { message?: string; code?: string } | null): boolean {
+  const message = error?.message?.toLowerCase() ?? ""
+  return (
+    error?.code === "PGRST202" ||
+    message.includes("p_diner_token") ||
+    message.includes("schema cache") ||
+    message.includes("function") ||
+    message.includes("could not find")
+  )
+}
+
 function mapRowToItem(row: CartRow): CartItem {
   // Línea de promoción (combo): nombre e imagen vienen de la promo.
   if (row.promotion_id != null) {
@@ -72,6 +86,8 @@ function mapRowToItem(row: CartRow): CartItem {
       image: promo?.image_url ?? undefined,
       notes: row.notes,
       addedBy: row.added_by,
+      dinerSlot: row.diner_slot,
+      dinerLabel: row.diner_label,
     }
   }
 
@@ -94,6 +110,8 @@ function mapRowToItem(row: CartRow): CartItem {
     image: image ?? undefined,
     notes: row.notes,
     addedBy: row.added_by,
+    dinerSlot: row.diner_slot,
+    dinerLabel: row.diner_label,
   }
 }
 
@@ -130,20 +148,36 @@ export const useTableCartStore = create<TableCartStore>()((set, get) => ({
   },
 
   addItem: async (input) => {
-    const { qrCode } = get()
+    const { qrCode, tableId } = get()
     if (!qrCode) return
+    const dinerToken = tableId ? getOrCreateDinerToken(tableId) : null
+    const ingredientChoices = input.ingredientChoices
+      ? input.ingredientChoices.map((c) => ({ ingredient_id: c.ingredientId, action: c.action }))
+      : null
 
-    const { error } = await supabase.rpc("cart_add_item_qr", {
+    const payload = {
       p_qr_token: qrCode,
       p_product_id: input.productId,
       p_variant_id: input.variantId ?? null,
       p_quantity: input.quantity ?? 1,
       p_notes: input.notes ?? null,
       p_added_by: getGuestId(),
-      p_ingredient_choices: input.ingredientChoices
-        ? input.ingredientChoices.map((c) => ({ ingredient_id: c.ingredientId, action: c.action }))
-        : null,
+      p_ingredient_choices: ingredientChoices,
+    }
+
+    let { error } = await supabase.rpc("cart_add_item_qr", {
+      ...payload,
+      p_diner_token: dinerToken,
     })
+
+    if (error && shouldRetryWithoutDinerToken(error)) {
+      logger.warn("cart_add_item_qr sin soporte de comensal; reintentando modo compatible", {
+        message: error.message,
+        code: error.code,
+      })
+      const retry = await supabase.rpc("cart_add_item_qr", payload)
+      error = retry.error
+    }
 
     if (error) {
       logger.error("Error agregando item al carrito", error)
@@ -154,23 +188,39 @@ export const useTableCartStore = create<TableCartStore>()((set, get) => ({
   },
 
   addPromo: async (promotionId, quantity = 1, selections = null) => {
-    const { qrCode } = get()
+    const { qrCode, tableId } = get()
     if (!qrCode) return
+    const dinerToken = tableId ? getOrCreateDinerToken(tableId) : null
+    const promoSelections = selections
+      ? selections.map((s) => ({
+          group_id: s.groupId,
+          product_id: s.productId,
+          variant_id: s.variantId ?? null,
+        }))
+      : null
 
-    const { error } = await supabase.rpc("cart_add_promo_qr", {
+    const payload = {
       p_qr_token: qrCode,
       p_promotion_id: promotionId,
       p_quantity: quantity,
       p_added_by: getGuestId(),
       // Solo las promos "build" llevan elecciones (snake_case para la RPC).
-      p_selections: selections
-        ? selections.map((s) => ({
-            group_id: s.groupId,
-            product_id: s.productId,
-            variant_id: s.variantId ?? null,
-          }))
-        : null,
+      p_selections: promoSelections,
+    }
+
+    let { error } = await supabase.rpc("cart_add_promo_qr", {
+      ...payload,
+      p_diner_token: dinerToken,
     })
+
+    if (error && shouldRetryWithoutDinerToken(error)) {
+      logger.warn("cart_add_promo_qr sin soporte de comensal; reintentando modo compatible", {
+        message: error.message,
+        code: error.code,
+      })
+      const retry = await supabase.rpc("cart_add_promo_qr", payload)
+      error = retry.error
+    }
 
     if (error) {
       logger.error("Error agregando promoción al carrito", error)
@@ -254,7 +304,7 @@ export function startCartPolling() {
   pollTimer = setInterval(() => {
     if (typeof document !== "undefined" && document.visibilityState !== "visible") return
     useTableCartStore.getState().fetchItems()
-  }, 4000)
+  }, 1000)
 }
 
 export function stopCartPolling() {

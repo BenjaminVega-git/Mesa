@@ -67,7 +67,7 @@ export async function createVariant(input: CreateVariantInput): Promise<Result<C
     return fail(validation.error.issues[0]?.message ?? "Datos inválidos")
   }
 
-  const { productId, name, price, imageUrl, imagePublicId } = validation.data
+  const { productId, name, description, price, imageUrl, imagePublicId } = validation.data
 
   const restaurantId = await getRestaurantIdForProduct(productId)
   if (!restaurantId) return fail("Producto no encontrado")
@@ -81,6 +81,7 @@ export async function createVariant(input: CreateVariantInput): Promise<Result<C
     .insert({
       product_id: productId,
       variant_name: name,
+      variant_description: description ?? null,
       variant_price: price,
       variant_image: imageUrl,
       variant_image_public_id: imagePublicId,
@@ -105,7 +106,7 @@ export async function updateVariant(input: UpdateVariantInput): Promise<Result<{
     return fail(validation.error.issues[0]?.message ?? "Datos inválidos")
   }
 
-  const { variantId, name, price, imageUrl, imagePublicId } = validation.data
+  const { variantId, name, description, price, imageUrl, imagePublicId } = validation.data
 
   const restaurantId = await getRestaurantIdForVariant(variantId)
   if (!restaurantId) return fail("Variante no encontrada")
@@ -127,6 +128,7 @@ export async function updateVariant(input: UpdateVariantInput): Promise<Result<{
     .from("product_variants")
     .update({
       variant_name: name,
+      variant_description: description ?? null,
       variant_price: price,
       variant_image: imageUrl,
       variant_image_public_id: imagePublicId,

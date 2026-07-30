@@ -200,6 +200,8 @@ export function MenuClient({ qrCode, menu }: MenuClientProps) {
   const router = useRouter()
   const { orders: tableOrders } = useTableOrders(qrCode)
   const hasHadOrdersRef = useRef(false)
+  const resetVersionRef = useRef<number | null>(null)
+  const resetRedirectedRef = useRef(false)
   const { addItem, addPromo } = useTableCart(tableId ?? null, restaurant?.id ?? null)
   const [showReco, setShowReco] = useState(false)
   const [recommendations, setRecommendations] = useState<RecommendedProduct[]>([])
@@ -245,6 +247,41 @@ export function MenuClient({ qrCode, menu }: MenuClientProps) {
       document.removeEventListener("visibilitychange", onVisible)
     }
   }, [qrCode])
+
+  useEffect(() => {
+    if (!qrCode) return
+    let cancelled = false
+
+    async function checkResetVersion() {
+      const { data, error } = await supabase.rpc("get_table_reset_version_qr", { p_qr_token: qrCode })
+      if (cancelled || error) return
+
+      const version = Number(data ?? 0)
+      if (!Number.isFinite(version)) return
+
+      if (resetVersionRef.current === null) {
+        resetVersionRef.current = version
+        return
+      }
+
+      if (version !== resetVersionRef.current && !resetRedirectedRef.current) {
+        resetRedirectedRef.current = true
+        router.replace(`/${qrCode}/gracias`)
+      }
+    }
+
+    checkResetVersion()
+    const interval = window.setInterval(checkResetVersion, 3_000)
+    const onVisible = () => {
+      if (document.visibilityState === "visible") checkResetVersion()
+    }
+    document.addEventListener("visibilitychange", onVisible)
+    return () => {
+      cancelled = true
+      window.clearInterval(interval)
+      document.removeEventListener("visibilitychange", onVisible)
+    }
+  }, [router, qrCode])
 
   useEffect(() => {
     if (!toast) return

@@ -29,6 +29,7 @@ export function PublicProductDetailClient({ restaurant, product }: Props) {
       ? product.variants.map((v) => ({
           id: v.id,
           name: v.variant_name,
+          description: v.variant_description,
           price: v.variant_price,
           image: v.variant_image,
         }))
@@ -36,6 +37,7 @@ export function PublicProductDetailClient({ restaurant, product }: Props) {
           {
             id: product.id,
             name: product.product_name,
+            description: null,
             price: product.product_price,
             image: product.product_image,
           },
@@ -185,6 +187,10 @@ export function PublicProductDetailClient({ restaurant, product }: Props) {
 
           {product.product_description && (
             <p className="mt-4 text-sm leading-6 text-stone-300">{product.product_description}</p>
+          )}
+
+          {activeOption.description && (
+            <p className="mt-3 text-sm leading-6 text-stone-400">{activeOption.description}</p>
           )}
 
           <div className="mt-7 flex justify-center">

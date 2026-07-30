@@ -1,9 +1,11 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Printer } from "lucide-react"
+import { Printer, RotateCcw } from "lucide-react"
 import { QRCodeSVG } from "qrcode.react"
+import { resetTableAction } from "@/app/actions/table-actions"
 import { Pagination } from "@/components/ui/Pagination"
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog"
 import { useTableList } from "@/hooks/useTableList"
 import { CreateTableDialog } from "@/components/admin/CreateTableDialog"
 
@@ -78,6 +80,9 @@ function handleTableQr(qrCode: string, tableNumber: number) {
 export default function TablesPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const [showCreate, setShowCreate] = useState(false)
+  const [resetTarget, setResetTarget] = useState<{ id: number; number: number } | null>(null)
+  const [resetting, setResetting] = useState(false)
+  const [resetError, setResetError] = useState<string | null>(null)
 
   const {
     tables,
@@ -97,9 +102,37 @@ export default function TablesPage() {
     }
   }, [currentPage, totalPages, loading])
 
+  async function handleResetTable() {
+    if (!resetTarget || resetting) return
+    setResetting(true)
+    setResetError(null)
+    const result = await resetTableAction(
+      resetTarget.id,
+      "Reset manual desde panel de mesas"
+    )
+    setResetting(false)
+    if (!result.ok) {
+      setResetError(result.error)
+      return
+    }
+    setResetTarget(null)
+    refresh()
+  }
+
   return (
     <div className="space-y-6">
       {deleteDialog}
+      <ConfirmDialog
+        open={resetTarget !== null}
+        title={`Resetear Mesa ${resetTarget?.number ?? ""}`}
+        description="Esto libera la mesa, limpia comensales, carrito y llamadas pendientes. Si hay pedidos activos, se cancelan y se revierte el stock descontado."
+        confirmLabel={resetting ? "Reseteando..." : "Resetear mesa"}
+        cancelLabel="Mantener mesa"
+        onCancel={() => {
+          if (!resetting) setResetTarget(null)
+        }}
+        onConfirm={handleResetTable}
+      />
 
       <CreateTableDialog
         open={showCreate}
@@ -139,6 +172,12 @@ export default function TablesPage() {
       {error && (
         <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-xs font-bold text-red-650 shadow-sm">
           {error}
+        </div>
+      )}
+
+      {resetError && (
+        <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-xs font-bold text-red-650 shadow-sm">
+          {resetError}
         </div>
       )}
 
@@ -195,7 +234,7 @@ export default function TablesPage() {
                   </div>
                 </div>
 
-                <div className="mt-5 grid grid-cols-2 gap-2">
+                <div className="mt-5 grid grid-cols-3 gap-2">
                   <button
                     type="button"
                     onClick={() => handleTableQr(table.qr_codes.qr_code, table.table_number)}
@@ -203,6 +242,19 @@ export default function TablesPage() {
                   >
                     <Printer className="h-3.5 w-3.5" aria-hidden="true" />
                     Imprimir QR
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={resetting}
+                    onClick={() => {
+                      setResetError(null)
+                      setResetTarget({ id: table.id, number: table.table_number })
+                    }}
+                    className="flex min-w-0 items-center justify-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 py-2.5 text-center text-xs font-bold text-amber-700 transition hover:bg-amber-100/70 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
+                    Reset
                   </button>
 
                   <button

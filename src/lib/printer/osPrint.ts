@@ -1,4 +1,4 @@
-import type { TicketInput, ReceiptInput } from "@/lib/printer/escpos"
+import { buildOrderTicket, buildReceiptTicket, type TicketInput, type ReceiptInput } from "@/lib/printer/escpos"
 
 /**
  * Impresión vía el controlador del sistema operativo, en vez de hablarle
@@ -7,13 +7,11 @@ import type { TicketInput, ReceiptInput } from "@/lib/printer/escpos"
  * impresora normal), delegando todo el ancho/calidad de página al driver
  * en vez de asumir un tamaño fijo.
  *
- * Desde un navegador normal, window.print() SIEMPRE muestra el diálogo del
- * sistema — es una restricción de seguridad que ninguna página web puede
- * evitar. Dentro de la app de escritorio (Electron) SÍ es posible imprimir
- * en silencio: electron/preload.js expone window.electronAPI.printSilently,
- * que llama a webContents.print({silent:true}) desde el proceso principal.
- * Si hay una impresora de Electron configurada (ver getStoredElectronPrinter),
- * se usa esa vía silenciosa; si no, cae al diálogo de siempre.
+ * Esta ruta usa SIEMPRE el diálogo del sistema. Con algunos drivers cableados
+ * de impresoras térmicas, Electron `webContents.print({ silent:true,
+ * deviceName })` acepta el trabajo pero el driver imprime blanco. En cambio,
+ * el diálogo nativo rasteriza bien el mismo HTML; por eso privilegiamos la
+ * salida correcta por sobre la impresión silenciosa.
  *
  * Dos ajustes clave (reportados por usuarios reales):
  * - "salió casi sin nada de color": el contenido es HTML con negritas
@@ -38,13 +36,14 @@ function escapeHtml(s: string): string {
 function ticketShell(bodyHtml: string): string {
   return `
     <div style="
-      width:100%;
+      width:72mm;
+      max-width:100%;
       background:#fff;
       color:#000;
       font-family:Arial,Helvetica,sans-serif;
       -webkit-print-color-adjust:exact;
       print-color-adjust:exact;
-      padding:0 1mm;
+      padding:0 2mm;
       box-sizing:border-box;
     ">
       ${bodyHtml}
@@ -96,6 +95,19 @@ export function buildReceiptHtml(input: ReceiptInput): string {
       <span>${label}</span><span>${value}</span>
     </div>
   `
+  const items = input.items && input.items.length > 0
+    ? `
+      ${HR_DASHED}
+      <table style="width:100%; border-collapse:collapse;">
+        ${input.items.map((item) => `
+          <tr>
+            <td style="font-weight:800; font-size:12px; padding-right:2mm; vertical-align:top;">${item.quantity}x</td>
+            <td style="font-weight:700; font-size:12px; vertical-align:top;">${escapeHtml(item.name)}</td>
+          </tr>
+        `).join("")}
+      </table>
+    `
+    : ""
 
   return ticketShell(`
     <div style="text-align:center; font-weight:800; font-size:17px; text-transform:uppercase;">
@@ -106,6 +118,7 @@ export function buildReceiptHtml(input: ReceiptInput): string {
     <div style="text-align:center; font-weight:800; font-size:14px;">${escapeHtml(input.docLabel)}</div>
     ${input.folio != null ? `<div style="text-align:center; font-weight:700; font-size:13px;">N° ${input.folio}</div>` : ""}
     <div style="text-align:center; font-weight:700; font-size:12px;">${fecha}</div>
+    ${items}
     ${HR_DASHED}
     ${row("Neto", clp(input.net))}
     ${row("IVA", clp(input.iva))}
@@ -116,6 +129,7 @@ export function buildReceiptHtml(input: ReceiptInput): string {
   `)
 }
 
+export const OS_PRINT_STORAGE_KEY = "mesa-printer-os-fallback"
 const ELECTRON_PRINTER_STORAGE_KEY = "mesa-printer-electron-device"
 
 /** true solo dentro de la app de escritorio (nunca en un navegador normal). */
@@ -148,6 +162,57 @@ export function setStoredElectronPrinter(deviceName: string): void {
   }
 }
 
+export async function printTicketViaRawDriver(input: TicketInput): Promise<boolean> {
+  const electronDevice = getStoredElectronPrinter()
+  if (!isElectronPrintAvailable() || !electronDevice || !window.electronAPI?.printRaw) {
+    return false
+  }
+
+  const ticket = buildOrderTicket(input)
+  const result = await window.electronAPI.printRaw(electronDevice, Array.from(ticket))
+  if (!result.success) {
+    throw new Error(result.errorType || "La app de escritorio no pudo imprimir RAW")
+  }
+  return true
+}
+
+export async function printReceiptViaRawDriver(input: ReceiptInput): Promise<boolean> {
+  const electronDevice = getStoredElectronPrinter()
+  if (!isElectronPrintAvailable() || !electronDevice || !window.electronAPI?.printRaw) {
+    return false
+  }
+
+  const ticket = buildReceiptTicket(input)
+  const result = await window.electronAPI.printRaw(electronDevice, Array.from(ticket))
+  if (!result.success) {
+    throw new Error(result.errorType || "La app de escritorio no pudo imprimir RAW")
+  }
+  return true
+}
+
+async function waitForPrintContentReady(root: HTMLElement): Promise<void> {
+  await Promise.resolve(document.fonts?.ready).catch(() => undefined)
+
+  const images = Array.from(root.querySelectorAll("img"))
+  await Promise.all(
+    images.map((img) => {
+      if (img.complete) return Promise.resolve()
+      return new Promise<void>((resolve) => {
+        img.addEventListener("load", () => resolve(), { once: true })
+        img.addEventListener("error", () => resolve(), { once: true })
+      })
+    })
+  )
+
+  await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+  await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+
+  // Forzar layout antes de la impresion silenciosa. Sin dialogo nativo no hay
+  // pausa humana, y algunos drivers capturan blanco si se imprime en el mismo
+  // tick en que se inserto el ticket.
+  root.getBoundingClientRect()
+}
+
 async function printHtml(html: string): Promise<void> {
   if (typeof window === "undefined") return
 
@@ -164,25 +229,14 @@ async function printHtml(html: string): Promise<void> {
     root.remove()
   }
 
-  const electronDevice = getStoredElectronPrinter()
-  if (isElectronPrintAvailable() && electronDevice) {
-    try {
-      const result = await window.electronAPI!.printSilently(electronDevice)
-      if (!result.success) {
-        throw new Error(result.errorType || "La app de escritorio no pudo imprimir")
-      }
-    } finally {
-      cleanup()
-    }
-    return
-  }
-
-  // Navegador normal (o Electron sin impresora elegida todavía): diálogo del
+  // Navegador normal y Electron con impresora por cable: diálogo del
   // sistema. Sin esto, el margen de página por defecto (~1-2cm por lado) se
   // come casi todo el ancho de un rollo térmico de 58/80mm.
   const pageStyle = document.createElement("style")
   pageStyle.textContent = "@page { size: auto; margin: 0; }"
   document.head.appendChild(pageStyle)
+
+  await waitForPrintContentReady(root)
 
   await new Promise<void>((resolve) => {
     const finish = () => {

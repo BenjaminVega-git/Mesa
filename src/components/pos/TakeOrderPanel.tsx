@@ -309,7 +309,8 @@ export function TakeOrderPanel({
 
   const tableLabel = (id: number | null) => {
     const t = data?.tables.find((x) => x.id === id)
-    return t ? `Mesa ${t.tableNumber ?? t.id}` : "—"
+    if (!t) return "—"
+    return t.tableNumber === 0 ? "Recepción" : `Mesa ${t.tableNumber ?? t.id}`
   }
 
   return (
@@ -328,7 +329,7 @@ export function TakeOrderPanel({
             >
               {data.tables.map((t) => (
                 <option key={t.id} value={t.id}>
-                  Mesa {t.tableNumber ?? t.id}
+                  {t.tableNumber === 0 ? "Recepción" : `Mesa ${t.tableNumber ?? t.id}`}
                   {t.claimed ? " · ocupada" : ""}
                 </option>
               ))}
@@ -665,7 +666,7 @@ export function TakeOrderPanel({
             </div>
             <h3 className="mt-3 text-base font-extrabold text-stone-950">Pedido enviado</h3>
             <p className="mt-1 text-xs text-stone-500">
-              Pedido #{done.id} · Mesa {done.tableNumber ?? "—"}
+              Pedido #{done.id} · {done.tableNumber === 0 ? "Recepción" : `Mesa ${done.tableNumber ?? "—"}`}
               {done.dinerLabel ? ` · ${done.dinerLabel}` : ""} ·{" "}
               <strong className="tabular-nums">{fmt(done.total)}</strong>
             </p>
@@ -715,7 +716,14 @@ export function TakeOrderPanel({
                           : "border-stone-200 hover:border-orange-300 hover:bg-orange-50/50"
                       }`}
                     >
-                      <span className="text-xs font-bold text-stone-800">{v.variant_name}</span>
+                      <span className="min-w-0">
+                        <span className="block text-xs font-bold text-stone-800">{v.variant_name}</span>
+                        {v.variant_description ? (
+                          <span className="mt-0.5 block text-[11px] font-medium leading-4 text-stone-500">
+                            {v.variant_description}
+                          </span>
+                        ) : null}
+                      </span>
                       <span className="text-xs font-extrabold text-orange-700 tabular-nums">
                         {fmt(v.variant_price)}
                       </span>

@@ -6,7 +6,9 @@ import {
   updateTable as updateTableService,
   deleteTable as deleteTableService,
   getTableForEdit as getTableForEditService,
+  resetTable as resetTableService,
   type CreatedTable,
+  type ResetTableResult,
   type TableForEdit,
 } from "@/services/table-service"
 import type {
@@ -56,4 +58,17 @@ export async function getTableForEditAction(
   tableId: number
 ): Promise<Result<TableForEdit>> {
   return getTableForEditService(tableId)
+}
+
+export async function resetTableAction(
+  tableId: number,
+  reason?: string
+): Promise<Result<ResetTableResult>> {
+  const result = await resetTableService(tableId, reason)
+
+  if (result.ok) {
+    updateTag("menu")
+  }
+
+  return result
 }

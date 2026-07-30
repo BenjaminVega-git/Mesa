@@ -1,3 +1,4 @@
+import Link from "next/link"
 import { getDocumentForView } from "@/services/dte-service"
 import { DocumentActions } from "@/components/dte/DocumentActions"
 import { DocumentView } from "@/components/dte/DocumentView"
@@ -27,9 +28,9 @@ export default async function DocumentoPage({
   return (
     <main className="mx-auto max-w-2xl p-6 print:p-0">
       <div className="mb-5 flex items-center justify-between gap-3 print:hidden">
-        <a href="/admin/pagos" className="text-sm font-semibold text-stone-500 transition hover:text-orange-600">
+        <Link href="/admin/pagos" className="text-sm font-semibold text-stone-500 transition hover:text-orange-600">
           ← Volver a Pagos
-        </a>
+        </Link>
         <DocumentActions
           doc={doc}
           emisor={{ rut: emisor.rut, razonSocial: emisor.razonSocial }}
