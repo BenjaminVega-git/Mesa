@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { Printer } from "lucide-react"
 import { getKnownPrinter, connectBluetoothPrinter, sendTicket, isWebBluetoothAvailable } from "@/lib/printer"
-import { buildReceiptTicket, type ReceiptInput } from "@/lib/printer/escpos"
+import { buildReceiptTicket, getStoredTicketWidth, type ReceiptInput } from "@/lib/printer/escpos"
 import { printReceiptViaOsDriver } from "@/lib/printer/osPrint"
 import { FRIENDLY_LABEL } from "./DocumentView"
 import { logger } from "@/lib/logger"
@@ -88,7 +88,7 @@ export function DocumentActions({ doc, emisor, officialPdfHref }: Props) {
           // Reconecta en silencio a la impresora ya emparejada en
           // /admin/printer; solo si no hay ninguna conocida abre el selector.
           const printer = (await getKnownPrinter()) ?? (await connectBluetoothPrinter())
-          await sendTicket(printer, buildReceiptTicket(receiptInput))
+          await sendTicket(printer, buildReceiptTicket(receiptInput, getStoredTicketWidth()))
           return
         } catch (err) {
           logger.error("bluetooth receipt print failed, usando impresora del sistema", { error: String(err) })
@@ -107,9 +107,16 @@ export function DocumentActions({ doc, emisor, officialPdfHref }: Props) {
   function print() {
     // Marca el body para que el @media print muestre solo el documento
     // (data-print-root), sirva desde la página o desde el modal de vista previa.
+    // Sin el reset de @page, el navegador usa su tamaño/márgenes de página por
+    // defecto (A4/Letter, ~1-2cm por lado) — en una impresora térmica angosta
+    // eso deja el comprobante cortado o descentrado ("no se ajusta al papel").
+    const pageStyle = document.createElement("style")
+    pageStyle.textContent = "@page { size: auto; margin: 0; }"
+    document.head.appendChild(pageStyle)
     document.body.setAttribute("data-printing", "")
     const cleanup = () => {
       document.body.removeAttribute("data-printing")
+      pageStyle.remove()
       window.removeEventListener("afterprint", cleanup)
     }
     window.addEventListener("afterprint", cleanup)

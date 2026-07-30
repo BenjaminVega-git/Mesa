@@ -44,12 +44,41 @@ export type TicketInput = {
   items: TicketItem[]
 }
 
-const TICKET_WIDTH = 32
+// 32 columnas es el estándar de fuente A en 58mm; 80mm suele andar en 42-48.
+// Sin esto fijo, un ticket armado para 58mm sale angosto y descentrado en una
+// impresora de 80mm ("no se ajusta al tamaño del papel") — no hay forma
+// confiable de auto-detectar el ancho real vía ESC/POS entre fabricantes, así
+// que se deja como preferencia guardada (ver getStoredTicketWidth/setStoredTicketWidth).
+export const DEFAULT_TICKET_WIDTH = 32
+export const TICKET_WIDTH_OPTIONS = [
+  { width: 32, label: "58mm (32 columnas)" },
+  { width: 48, label: "80mm (48 columnas)" },
+] as const
 
-function centerLine(text: string): string {
+const TICKET_WIDTH_STORAGE_KEY = "mesa-printer-ticket-width"
+
+export function getStoredTicketWidth(): number {
+  try {
+    const raw = localStorage.getItem(TICKET_WIDTH_STORAGE_KEY)
+    const n = raw ? Number.parseInt(raw, 10) : NaN
+    return TICKET_WIDTH_OPTIONS.some((o) => o.width === n) ? n : DEFAULT_TICKET_WIDTH
+  } catch {
+    return DEFAULT_TICKET_WIDTH
+  }
+}
+
+export function setStoredTicketWidth(width: number): void {
+  try {
+    localStorage.setItem(TICKET_WIDTH_STORAGE_KEY, String(width))
+  } catch {
+    // no crítico
+  }
+}
+
+function centerLine(text: string, width: number): string {
   const trimmed = text.trim()
-  if (trimmed.length >= TICKET_WIDTH) return trimmed
-  const pad = Math.floor((TICKET_WIDTH - trimmed.length) / 2)
+  if (trimmed.length >= width) return trimmed
+  const pad = Math.floor((width - trimmed.length) / 2)
   return " ".repeat(pad) + trimmed
 }
 
@@ -57,13 +86,13 @@ function centerLine(text: string): string {
  * Devuelve el mismo contenido que `buildOrderTicket` pero como texto plano,
  * sin códigos ESC/POS. Útil para previews en pantalla.
  */
-export function formatTicketAsText(input: TicketInput): string {
+export function formatTicketAsText(input: TicketInput, width: number = DEFAULT_TICKET_WIDTH): string {
   const lines: string[] = []
-  lines.push(centerLine(input.restaurantName.toUpperCase()))
-  lines.push("-".repeat(TICKET_WIDTH))
+  lines.push(centerLine(input.restaurantName.toUpperCase(), width))
+  lines.push("-".repeat(width))
   lines.push(`Mesa ${input.tableNumber}`)
   lines.push(`Pedido #${input.orderId}`)
-  lines.push("-".repeat(TICKET_WIDTH))
+  lines.push("-".repeat(width))
   for (const item of input.items) {
     lines.push(`${item.quantity}x  ${item.name}`)
   }
@@ -82,9 +111,9 @@ export type ReceiptInput = {
   total: number | null
 }
 
-function clpLine(label: string, amount: number | null): string {
+function clpLine(label: string, amount: number | null, width: number): string {
   const value = amount != null ? `$${Math.round(amount).toLocaleString("es-CL")}` : "—"
-  const pad = Math.max(1, TICKET_WIDTH - label.length - value.length)
+  const pad = Math.max(1, width - label.length - value.length)
   return label + " ".repeat(pad) + value
 }
 
@@ -96,26 +125,27 @@ function fmtFecha(iso: string | null): string {
 }
 
 /** Texto plano del comprobante (vista previa en pantalla, sin ESC/POS). */
-export function formatReceiptAsText(input: ReceiptInput): string {
+export function formatReceiptAsText(input: ReceiptInput, width: number = DEFAULT_TICKET_WIDTH): string {
   const lines: string[] = []
-  lines.push(centerLine(input.restaurantName.toUpperCase()))
-  if (input.restaurantRut) lines.push(centerLine(`RUT ${input.restaurantRut}`))
-  lines.push("-".repeat(TICKET_WIDTH))
-  lines.push(centerLine(input.docLabel))
-  if (input.folio != null) lines.push(centerLine(`N° ${input.folio}`))
-  lines.push(centerLine(fmtFecha(input.emittedAt)))
-  lines.push("-".repeat(TICKET_WIDTH))
-  lines.push(clpLine("Neto", input.net))
-  lines.push(clpLine("IVA", input.iva))
-  lines.push(clpLine("TOTAL", input.total))
-  lines.push("-".repeat(TICKET_WIDTH))
-  lines.push(centerLine("Gracias por tu visita"))
-  lines.push(centerLine("tumesaqr.com"))
+  lines.push(centerLine(input.restaurantName.toUpperCase(), width))
+  if (input.restaurantRut) lines.push(centerLine(`RUT ${input.restaurantRut}`, width))
+  lines.push("-".repeat(width))
+  lines.push(centerLine(input.docLabel, width))
+  if (input.folio != null) lines.push(centerLine(`N° ${input.folio}`, width))
+  lines.push(centerLine(fmtFecha(input.emittedAt), width))
+  lines.push("-".repeat(width))
+  lines.push(clpLine("Neto", input.net, width))
+  lines.push(clpLine("IVA", input.iva, width))
+  lines.push(clpLine("TOTAL", input.total, width))
+  lines.push("-".repeat(width))
+  lines.push(centerLine("Gracias por tu visita", width))
+  lines.push(centerLine("tumesaqr.com", width))
   return lines.join("\n")
 }
 
 /** Comprobante de pago en ESC/POS, para la misma impresora térmica de cocina. */
-export function buildReceiptTicket(input: ReceiptInput): Uint8Array {
+export function buildReceiptTicket(input: ReceiptInput, width: number = DEFAULT_TICKET_WIDTH): Uint8Array {
+  const separator = encodeText("-".repeat(width))
   const lines: Uint8Array[] = [INIT]
 
   lines.push(ALIGN_CENTER, BOLD_ON, DOUBLE_HEIGHT_WIDTH)
@@ -123,20 +153,20 @@ export function buildReceiptTicket(input: ReceiptInput): Uint8Array {
   lines.push(NORMAL_SIZE, BOLD_OFF)
   if (input.restaurantRut) lines.push(encodeText(`RUT ${input.restaurantRut}`), NEWLINE)
 
-  lines.push(encodeText("--------------------------------"), NEWLINE)
+  lines.push(separator, NEWLINE)
 
   lines.push(BOLD_ON, encodeText(input.docLabel), NEWLINE, BOLD_OFF)
   if (input.folio != null) lines.push(encodeText(`N° ${input.folio}`), NEWLINE)
   lines.push(encodeText(fmtFecha(input.emittedAt)), NEWLINE)
 
-  lines.push(encodeText("--------------------------------"), NEWLINE)
+  lines.push(separator, NEWLINE)
 
   lines.push(ALIGN_LEFT)
-  lines.push(encodeText(clpLine("Neto", input.net)), NEWLINE)
-  lines.push(encodeText(clpLine("IVA", input.iva)), NEWLINE)
-  lines.push(BOLD_ON, encodeText(clpLine("TOTAL", input.total)), NEWLINE, BOLD_OFF)
+  lines.push(encodeText(clpLine("Neto", input.net, width)), NEWLINE)
+  lines.push(encodeText(clpLine("IVA", input.iva, width)), NEWLINE)
+  lines.push(BOLD_ON, encodeText(clpLine("TOTAL", input.total, width)), NEWLINE, BOLD_OFF)
 
-  lines.push(encodeText("--------------------------------"), NEWLINE)
+  lines.push(separator, NEWLINE)
   lines.push(ALIGN_CENTER)
   lines.push(encodeText("Gracias por tu visita"), NEWLINE)
   lines.push(encodeText("tumesaqr.com"), NEWLINE)
@@ -146,19 +176,20 @@ export function buildReceiptTicket(input: ReceiptInput): Uint8Array {
   return concat(...lines)
 }
 
-export function buildOrderTicket(input: TicketInput): Uint8Array {
+export function buildOrderTicket(input: TicketInput, width: number = DEFAULT_TICKET_WIDTH): Uint8Array {
+  const separator = encodeText("-".repeat(width))
   const lines: Uint8Array[] = [INIT]
 
   lines.push(ALIGN_CENTER, BOLD_ON, DOUBLE_HEIGHT_WIDTH)
   lines.push(encodeText(input.restaurantName), NEWLINE)
   lines.push(NORMAL_SIZE, BOLD_OFF)
 
-  lines.push(encodeText("--------------------------------"), NEWLINE)
+  lines.push(separator, NEWLINE)
 
   lines.push(BOLD_ON, encodeText(`Mesa ${input.tableNumber}`), NEWLINE, BOLD_OFF)
   lines.push(encodeText(`Pedido #${input.orderId}`), NEWLINE)
 
-  lines.push(encodeText("--------------------------------"), NEWLINE)
+  lines.push(separator, NEWLINE)
 
   lines.push(ALIGN_LEFT)
   for (const item of input.items) {

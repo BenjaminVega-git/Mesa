@@ -3,7 +3,13 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react"
 import { supabase } from "@/lib/supabase"
 import { useRestaurant } from "@/hooks/useRestaurant"
-import { buildOrderTicket, formatTicketAsText } from "@/lib/printer/escpos"
+import {
+  buildOrderTicket,
+  formatTicketAsText,
+  getStoredTicketWidth,
+  setStoredTicketWidth,
+  TICKET_WIDTH_OPTIONS,
+} from "@/lib/printer/escpos"
 import {
   isWebBluetoothAvailable,
   connectBluetoothPrinter,
@@ -57,6 +63,8 @@ export default function PrinterPage() {
       return false
     }
   })
+  const [ticketWidth, setTicketWidth] = useState<number>(() => getStoredTicketWidth())
+  const ticketWidthRef = useRef(ticketWidth)
   const osPrintEnabledRef = useRef(osPrintEnabled)
   const [electronPrinters, setElectronPrinters] = useState<ElectronPrinterInfo[]>([])
   const [electronDevice, setElectronDevice] = useState<string>(() => getStoredElectronPrinter())
@@ -83,6 +91,15 @@ export default function PrinterPage() {
   useEffect(() => {
     osPrintEnabledRef.current = osPrintEnabled
   }, [osPrintEnabled])
+
+  useEffect(() => {
+    ticketWidthRef.current = ticketWidth
+  }, [ticketWidth])
+
+  function handleTicketWidthChange(width: number) {
+    setTicketWidth(width)
+    setStoredTicketWidth(width)
+  }
 
   // Solo existe dentro de la app de escritorio (window.electronAPI). Ahí, y
   // solo ahí, se puede elegir una impresora del sistema para imprimir en
@@ -150,7 +167,7 @@ export default function PrinterPage() {
     setTesting(true)
     try {
       if (currentPrinter) {
-        const ticket = buildOrderTicket(buildSampleTicket())
+        const ticket = buildOrderTicket(buildSampleTicket(), ticketWidth)
         await sendTicket(currentPrinter, ticket)
         appendEntry({ orderId: 9999, kind: "ok", message: "Ticket de prueba enviado" })
       } else {
@@ -242,7 +259,7 @@ export default function PrinterPage() {
       }
 
       if (currentPrinter) {
-        const ticket = buildOrderTicket(ticketInput)
+        const ticket = buildOrderTicket(ticketInput, ticketWidthRef.current)
         await sendTicket(currentPrinter, ticket)
         appendEntry({ orderId, kind: "ok", message: "Ticket impreso" })
       } else {
@@ -406,6 +423,20 @@ export default function PrinterPage() {
               >
                 {osPrintEnabled ? "Impresora del sistema: activada" : "Usar impresora del sistema"}
               </button>
+              {btSupported && (
+                <select
+                  value={ticketWidth}
+                  onChange={(e) => handleTicketWidthChange(Number(e.target.value))}
+                  title="Ancho del papel para tickets por Bluetooth (ESC/POS). La impresora del sistema se ajusta sola, esto solo aplica a la vía Bluetooth."
+                  className="rounded-xl border border-stone-300 bg-white px-3 py-3 text-sm font-bold text-stone-700 outline-none focus:border-orange-300"
+                >
+                  {TICKET_WIDTH_OPTIONS.map((o) => (
+                    <option key={o.width} value={o.width}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+              )}
               {osPrintEnabled && isElectron && (
                 <select
                   value={electronDevice}

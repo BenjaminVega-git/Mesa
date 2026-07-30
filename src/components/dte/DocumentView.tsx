@@ -148,8 +148,16 @@ export function DocumentView({
           </div>
         </div>
 
-        <div className={`shrink-0 rounded-2xl px-5 py-3 text-right ring-1 ${accent.badgeBg} ${accent.badgeRing}`}>
-          <p className={`text-[11px] font-bold uppercase tracking-wide ${accent.badgeText}`}>{label}</p>
+        {/* rounded-2xl + ring + relleno de color quedan bien en pantalla, pero
+            un cabezal térmico monocromo no reproduce esos bordes/rellenos
+            suaves — los "difumina" en ruido visible ("borroso"). En print se
+            reemplazan por un recuadro simple de líneas rectas, sin relleno. */}
+        <div
+          className={`shrink-0 rounded-2xl px-5 py-3 text-right ring-1 ${accent.badgeBg} ${accent.badgeRing} print:rounded-none print:border print:border-stone-400 print:bg-transparent print:ring-0`}
+        >
+          <p className={`text-[11px] font-bold uppercase tracking-wide ${accent.badgeText} print:text-stone-900`}>
+            {label}
+          </p>
           <p className="mt-1 text-lg font-extrabold tabular-nums text-stone-900">N° {doc.folio ?? "—"}</p>
         </div>
       </div>
@@ -258,7 +266,9 @@ export function DocumentView({
               <span>IVA (19%) incluido</span>
               <span className="tabular-nums">{doc.iva != null ? clp.format(doc.iva) : "—"}</span>
             </div>
-            <div className={`flex justify-between rounded-xl px-3 py-2 text-base font-extrabold text-stone-900 ${accent.totalBg}`}>
+            <div
+              className={`flex justify-between rounded-xl px-3 py-2 text-base font-extrabold text-stone-900 ${accent.totalBg} print:rounded-none print:bg-transparent print:border-t-2 print:border-stone-900`}
+            >
               <span>Total (IVA incluido)</span>
               <span className="tabular-nums">{doc.total != null ? clp.format(doc.total) : "—"}</span>
             </div>
@@ -273,7 +283,9 @@ export function DocumentView({
               <span>IVA (19%)</span>
               <span className="tabular-nums">{doc.iva != null ? clp.format(doc.iva) : "—"}</span>
             </div>
-            <div className={`flex justify-between rounded-xl px-3 py-2 text-base font-extrabold text-stone-900 ${accent.totalBg}`}>
+            <div
+              className={`flex justify-between rounded-xl px-3 py-2 text-base font-extrabold text-stone-900 ${accent.totalBg} print:rounded-none print:bg-transparent print:border-t-2 print:border-stone-900`}
+            >
               <span>Total</span>
               <span className="tabular-nums">{doc.total != null ? clp.format(doc.total) : "—"}</span>
             </div>
