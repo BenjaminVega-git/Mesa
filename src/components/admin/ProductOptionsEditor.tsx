@@ -29,9 +29,10 @@ function OptionImageInput({
   onRemoveBgChange: (value: boolean) => void
 }) {
   const [menuOpen, setMenuOpen] = useState(false)
+  const previewFile = option.processedFile ?? option.imageFile
   const previewUrl = useMemo(
-    () => option.imageFile ? URL.createObjectURL(option.imageFile) : "",
-    [option.imageFile]
+    () => previewFile ? URL.createObjectURL(previewFile) : "",
+    [previewFile]
   )
 
   useEffect(() => {
