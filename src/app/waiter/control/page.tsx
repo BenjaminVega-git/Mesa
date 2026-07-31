@@ -80,6 +80,20 @@ function orderItemLabel(item: WaiterOrder["items"][number]) {
   return `${item.productQuantity}x ${item.productName}${item.variantName ? ` - ${item.variantName}` : ""}`
 }
 
+function orderTableKey(order: WaiterOrder) {
+  if (order.tableId != null) return `table:${order.tableId}`
+  if (order.tableNumber != null) return `number:${order.tableNumber}`
+  return "no-table"
+}
+
+function formatDinerNumbers(slots: number[]) {
+  if (slots.length === 0) return "Mesa completa"
+  const sorted = [...new Set(slots)].sort((a, b) => a - b)
+  if (sorted.length === 1) return `Comensal ${sorted[0]}`
+  if (sorted.length === 2) return `Comensal ${sorted[0]} y ${sorted[1]}`
+  return `Comensal ${sorted.slice(0, -1).join(", ")} y ${sorted[sorted.length - 1]}`
+}
+
 export default function WaiterControlPage() {
   return (
     <Suspense
@@ -314,6 +328,24 @@ function WaiterControlSystem() {
       }),
     [ownOrders, focusTableId]
   )
+
+  const dinerLabelByTable = useMemo(() => {
+    const slotsByTable = new Map<string, number[]>()
+    for (const order of filteredOrders) {
+      if (order.statusId === 4) continue
+      if (order.dinerSlot == null) continue
+      const key = orderTableKey(order)
+      const slots = slotsByTable.get(key) ?? []
+      slots.push(order.dinerSlot)
+      slotsByTable.set(key, slots)
+    }
+
+    const labels = new Map<string, string>()
+    for (const [key, slots] of slotsByTable) {
+      labels.set(key, formatDinerNumbers(slots))
+    }
+    return labels
+  }, [filteredOrders])
 
   const liveOrdersCount = ownOrders.filter((o) => o.statusId !== 4).length
 
@@ -691,6 +723,8 @@ function WaiterControlSystem() {
                           key={ord.id}
                           order={ord}
                           config={STATUS_STYLE[ord.statusId]}
+                          dinerLabel={dinerLabelByTable.get(orderTableKey(ord)) ??
+                            formatDinerNumbers(ord.dinerSlot == null ? [] : [ord.dinerSlot])}
                           onAdvance={handleAdvance}
                           onMarkPaid={handleMarkPaid}
                           onSelect={setSelectedOrder}
@@ -719,8 +753,11 @@ function WaiterControlSystem() {
                 <span className="text-[10px] font-bold text-orange-600 uppercase tracking-widest">Detalles del pedido</span>
                 <h2 className="text-xl font-bold tracking-tight text-stone-950 mt-1">
                   Pedido #{selectedOrder.id} • {tableLabel(selectedOrder)}
-                  {selectedOrder.dinerLabel ? ` · ${selectedOrder.dinerLabel}` : ""}
                 </h2>
+                <p className="mt-1 text-xs font-semibold text-stone-500">
+                  {dinerLabelByTable.get(orderTableKey(selectedOrder)) ??
+                    formatDinerNumbers(selectedOrder.dinerSlot == null ? [] : [selectedOrder.dinerSlot])}
+                </p>
               </div>
               <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${STATUS_STYLE[selectedOrder.statusId].bg}`}>
                 <span className={`h-2 w-2 rounded-full ${STATUS_STYLE[selectedOrder.statusId].dot}`} />
@@ -829,6 +866,7 @@ function WaiterControlSystem() {
 function OrderCard({
   order,
   config,
+  dinerLabel,
   onAdvance,
   onMarkPaid,
   onSelect,
@@ -836,6 +874,7 @@ function OrderCard({
 }: {
   order: WaiterOrder
   config: { dot: string; bg: string; glow: string }
+  dinerLabel: string
   onAdvance: (order: WaiterOrder) => void
   onMarkPaid: (order: WaiterOrder) => void
   onSelect: (ord: WaiterOrder) => void
@@ -857,9 +896,9 @@ function OrderCard({
         <div>
           <span className="text-[10px] font-bold text-stone-400 uppercase">Orden #{order.id}</span>
           <h4 className="text-sm font-bold text-stone-900 mt-0.5">{tableLabel(order)}</h4>
-          {order.dinerLabel && (
+          {dinerLabel && (
             <span className="mt-1 inline-block rounded-full bg-violet-50 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-violet-700 ring-1 ring-violet-200/60">
-              {order.dinerLabel}
+              {dinerLabel}
             </span>
           )}
         </div>
