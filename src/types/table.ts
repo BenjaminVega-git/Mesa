@@ -6,5 +6,5 @@ export type Table = {
   table_number: number
   restaurant_id: number
   qr_code_id: number
-  qr_codes: tableQRCode
+  qr_codes: tableQRCode | tableQRCode[] | null
 }

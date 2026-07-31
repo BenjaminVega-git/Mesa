@@ -8,6 +8,8 @@ import { Pagination } from "@/components/ui/Pagination"
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog"
 import { useTableList } from "@/hooks/useTableList"
 import { CreateTableDialog } from "@/components/admin/CreateTableDialog"
+import type { Table } from "@/types/table"
+import type { tableQRCode } from "@/types/table-qr-code"
 
 // Detecta si la app corre dentro del wrapper Electron. En ese caso el flujo
 // de window.open + window.print no funciona consistentemente (el sistema
@@ -19,8 +21,25 @@ function isElectron(): boolean {
 }
 
 function buildQrUrl(qrCode: string): string {
-  const targetUrl = `${window.location.origin}/r/${qrCode}`
+  const origin =
+    typeof window !== "undefined"
+      ? window.location.origin
+      : process.env.NEXT_PUBLIC_APP_URL ?? ""
+  const targetUrl = `${origin}/r/${qrCode}`
   return `https://api.qrserver.com/v1/create-qr-code/?size=600x600&margin=20&data=${encodeURIComponent(targetUrl)}`
+}
+
+function getTableQrCode(table: Table): tableQRCode | null {
+  if (Array.isArray(table.qr_codes)) return table.qr_codes[0] ?? null
+  return table.qr_codes ?? null
+}
+
+function buildPublicTableUrl(qrCode: string): string {
+  const baseUrl =
+    process.env.NEXT_PUBLIC_APP_URL ||
+    (typeof window !== "undefined" ? window.location.origin : "")
+
+  return `${baseUrl.replace(/\/$/, "")}/r/${qrCode}`
 }
 
 async function downloadTableQr(qrCode: string, tableNumber: number) {
@@ -200,7 +219,10 @@ export default function TablesPage() {
       {!loading && !error && tables.length > 0 && (
         <>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {tables.map((table) => (
+            {tables.map((table) => {
+              const qrCode = getTableQrCode(table)
+
+              return (
               <article
                 key={table.id}
                 className="flex min-w-0 flex-col justify-between rounded-2xl border border-stone-200 bg-white p-5 shadow-sm transition duration-150 hover:-translate-y-0.5 hover:border-orange-200 hover:shadow-md"
@@ -212,21 +234,30 @@ export default function TablesPage() {
                         Mesa {table.table_number}
                       </h3>
                       <p className="mt-0.5 truncate text-[11px] font-semibold text-stone-500">
-                        Código: {table.qr_codes.qr_code}
+                        Código: {qrCode?.qr_code ?? "Sin QR asociado"}
                       </p>
                     </div>
 
-                    <span className="shrink-0 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 ring-1 ring-emerald-600/10">
-                      QR Listo
+                    <span
+                      className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ring-1 ${
+                        qrCode
+                          ? "bg-emerald-50 text-emerald-700 ring-emerald-600/10"
+                          : "bg-amber-50 text-amber-700 ring-amber-600/10"
+                      }`}
+                    >
+                      {qrCode ? "QR Listo" : "Revisar QR"}
                     </span>
                   </div>
 
                   <div className="rounded-2xl border border-stone-200 bg-stone-50 p-4 text-center">
                     <div className="mx-auto flex h-28 w-28 items-center justify-center rounded-xl bg-white p-2.5 shadow-sm">
-                      <QRCodeSVG
-                        value={`${process.env.NEXT_PUBLIC_APP_URL}/r/${table.qr_codes.qr_code}`}
-                        size={92}
-                      />
+                      {qrCode ? (
+                        <QRCodeSVG value={buildPublicTableUrl(qrCode.qr_code)} size={92} />
+                      ) : (
+                        <span className="px-2 text-center text-[10px] font-bold leading-tight text-amber-700">
+                          QR no disponible
+                        </span>
+                      )}
                     </div>
                     <p className="mt-2 text-[10px] font-semibold text-stone-500">
                       Escaneo de menú directo
@@ -237,8 +268,11 @@ export default function TablesPage() {
                 <div className="mt-5 grid grid-cols-3 gap-2">
                   <button
                     type="button"
-                    onClick={() => handleTableQr(table.qr_codes.qr_code, table.table_number)}
-                    className="flex min-w-0 items-center justify-center gap-1.5 rounded-xl border border-stone-200 bg-stone-50 py-2.5 text-center text-xs font-bold text-stone-700 transition hover:bg-stone-100"
+                    disabled={!qrCode}
+                    onClick={() => {
+                      if (qrCode) handleTableQr(qrCode.qr_code, table.table_number)
+                    }}
+                    className="flex min-w-0 items-center justify-center gap-1.5 rounded-xl border border-stone-200 bg-stone-50 py-2.5 text-center text-xs font-bold text-stone-700 transition hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     <Printer className="h-3.5 w-3.5" aria-hidden="true" />
                     Imprimir QR
@@ -268,8 +302,9 @@ export default function TablesPage() {
                     Eliminar
                   </button>
                 </div>
-              </article>
-            ))}
+                </article>
+              )
+            })}
           </div>
 
           <Pagination
