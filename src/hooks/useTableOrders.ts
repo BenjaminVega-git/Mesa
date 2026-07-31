@@ -90,6 +90,8 @@ const MIN_INTERVAL_MS = 3_000   // hay actividad reciente -> consulta seguido
 const MAX_INTERVAL_MS = 30_000  // sin cambios -> espacia hasta 30s
 const BACKOFF_FACTOR = 1.5      // cuánto crece el intervalo cada vez sin cambios
 
+export const TABLE_ORDER_CREATED_EVENT = "mesa:order-created"
+
 // Huella simple del estado de los pedidos, para detectar si hubo cambios
 // entre dos consultas (ids + estado + nº de items).
 function ordersFingerprint(orders: TableOrder[]): string {
@@ -182,13 +184,20 @@ export function useTableOrders(qrCode: string | null) {
       }
     }
 
+    const handleOrderCreated = () => {
+      intervalMsRef.current = MIN_INTERVAL_MS
+      void fetchOrders()
+    }
+
     document.addEventListener("visibilitychange", handleVisibility)
+    window.addEventListener(TABLE_ORDER_CREATED_EVENT, handleOrderCreated)
     scheduleNext()
 
     return () => {
       cancelled = true
       if (timeoutRef.current !== null) window.clearTimeout(timeoutRef.current)
       document.removeEventListener("visibilitychange", handleVisibility)
+      window.removeEventListener(TABLE_ORDER_CREATED_EVENT, handleOrderCreated)
     }
   }, [qrCode, fetchOrders])
 

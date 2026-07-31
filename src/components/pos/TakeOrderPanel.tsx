@@ -795,7 +795,7 @@ export function TakeOrderPanel({
                           {isRemovable ? `Sin ${opt.name}` : `Extra ${opt.name}`}
                         </span>
                         <span className="text-[11px] font-bold text-stone-500">
-                          {isRemovable ? "gratis" : `+${fmt(opt.extra_price)}`}
+                          {isRemovable ? "¡GRATIS!" : `+${fmt(opt.extra_price)}`}
                         </span>
                       </label>
                     )
@@ -835,7 +835,7 @@ export function TakeOrderPanel({
                           <span className="truncate">{opt.name}</span>
                         </span>
                         <span className="shrink-0 text-[11px] font-bold text-stone-500">
-                          {opt.extra_price > 0 ? `+${fmt(opt.extra_price)}` : "gratis"}
+                          {opt.extra_price > 0 ? `+${fmt(opt.extra_price)}` : "¡GRATIS!"}
                         </span>
                       </label>
                     )

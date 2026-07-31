@@ -7,6 +7,7 @@ import { handleMutationError } from "@/lib/hooks/handle-mutation-error"
 import { createOrderAction } from "@/app/actions/order-actions"
 import type { CreateOrderItemInput } from "@/lib/validation/order"
 import { getOrCreateDinerToken } from "@/lib/diner-token"
+import { TABLE_ORDER_CREATED_EVENT } from "@/hooks/useTableOrders"
 
 type UseCreateOrderProps = {
   items: CartItem[]
@@ -92,6 +93,10 @@ export function useCreateOrder({ items, tableId, restaurantId, couponCode }: Use
       restaurantId: result.data.restaurantId,
       total: result.data.total,
     })
+
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent(TABLE_ORDER_CREATED_EVENT, { detail: result.data }))
+    }
 
     await clearCart()
   })

@@ -299,7 +299,7 @@ export function ProductDetailSheet({
                       />
                       Sin {opt.name}
                     </span>
-                    <span className="text-[11px] text-[#71717a]">gratis</span>
+                    <span className="text-[11px] text-[#71717a]">¡GRATIS!</span>
                   </label>
                 ))}
                 {extraOptions.map((opt) => (
@@ -346,7 +346,7 @@ export function ProductDetailSheet({
                       <span className="truncate">{option.name}</span>
                     </span>
                     <span className="shrink-0 text-[11px] font-bold text-[#fb923c]">
-                      {option.extra_price > 0 ? `+${formatPrice(option.extra_price)}` : "gratis"}
+                      {option.extra_price > 0 ? `+${formatPrice(option.extra_price)}` : "¡GRATIS!"}
                     </span>
                   </label>
                 ))}
