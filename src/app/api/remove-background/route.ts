@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { requireCurrentAdmin } from "@/services/auth-guard"
 import { checkRemoveBgLimit } from "@/lib/rate-limit"
 import { logger } from "@/lib/logger"
+import { fetchImageSafely } from "@/lib/security/safe-image-url"
 
 export async function POST(request: NextRequest) {
   // 1. Exigir ADMIN (no solo sesión). Un mesero no debe gastar tu cuota
@@ -34,8 +35,24 @@ export async function POST(request: NextRequest) {
 
   // 3. Leer el archivo del FormData
   const formData = await request.formData()
-  const file = formData.get("image")
-  if (!(file instanceof File)) {
+  const uploadedFile = formData.get("image")
+  const imageUrl = formData.get("imageUrl")
+  let file: File | null = uploadedFile instanceof File ? uploadedFile : null
+
+  if (!file && typeof imageUrl === "string" && imageUrl.trim()) {
+    try {
+      const blob = await fetchImageSafely(imageUrl.trim())
+      file = new File([blob], "imagen-existente", { type: blob.type || "image/png" })
+    } catch (err) {
+      logger.warn("No se pudo descargar imagen existente para quitar fondo", { err: String(err) })
+      return NextResponse.json(
+        { error: "No se pudo descargar la imagen actual" },
+        { status: 400 }
+      )
+    }
+  }
+
+  if (!file) {
     return NextResponse.json({ error: "Falta la imagen" }, { status: 400 })
   }
 

@@ -31,6 +31,24 @@ export async function removeBackgroundRequest(file: File): Promise<File | null> 
   return new File([blob], file.name.replace(/\.[^.]+$/, ".png"), { type: "image/png" })
 }
 
+export async function removeBackgroundFromUrlRequest(
+  imageUrl: string,
+  fileName = "imagen.png"
+): Promise<File | null> {
+  const formData = new FormData()
+  formData.append("imageUrl", imageUrl)
+
+  const response = await fetch("/api/remove-background", {
+    method: "POST",
+    body: formData,
+  })
+
+  if (!response.ok) return null
+
+  const blob = await response.blob()
+  return new File([blob], fileName.replace(/\.[^.]+$/, ".png"), { type: "image/png" })
+}
+
 // Recorta los bordes 100% transparentes de un PNG para que el dibujo quede
 // pegado a los límites (sin "aire" alrededor). Útil para logos: así llenan el
 // círculo en vez de verse chicos y centrados. Si no hay canvas o el archivo no

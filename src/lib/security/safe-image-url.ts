@@ -23,6 +23,7 @@ import net from "node:net"
 // Si en el futuro agregas otra fuente de stock o tu propio CDN, súmalo aquí.
 const ALLOWED_IMAGE_HOSTS = new Set<string>([
   "images.pexels.com",
+  "res.cloudinary.com",
 ])
 
 // Rangos de IP que NUNCA se deben contactar desde el servidor.

@@ -2,7 +2,11 @@ import { useEffect, useRef, useState } from "react"
 import { useUploadImage } from "@/hooks/useUploadImage"
 import { useOfflineRetry } from "@/hooks/useOfflineRetry"
 import { handleMutationError } from "@/lib/hooks/handle-mutation-error"
-import { processImage } from "@/lib/image-processing"
+import {
+  compressInBrowser,
+  processImage,
+  removeBackgroundFromUrlRequest,
+} from "@/lib/image-processing"
 import { readRemoveBgPreference, writeRemoveBgPreference } from "@/lib/preferences/remove-bg"
 import {
   updateProductAction,
@@ -239,23 +243,21 @@ export function useEditProduct(productId: number | null) {
     updateOption(localId, { processing: true, processedFile: null })
 
     const promise = (async () => {
-      const response = await fetch(url, { mode: "cors" })
-      if (!response.ok) throw new Error("No se pudo descargar la imagen")
-      const blob = await response.blob()
-      const file = new File([blob], "imagen.png", { type: blob.type || "image/png" })
+      const processedWithBgRemoved = removeBg
+        ? await removeBackgroundFromUrlRequest(url)
+        : null
+      if (!processedWithBgRemoved) throw new Error("No se pudo quitar el fondo")
 
+      const processed = await compressInBrowser(processedWithBgRemoved)
       if (processingTokens.current.get(localId) !== nextToken) return null
-      // Fijar el archivo como imagen local para que prepareOptions lo vuelva a subir.
-      updateOption(localId, { imageFile: file })
-
-      const processed = await processImage(file, { removeBg })
-      if (processingTokens.current.get(localId) !== nextToken) return null
-      updateOption(localId, { processedFile: processed, processing: false })
+      // Fijar un archivo local para que prepareOptions suba y guarde la nueva imagen.
+      updateOption(localId, { imageFile: processed, processedFile: processed, processing: false })
       return processed
     })().catch(() => {
       if (processingTokens.current.get(localId) !== nextToken) return null
       derivedFromUrlRef.current.delete(localId)
       updateOption(localId, { processing: false })
+      setError("No se pudo quitar el fondo de la imagen actual. Intenta cambiando la imagen o revisa tu cuota de remove.bg.")
       return null
     })
 
