@@ -76,6 +76,10 @@ function tableLabel(o: WaiterOrder): string {
   return "Sin mesa"
 }
 
+function orderItemLabel(item: WaiterOrder["items"][number]) {
+  return `${item.productQuantity}x ${item.productName}${item.variantName ? ` - ${item.variantName}` : ""}`
+}
+
 export default function WaiterControlPage() {
   return (
     <Suspense
@@ -868,9 +872,14 @@ function OrderCard({
       {order.items.length > 0 ? (
         <ul className="mt-3 space-y-1 border-t border-stone-100 pt-3 text-xs text-stone-600">
           {order.items.map((item) => (
-            <li key={item.id} className="flex justify-between font-medium">
-              <span className="truncate pr-2">
-                {item.productQuantity}x {item.productName}{item.variantName ? ` · ${item.variantName}` : ""}
+            <li key={item.id} className="flex items-start justify-between gap-3 font-medium">
+              <span className="min-w-0 pr-2">
+                <span className="block truncate">{orderItemLabel(item)}</span>
+                {item.notes ? (
+                  <span className="mt-0.5 block text-[10.5px] font-semibold leading-snug text-orange-600">
+                    {item.notes}
+                  </span>
+                ) : null}
               </span>
               <span className="text-stone-400 shrink-0">
                 ${(item.productPrice * item.productQuantity).toLocaleString("es-CL")}

@@ -17,6 +17,11 @@ import {
 } from "@/lib/order-notifications"
 import type { WaiterOrder } from "@/services/order-service"
 
+function orderItemSummary(item: WaiterOrder["items"][number]) {
+  const base = `${item.productQuantity}x ${item.productName}${item.variantName ? ` - ${item.variantName}` : ""}`
+  return item.notes ? `${base} (${item.notes})` : base
+}
+
 /**
  * Carga las órdenes activas del restaurante y se suscribe a cambios en
  * realtime (orders + order_items). Cualquier cambio dispara un re-fetch — más
@@ -67,7 +72,7 @@ export function useWaiterOrders(restaurantId: number | null) {
           const tableLabel = o.tableNumber != null ? `Mesa ${o.tableNumber}` : `Mesa #${o.tableId ?? "?"}`
           const itemsSummary = o.items
             .slice(0, 3)
-            .map((it) => `${it.productQuantity}x ${it.productName}`)
+            .map(orderItemSummary)
             .join(", ")
           showOrderNotification({
             title: `Nuevo pedido — ${tableLabel}`,
