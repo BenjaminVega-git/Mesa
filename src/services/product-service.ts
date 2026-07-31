@@ -32,6 +32,11 @@ export type ProductForEdit = {
     imageUrl: string | null
     imagePublicId: string | null
   }>
+  menuOptions: Array<{
+    id: number
+    name: string
+    extraPrice: number
+  }>
   fallbackPrice: number
   fallbackImageUrl: string | null
   fallbackImagePublicId: string | null
@@ -67,7 +72,7 @@ export async function getProductForEdit(productId: number): Promise<Result<Produ
   if (!guard.ok) return fail(guard.error)
   const { supabase } = guard.data
 
-  const [productRes, variantsRes] = await Promise.all([
+  const [productRes, variantsRes, menuOptionsRes] = await Promise.all([
     supabase
       .from("products")
       .select("id, product_name, product_description, product_price, product_image, product_image_public_id, category_id, image_recortada")
@@ -78,11 +83,18 @@ export async function getProductForEdit(productId: number): Promise<Result<Produ
       .select("id, variant_name, variant_description, variant_price, variant_image, variant_image_public_id")
       .eq("product_id", productId)
       .order("created_at", { ascending: true }),
+    supabase
+      .from("product_menu_options")
+      .select("id, name, extra_price")
+      .eq("product_id", productId)
+      .order("sort_order", { ascending: true })
+      .order("id", { ascending: true }),
   ])
 
   if (productRes.error) return fail("Error al cargar producto")
   if (!productRes.data) return fail("Producto no encontrado")
   if (variantsRes.error) return fail("Error al cargar variantes")
+  if (menuOptionsRes.error) return fail("Error al cargar opciones avanzadas")
 
   return ok({
     id: productRes.data.id,
@@ -101,6 +113,11 @@ export async function getProductForEdit(productId: number): Promise<Result<Produ
       imageUrl: variant.variant_image,
       imagePublicId: variant.variant_image_public_id,
     })),
+    menuOptions: (menuOptionsRes.data ?? []).map((option) => ({
+      id: option.id,
+      name: option.name,
+      extraPrice: option.extra_price,
+    })),
   })
 }
 
@@ -112,7 +129,7 @@ export async function createProduct(input: CreateProductInput): Promise<Result<C
     return fail(validation.error.issues[0]?.message ?? "Datos inválidos")
   }
 
-  const { name, description, categoryId, restaurantId, options } = validation.data
+  const { name, description, categoryId, restaurantId, options, menuOptions } = validation.data
 
   const guard = await requireAdminForRestaurant(restaurantId)
   if (!guard.ok) return fail(guard.error)
@@ -161,6 +178,25 @@ export async function createProduct(input: CreateProductInput): Promise<Result<C
     }
   }
 
+  if (menuOptions.length > 0) {
+    const { error: menuOptionsError } = await supabase
+      .from("product_menu_options")
+      .insert(
+        menuOptions.map((option, index) => ({
+          product_id: productData.id,
+          restaurant_id: restaurantId,
+          name: option.name,
+          extra_price: option.extraPrice,
+          sort_order: index,
+        }))
+      )
+
+    if (menuOptionsError) {
+      await supabase.from("products").delete().eq("id", productData.id)
+      return fail("Error al crear las opciones avanzadas del producto")
+    }
+  }
+
   revalidateMenu(restaurantId)
   return ok({ id: productData.id })
 }
@@ -173,7 +209,7 @@ export async function updateProduct(input: UpdateProductInput): Promise<Result<{
     return fail(validation.error.issues[0]?.message ?? "Datos inválidos")
   }
 
-  const { productId, name, description, categoryId, options, initialVariantIds } = validation.data
+  const { productId, name, description, categoryId, options, initialVariantIds, menuOptions } = validation.data
 
   const restaurantId = await getRestaurantIdForProduct(productId)
   if (!restaurantId) return fail("Producto no encontrado")
@@ -295,6 +331,29 @@ export async function updateProduct(input: UpdateProductInput): Promise<Result<{
 
   if (orphanedImagePublicIds.length > 0) {
     await deleteImagesBestEffort(orphanedImagePublicIds)
+  }
+
+  const { error: deleteMenuOptionsError } = await supabase
+    .from("product_menu_options")
+    .delete()
+    .eq("product_id", productId)
+
+  if (deleteMenuOptionsError) return fail("Error al actualizar opciones avanzadas")
+
+  if (menuOptions.length > 0) {
+    const { error: insertMenuOptionsError } = await supabase
+      .from("product_menu_options")
+      .insert(
+        menuOptions.map((option, index) => ({
+          product_id: productId,
+          restaurant_id: restaurantId,
+          name: option.name,
+          extra_price: option.extraPrice,
+          sort_order: index,
+        }))
+      )
+
+    if (insertMenuOptionsError) return fail("Error al guardar opciones avanzadas")
   }
 
   revalidateMenu(restaurantId)

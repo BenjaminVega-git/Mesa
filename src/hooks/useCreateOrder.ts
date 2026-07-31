@@ -61,6 +61,7 @@ export function useCreateOrder({ items, tableId, restaurantId, couponCode }: Use
       promotionId: item.promotionId ?? null,
       selections: item.selections ?? null,
       ingredientChoices: item.ingredientChoices ?? null,
+      menuOptionChoices: item.menuOptionChoices ?? null,
       productQuantity: item.quantity,
       notes: item.notes ?? null,
     }))

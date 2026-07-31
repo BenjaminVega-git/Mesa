@@ -1,4 +1,4 @@
-import type { CartItem, CartPromoSelection, CartIngredientChoice } from "@/types/cart-item"
+import type { CartItem, CartPromoSelection, CartIngredientChoice, CartMenuOptionChoice } from "@/types/cart-item"
 
 export type StoredOrder = {
   id: number
@@ -17,6 +17,7 @@ export type AddCartItemInput = {
   quantity?: number
   notes?: string | null
   ingredientChoices?: CartIngredientChoice[] | null
+  menuOptionChoices?: CartMenuOptionChoice[] | null
 }
 
 export interface TableCartStore {

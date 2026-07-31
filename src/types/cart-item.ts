@@ -13,6 +13,10 @@ export type CartIngredientChoice = {
   action: "remove" | "add"
 }
 
+export type CartMenuOptionChoice = {
+  optionId: number
+}
+
 export type CartItem = {
   id: string
   // productId es null cuando la línea es una promoción (combo).
@@ -28,6 +32,8 @@ export type CartItem = {
   // pedido + etiquetas ya resueltas ("Sin Tomate", "Extra Queso (+$500)").
   ingredientChoices?: CartIngredientChoice[] | null
   ingredientLabels?: string[] | null
+  menuOptionChoices?: CartMenuOptionChoice[] | null
+  menuOptionLabels?: string[] | null
   name: string
   price: number
   quantity: number

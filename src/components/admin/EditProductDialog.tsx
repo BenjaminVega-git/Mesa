@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { Modal } from "@/components/ui/Modal"
 import { ProductOptionsEditor } from "@/components/admin/ProductOptionsEditor"
+import { ProductAdvancedOptionsEditor } from "@/components/admin/ProductAdvancedOptionsEditor"
 import { ProductRecipeEditor } from "@/components/admin/ProductRecipeEditor"
 import { useEditProduct } from "@/hooks/useEditProduct"
 import { useAllCategories } from "@/hooks/useAllCategories"
@@ -46,6 +47,13 @@ export function EditProductDialog({
     productDescription, setProductDescription,
     categoryId, setCategoryId,
     options,
+    advancedOptionsEnabled,
+    setAdvancedOptionsEnabled,
+    menuOptions,
+    addMenuOption,
+    removeMenuOption,
+    setMenuOptionName,
+    setMenuOptionPrice,
     setOptionName,
     setOptionDescription,
     setOptionPrice,
@@ -166,6 +174,17 @@ export function EditProductDialog({
             onOptionPriceChange={setOptionPrice}
             onOptionImageChange={setOptionImage}
             onOptionRemoveBgChange={setOptionRemoveBg}
+          />
+
+          <ProductAdvancedOptionsEditor
+            enabled={advancedOptionsEnabled}
+            options={menuOptions}
+            disabled={saving}
+            onEnabledChange={setAdvancedOptionsEnabled}
+            onAddOption={addMenuOption}
+            onRemoveOption={removeMenuOption}
+            onOptionNameChange={setMenuOptionName}
+            onOptionPriceChange={setMenuOptionPrice}
           />
 
           {error && (

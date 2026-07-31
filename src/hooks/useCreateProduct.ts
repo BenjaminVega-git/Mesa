@@ -11,10 +11,18 @@ import {
   CreateProductOptionSchema,
   CreateProductSchema,
   type CreateProductOptionInput,
+  type ProductMenuOptionInput,
   type ProductOptionForm,
 } from "@/lib/validation/product"
 
 let optionIdSeed = 0
+let menuOptionIdSeed = 0
+
+export type ProductMenuOptionForm = {
+  localId: string
+  name: string
+  extraPrice: string
+}
 
 function createLocalOption(name = ""): ProductOptionForm {
   optionIdSeed += 1
@@ -34,6 +42,15 @@ function createLocalOption(name = ""): ProductOptionForm {
   }
 }
 
+function createLocalMenuOption(name = ""): ProductMenuOptionForm {
+  menuOptionIdSeed += 1
+  return {
+    localId: `menu-option-${Date.now()}-${menuOptionIdSeed}`,
+    name,
+    extraPrice: "0",
+  }
+}
+
 export function useCreateProduct() {
   const { restaurantId, loading: loadingId } = useRestaurantId()
   const { uploadImage, uploading } = useUploadImage()
@@ -49,6 +66,8 @@ export function useCreateProduct() {
   const [productDescription, setProductDescription] = useState("")
   const [categoryId, setCategoryId] = useState<number | null>(null)
   const [options, setOptions] = useState<ProductOptionForm[]>([createLocalOption()])
+  const [advancedOptionsEnabled, setAdvancedOptionsEnabledState] = useState(false)
+  const [menuOptions, setMenuOptions] = useState<ProductMenuOptionForm[]>([])
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
@@ -153,6 +172,40 @@ export function useCreateProduct() {
     processingPromises.current.delete(localId)
   }
 
+  function setAdvancedOptionsEnabled(value: boolean) {
+    setAdvancedOptionsEnabledState(value)
+    setMenuOptions((current) => {
+      if (!value) return []
+      return current.length > 0 ? current : [createLocalMenuOption()]
+    })
+  }
+
+  function addMenuOption() {
+    setAdvancedOptionsEnabledState(true)
+    setMenuOptions((current) => [
+      ...current,
+      createLocalMenuOption(`Opcion ${current.length + 1}`),
+    ])
+  }
+
+  function removeMenuOption(localId: string) {
+    setMenuOptions((current) => current.filter((option) => option.localId !== localId))
+  }
+
+  function setMenuOptionName(localId: string, value: string) {
+    setMenuOptions((current) =>
+      current.map((option) => option.localId === localId ? { ...option, name: value } : option)
+    )
+  }
+
+  function setMenuOptionPrice(localId: string, value: string) {
+    setMenuOptions((current) =>
+      current.map((option) =>
+        option.localId === localId ? { ...option, extraPrice: value } : option
+      )
+    )
+  }
+
   // Sube imágenes en paralelo y construye los options validados.
   async function prepareOptions(): Promise<CreateProductOptionInput[]> {
     const uploadResults = await Promise.all(
@@ -214,6 +267,16 @@ export function useCreateProduct() {
     return preparedOptions
   }
 
+  function prepareMenuOptions(): ProductMenuOptionInput[] {
+    if (!advancedOptionsEnabled) return []
+    return menuOptions
+      .map((option) => ({
+        name: option.name.trim(),
+        extraPrice: Number(option.extraPrice || 0),
+      }))
+      .filter((option) => option.name.length > 0)
+  }
+
   const { run: createProductWithRetry, isPending } = useOfflineRetry(async () => {
     if (!restaurantId) {
       if (typeof navigator !== "undefined" && !navigator.onLine) {
@@ -230,6 +293,7 @@ export function useCreateProduct() {
       restaurantId,
       // options se valida después en prepareOptions
       options: [{ name: "placeholder", price: 1, imageUrl: null, imagePublicId: null }],
+      menuOptions: [],
     })
 
     // Solo validamos los campos top-level, no options aún (porque hay que subir imágenes primero)
@@ -240,6 +304,7 @@ export function useCreateProduct() {
 
     // Subir imágenes + validar options
     const preparedOptions = await prepareOptions()
+    const preparedMenuOptions = prepareMenuOptions()
 
     // Llamar al server
     const result = await createProductAction({
@@ -248,6 +313,7 @@ export function useCreateProduct() {
       categoryId: categoryId!,
       restaurantId,
       options: preparedOptions,
+      menuOptions: preparedMenuOptions,
     })
 
     if (!result.ok) {
@@ -264,6 +330,8 @@ export function useCreateProduct() {
     setProductDescription("")
     setCategoryId(null)
     setOptions([createLocalOption()])
+    setAdvancedOptionsEnabledState(false)
+    setMenuOptions([])
     setError("")
     processingTokens.current.clear()
     processingPromises.current.clear()
@@ -306,6 +374,13 @@ export function useCreateProduct() {
     categoryId,
     setCategoryId,
     options,
+    advancedOptionsEnabled,
+    setAdvancedOptionsEnabled,
+    menuOptions,
+    addMenuOption,
+    removeMenuOption,
+    setMenuOptionName,
+    setMenuOptionPrice,
     setOptionName,
     setOptionDescription,
     setOptionPrice,

@@ -16,7 +16,7 @@ import { calcIngredientExtra } from "@/lib/ingredient-customization"
 import type { MenuPromotion } from "@/types/menu"
 import type { Product } from "@/types/product"
 import type { CreateOrderItemInput } from "@/lib/validation/order"
-import type { CartPromoSelection, CartIngredientChoice } from "@/types/cart-item"
+import type { CartPromoSelection, CartIngredientChoice, CartMenuOptionChoice } from "@/types/cart-item"
 
 const clp = new Intl.NumberFormat("es-CL", {
   style: "currency",
@@ -32,6 +32,7 @@ type CartLine = {
   promotionId?: number
   selections?: CartPromoSelection[]
   ingredientChoices?: CartIngredientChoice[]
+  menuOptionChoices?: CartMenuOptionChoice[]
   name: string
   detail: string | null
   /** Precio unitario estimado para mostrar (el server SIEMPRE recalcula). */
@@ -82,6 +83,7 @@ export function TakeOrderPanel({
     variantId: number | null
     removed: Set<number>
     added: Set<number>
+    menuOptions: Set<number>
   } | null>(null)
   const [buildPromo, setBuildPromo] = useState<MenuPromotion | null>(null)
   // Comensal para el que es este pedido: null = "toda la mesa" (sin dividir).
@@ -171,6 +173,12 @@ export function TakeOrderPanel({
     return ka === kb
   }
 
+  function sameMenuOptions(a?: CartMenuOptionChoice[], b?: CartMenuOptionChoice[]): boolean {
+    const ka = (a ?? []).map((c) => c.optionId).sort((x, y) => x - y).join(",")
+    const kb = (b ?? []).map((c) => c.optionId).sort((x, y) => x - y).join(",")
+    return ka === kb
+  }
+
   function addLine(line: Omit<CartLine, "key">) {
     setLines((prev) => {
       // Producto idéntico (misma variante, misma personalización, sin nota) → suma cantidad.
@@ -180,6 +188,7 @@ export function TakeOrderPanel({
             l.productId === line.productId &&
             (l.variantId ?? null) === (line.variantId ?? null) &&
             sameChoices(l.ingredientChoices, line.ingredientChoices) &&
+            sameMenuOptions(l.menuOptionChoices, line.menuOptionChoices) &&
             !l.notes
         )
         if (idx >= 0 && !prev[idx].promotionId) {
@@ -195,8 +204,15 @@ export function TakeOrderPanel({
   function addProduct(p: Product) {
     const hasVariants = (p.product_variants ?? []).length > 0
     const hasIngredientOptions = (p.ingredient_options ?? []).length > 0
-    if (hasVariants || hasIngredientOptions) {
-      setCustomize({ product: p, variantId: null, removed: new Set(), added: new Set() })
+    const hasMenuOptions = (p.menu_options ?? []).length > 0
+    if (hasVariants || hasIngredientOptions || hasMenuOptions) {
+      setCustomize({
+        product: p,
+        variantId: null,
+        removed: new Set(),
+        added: new Set(),
+        menuOptions: new Set(),
+      })
       return
     }
     addLine({
@@ -219,7 +235,14 @@ export function TakeOrderPanel({
       ...Array.from(removed).map((id) => ({ ingredientId: id, action: "remove" as const })),
       ...Array.from(added).map((id) => ({ ingredientId: id, action: "add" as const })),
     ]
+    const menuChoices: CartMenuOptionChoice[] = Array.from(customize.menuOptions).map((optionId) => ({
+      optionId,
+    }))
     const extra = calcIngredientExtra(choices, product.ingredient_options)
+    const menuExtra = (product.menu_options ?? []).reduce(
+      (sum, option) => sum + (customize.menuOptions.has(option.id) ? option.extra_price : 0),
+      0
+    )
     const detailParts = [
       variant?.variant_name,
       ...Array.from(removed).map(
@@ -228,15 +251,19 @@ export function TakeOrderPanel({
       ...Array.from(added).map(
         (id) => `Extra ${product.ingredient_options?.find((o) => o.ingredient_id === id)?.name}`
       ),
+      ...Array.from(customize.menuOptions).map(
+        (id) => product.menu_options?.find((o) => o.id === id)?.name
+      ),
     ].filter(Boolean)
 
     addLine({
       productId: product.id,
       variantId,
       ingredientChoices: choices.length > 0 ? choices : undefined,
+      menuOptionChoices: menuChoices.length > 0 ? menuChoices : undefined,
       name: product.product_name,
       detail: detailParts.length > 0 ? detailParts.join(", ") : null,
-      unitPrice: basePrice + extra,
+      unitPrice: basePrice + extra + menuExtra,
       quantity: 1,
       notes: "",
     })
@@ -292,6 +319,7 @@ export function TakeOrderPanel({
       promotionId: l.promotionId ?? null,
       selections: l.selections ?? null,
       ingredientChoices: l.ingredientChoices ?? null,
+      menuOptionChoices: l.menuOptionChoices ?? null,
       productQuantity: l.quantity,
       notes: l.notes.trim() || null,
     }))
@@ -768,6 +796,46 @@ export function TakeOrderPanel({
                         </span>
                         <span className="text-[11px] font-bold text-stone-500">
                           {isRemovable ? "gratis" : `+${fmt(opt.extra_price)}`}
+                        </span>
+                      </label>
+                    )
+                  })}
+                </div>
+              </>
+            )}
+
+            {(customize.product.menu_options ?? []).length > 0 && (
+              <>
+                <p className="mt-3 text-[11px] font-bold uppercase tracking-wider text-stone-500">
+                  Opciones adicionales
+                </p>
+                <div className="mt-1.5 space-y-1.5">
+                  {customize.product.menu_options!.map((opt) => {
+                    const checked = customize.menuOptions.has(opt.id)
+                    return (
+                      <label
+                        key={opt.id}
+                        className="flex items-center justify-between gap-2 rounded-2xl border border-stone-200 px-4 py-2.5"
+                      >
+                        <span className="flex min-w-0 items-center gap-2 text-xs font-bold text-stone-800">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() =>
+                              setCustomize((c) => {
+                                if (!c) return c
+                                const next = new Set(c.menuOptions)
+                                if (next.has(opt.id)) next.delete(opt.id)
+                                else next.add(opt.id)
+                                return { ...c, menuOptions: next }
+                              })
+                            }
+                            className="h-4 w-4 accent-orange-500"
+                          />
+                          <span className="truncate">{opt.name}</span>
+                        </span>
+                        <span className="shrink-0 text-[11px] font-bold text-stone-500">
+                          {opt.extra_price > 0 ? `+${fmt(opt.extra_price)}` : "gratis"}
                         </span>
                       </label>
                     )

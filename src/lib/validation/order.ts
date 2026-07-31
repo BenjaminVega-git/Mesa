@@ -16,6 +16,10 @@ export const CreateOrderIngredientChoiceSchema = z.object({
   action: z.enum(["remove", "add"]),
 })
 
+export const CreateOrderMenuOptionChoiceSchema = z.object({
+  optionId: z.number().int().positive(),
+})
+
 export const CreateOrderItemSchema = z
   .object({
     // Un ítem es un PRODUCTO (productId) o una PROMOCIÓN (promotionId), nunca ambos.
@@ -29,6 +33,7 @@ export const CreateOrderItemSchema = z
     // Solo en líneas de producto: personalización de ingredientes. La RPC
     // revalida contra la configuración real del producto.
     ingredientChoices: z.array(CreateOrderIngredientChoiceSchema).max(30).nullable().optional(),
+    menuOptionChoices: z.array(CreateOrderMenuOptionChoiceSchema).max(30).nullable().optional(),
 
     productQuantity: z
       .number()

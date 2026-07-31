@@ -13,10 +13,13 @@ import {
   UpdateProductOptionSchema,
   UpdateProductSchema,
   type UpdateProductOptionInput,
+  type ProductMenuOptionInput,
   type ProductOptionForm,
 } from "@/lib/validation/product"
+import type { ProductMenuOptionForm } from "@/hooks/useCreateProduct"
 
 let optionIdSeed = 0
+let menuOptionIdSeed = 0
 
 function createLocalOption(values?: Partial<ProductOptionForm>): ProductOptionForm {
   optionIdSeed += 1
@@ -37,6 +40,16 @@ function createLocalOption(values?: Partial<ProductOptionForm>): ProductOptionFo
   }
 }
 
+function createLocalMenuOption(values?: Partial<ProductMenuOptionForm>): ProductMenuOptionForm {
+  menuOptionIdSeed += 1
+  return {
+    localId: `menu-option-${Date.now()}-${menuOptionIdSeed}`,
+    name: "",
+    extraPrice: "0",
+    ...values,
+  }
+}
+
 export function useEditProduct(productId: number | null) {
   const { uploadImage, uploading } = useUploadImage()
   const successRef = useRef(false)
@@ -49,6 +62,8 @@ export function useEditProduct(productId: number | null) {
   const [productDescription, setProductDescription] = useState("")
   const [categoryId, setCategoryId] = useState<number | null>(null)
   const [options, setOptions] = useState<ProductOptionForm[]>([createLocalOption()])
+  const [advancedOptionsEnabled, setAdvancedOptionsEnabledState] = useState(false)
+  const [menuOptions, setMenuOptions] = useState<ProductMenuOptionForm[]>([])
   const [initialVariantIds, setInitialVariantIds] = useState<number[]>([])
 
   const [loading, setLoading] = useState(true)
@@ -77,6 +92,16 @@ export function useEditProduct(productId: number | null) {
     setProductDescription(product.description ?? "")
     setCategoryId(product.categoryId)
     setInitialVariantIds(product.variants.map((variant) => variant.id))
+    setAdvancedOptionsEnabledState(product.menuOptions.length > 0)
+    setMenuOptions(
+      product.menuOptions.map((option) =>
+        createLocalMenuOption({
+          localId: `menu-option-existing-${option.id}`,
+          name: option.name,
+          extraPrice: String(option.extraPrice),
+        })
+      )
+    )
 
     if (product.variants.length > 0) {
       setOptions(
@@ -287,6 +312,40 @@ export function useEditProduct(productId: number | null) {
     processingPromises.current.delete(localId)
   }
 
+  function setAdvancedOptionsEnabled(value: boolean) {
+    setAdvancedOptionsEnabledState(value)
+    setMenuOptions((current) => {
+      if (!value) return []
+      return current.length > 0 ? current : [createLocalMenuOption()]
+    })
+  }
+
+  function addMenuOption() {
+    setAdvancedOptionsEnabledState(true)
+    setMenuOptions((current) => [
+      ...current,
+      createLocalMenuOption({ name: `Opcion ${current.length + 1}` }),
+    ])
+  }
+
+  function removeMenuOption(localId: string) {
+    setMenuOptions((current) => current.filter((option) => option.localId !== localId))
+  }
+
+  function setMenuOptionName(localId: string, value: string) {
+    setMenuOptions((current) =>
+      current.map((option) => option.localId === localId ? { ...option, name: value } : option)
+    )
+  }
+
+  function setMenuOptionPrice(localId: string, value: string) {
+    setMenuOptions((current) =>
+      current.map((option) =>
+        option.localId === localId ? { ...option, extraPrice: value } : option
+      )
+    )
+  }
+
   // ============ PREPARAR OPCIONES (subir imágenes en paralelo + validar) ============
 
   async function prepareOptions(): Promise<UpdateProductOptionInput[]> {
@@ -361,6 +420,16 @@ export function useEditProduct(productId: number | null) {
     return preparedOptions
   }
 
+  function prepareMenuOptions(): ProductMenuOptionInput[] {
+    if (!advancedOptionsEnabled) return []
+    return menuOptions
+      .map((option) => ({
+        name: option.name.trim(),
+        extraPrice: Number(option.extraPrice || 0),
+      }))
+      .filter((option) => option.name.length > 0)
+  }
+
   // ============ ACTUALIZAR ============
 
   const { run: updateProductWithRetry, isPending } = useOfflineRetry(async () => {
@@ -374,6 +443,7 @@ export function useEditProduct(productId: number | null) {
       categoryId,
       options: [{ name: "placeholder", price: 1, imageUrl: null, imagePublicId: null }],
       initialVariantIds,
+      menuOptions: [],
     })
 
     if (!basicValidation.success) {
@@ -383,6 +453,7 @@ export function useEditProduct(productId: number | null) {
 
     // Subir imágenes + validar options
     const preparedOptions = await prepareOptions()
+    const preparedMenuOptions = prepareMenuOptions()
 
     // Llamar al server
     const result = await updateProductAction({
@@ -392,6 +463,7 @@ export function useEditProduct(productId: number | null) {
       categoryId: categoryId!,
       options: preparedOptions,
       initialVariantIds,
+      menuOptions: preparedMenuOptions,
     })
 
     if (!result.ok) {
@@ -438,6 +510,13 @@ export function useEditProduct(productId: number | null) {
     categoryId,
     setCategoryId,
     options,
+    advancedOptionsEnabled,
+    setAdvancedOptionsEnabled,
+    menuOptions,
+    addMenuOption,
+    removeMenuOption,
+    setMenuOptionName,
+    setMenuOptionPrice,
     setOptionName,
     setOptionDescription,
     setOptionPrice,

@@ -4,6 +4,7 @@ import { useState } from "react"
 import { Sparkles } from "lucide-react"
 import { Modal } from "@/components/ui/Modal"
 import { ProductOptionsEditor } from "@/components/admin/ProductOptionsEditor"
+import { ProductAdvancedOptionsEditor } from "@/components/admin/ProductAdvancedOptionsEditor"
 import { useCreateProduct } from "@/hooks/useCreateProduct"
 import { useAllCategories } from "@/hooks/useAllCategories"
 
@@ -23,6 +24,13 @@ export function CreateProductDialog({ open, onClose, onCreated }: Props) {
     productDescription, setProductDescription,
     categoryId, setCategoryId,
     options,
+    advancedOptionsEnabled,
+    setAdvancedOptionsEnabled,
+    menuOptions,
+    addMenuOption,
+    removeMenuOption,
+    setMenuOptionName,
+    setMenuOptionPrice,
     setOptionName,
     setOptionDescription,
     setOptionPrice,
@@ -116,6 +124,17 @@ export function CreateProductDialog({ open, onClose, onCreated }: Props) {
           onOptionPriceChange={setOptionPrice}
           onOptionImageChange={setOptionImage}
           onOptionRemoveBgChange={setOptionRemoveBg}
+        />
+
+        <ProductAdvancedOptionsEditor
+          enabled={advancedOptionsEnabled}
+          options={menuOptions}
+          disabled={loading}
+          onEnabledChange={setAdvancedOptionsEnabled}
+          onAddOption={addMenuOption}
+          onRemoveOption={removeMenuOption}
+          onOptionNameChange={setMenuOptionName}
+          onOptionPriceChange={setMenuOptionPrice}
         />
 
         <div className="rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5">

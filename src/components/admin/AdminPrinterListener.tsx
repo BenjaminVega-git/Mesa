@@ -18,7 +18,12 @@ type FetchedOrder = {
   status_id: number
   table_id: number
   tables: { table_number: number | null } | null
-  order_items: { product_quantity: number; product_name: string | null; variant_name: string | null }[]
+  order_items: Array<{
+    product_quantity: number
+    product_name: string | null
+    variant_name: string | null
+    notes: string | null
+  }>
 }
 
 function osPrintEnabledFromStorage() {
@@ -29,14 +34,13 @@ function osPrintEnabledFromStorage() {
   }
 }
 
-/**
- * Listener global para impresión por cable/driver del sistema.
- *
- * /admin/printer mantiene su propio listener para mostrar logs y soportar la
- * vía Bluetooth. Este componente cubre el resto del panel admin, de modo que
- * los pedidos sigan imprimiéndose aunque el usuario esté en Productos,
- * Pedidos, Caja, etc.
- */
+function ticketItemName(item: FetchedOrder["order_items"][number]) {
+  const base = item.variant_name
+    ? `${item.product_name ?? "Producto"} · ${item.variant_name}`
+    : item.product_name ?? "Producto"
+  return item.notes ? `${base} - ${item.notes}` : base
+}
+
 export function AdminPrinterListener() {
   const { restaurant } = useRestaurant()
   const pathname = usePathname()
@@ -58,7 +62,7 @@ export function AdminPrinterListener() {
     try {
       const { data, error } = await supabase
         .from("orders")
-        .select("id, status_id, table_id, tables ( table_number ), order_items ( product_quantity, product_name, variant_name )")
+        .select("id, status_id, table_id, tables ( table_number ), order_items ( product_quantity, product_name, variant_name, notes )")
         .eq("id", orderId)
         .maybeSingle<FetchedOrder>()
 
@@ -74,13 +78,11 @@ export function AdminPrinterListener() {
 
       const ticketInput = {
         restaurantName: current.restaurant_name ?? "Restaurante",
-        tableNumber: data.tables?.table_number === 0 ? "Recepción" : data.tables?.table_number ?? data.table_id,
+        tableNumber: data.tables?.table_number === 0 ? "Recepcion" : data.tables?.table_number ?? data.table_id,
         orderId: data.id,
         items: data.order_items.map((item) => ({
           quantity: item.product_quantity,
-          name: item.variant_name
-            ? `${item.product_name ?? "Producto"} · ${item.variant_name}`
-            : item.product_name ?? "Producto",
+          name: ticketItemName(item),
         })),
       }
 
@@ -88,7 +90,7 @@ export function AdminPrinterListener() {
         const printedRaw = await printTicketViaRawDriver(ticketInput)
         if (!printedRaw) await printTicketViaOsDriver(ticketInput)
       } catch (err) {
-        logger.warn("global raw cable print failed, usando diálogo", { error: String(err) })
+        logger.warn("global raw cable print failed, usando dialogo", { error: String(err) })
         await printTicketViaOsDriver(ticketInput)
       }
 

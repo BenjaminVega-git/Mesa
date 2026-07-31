@@ -397,6 +397,9 @@ export async function createOrder(input: CreateOrderInput): Promise<Result<Creat
     ingredient_choices: item.ingredientChoices
       ? item.ingredientChoices.map((c) => ({ ingredient_id: c.ingredientId, action: c.action }))
       : null,
+    menu_option_choices: item.menuOptionChoices
+      ? item.menuOptionChoices.map((c) => ({ option_id: c.optionId }))
+      : null,
     quantity: item.productQuantity,
     notes: item.notes ?? null,
   }))

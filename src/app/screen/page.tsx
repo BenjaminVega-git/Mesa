@@ -14,14 +14,14 @@ type FetchedOrder = {
   table_id: number
   created_at: string
   tables: { table_number: number | null } | null
-  order_items: { product_quantity: number; product_name: string | null; variant_name: string | null }[]
+  order_items: { product_quantity: number; product_name: string | null; variant_name: string | null; notes: string | null }[]
 }
 
 type DisplayOrder = {
   id: number
   tableNumber: number | string
   receivedAt: Date
-  items: { quantity: number; name: string }[]
+  items: { quantity: number; name: string; notes: string | null }[]
 }
 
 const EN_PREPARACION_STATUS_ID = 2
@@ -40,6 +40,7 @@ function rowToDisplay(data: FetchedOrder): DisplayOrder {
       name: item.variant_name
         ? `${item.product_name ?? "Producto"} · ${item.variant_name}`
         : item.product_name ?? "Producto",
+      notes: item.notes,
     })),
   }
 }
@@ -69,7 +70,7 @@ function ScreenPage() {
     const { data, error } = await supabase
       .from("orders")
       .select(
-        "id, status_id, table_id, created_at, tables ( table_number ), order_items ( product_quantity, product_name, variant_name )"
+        "id, status_id, table_id, created_at, tables ( table_number ), order_items ( product_quantity, product_name, variant_name, notes )"
       )
       .eq("id", orderId)
       .maybeSingle<FetchedOrder>()
@@ -120,7 +121,7 @@ function ScreenPage() {
       const { data, error } = await supabase
         .from("orders")
         .select(
-          "id, status_id, table_id, created_at, tables ( table_number ), order_items ( product_quantity, product_name, variant_name )"
+          "id, status_id, table_id, created_at, tables ( table_number ), order_items ( product_quantity, product_name, variant_name, notes )"
         )
         .eq("restaurant_id", restaurant.id)
         .eq("status_id", EN_PREPARACION_STATUS_ID)
@@ -280,7 +281,14 @@ function ScreenPage() {
                     <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-orange-500/20 text-sm font-extrabold text-orange-200 tabular-nums">
                       {item.quantity}
                     </span>
-                    <span className="truncate text-sm font-semibold text-white">{item.name}</span>
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-semibold text-white">{item.name}</span>
+                      {item.notes ? (
+                        <span className="mt-0.5 block line-clamp-2 text-[11px] font-medium leading-4 text-orange-100/80">
+                          {item.notes}
+                        </span>
+                      ) : null}
+                    </span>
                   </li>
                 ))}
               </ul>

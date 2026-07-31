@@ -3,7 +3,7 @@ import { supabase } from "@/lib/supabase"
 import { logger } from "@/lib/logger"
 import { getOrCreateDinerToken } from "@/lib/diner-token"
 import { getGuestId } from "@/lib/guest-id"
-import type { CartItem, CartPromoSelection, CartIngredientChoice } from "@/types/cart-item"
+import type { CartItem, CartPromoSelection, CartIngredientChoice, CartMenuOptionChoice } from "@/types/cart-item"
 import type { TableCartStore } from "@/types/cart-store"
 
 type ProductJoin = { product_name: string; product_image: string | null } | null
@@ -19,6 +19,7 @@ type PromotionJoin = {
 type RawSelection = { group_id: number; product_id: number; variant_id: number | null }
 // Elección cruda tal como la guarda table_cart_items.ingredient_choices (snake).
 type RawIngredientChoice = { ingredient_id: number; action: "remove" | "add" }
+type RawMenuOptionChoice = { option_id: number }
 
 type CartRow = {
   id: string
@@ -28,6 +29,8 @@ type CartRow = {
   promo_selections: RawSelection[] | null
   ingredient_choices: RawIngredientChoice[] | null
   ingredient_labels: string[] | null
+  menu_option_choices: RawMenuOptionChoice[] | null
+  menu_option_labels: string[] | null
   quantity: number
   unit_price: number
   notes: string | null
@@ -56,6 +59,11 @@ function mapSelections(raw: RawSelection[] | null): CartPromoSelection[] | null 
 function mapIngredientChoices(raw: RawIngredientChoice[] | null): CartIngredientChoice[] | null {
   if (!raw || !Array.isArray(raw)) return null
   return raw.map((c) => ({ ingredientId: c.ingredient_id, action: c.action }))
+}
+
+function mapMenuOptionChoices(raw: RawMenuOptionChoice[] | null): CartMenuOptionChoice[] | null {
+  if (!raw || !Array.isArray(raw)) return null
+  return raw.map((c) => ({ optionId: c.option_id }))
 }
 
 function shouldRetryWithoutDinerToken(error: { message?: string; code?: string } | null): boolean {
@@ -104,6 +112,8 @@ function mapRowToItem(row: CartRow): CartItem {
     promotionId: null,
     ingredientChoices: mapIngredientChoices(row.ingredient_choices),
     ingredientLabels: row.ingredient_labels,
+    menuOptionChoices: mapMenuOptionChoices(row.menu_option_choices),
+    menuOptionLabels: row.menu_option_labels,
     name,
     price: row.unit_price,
     quantity: row.quantity,
@@ -154,6 +164,9 @@ export const useTableCartStore = create<TableCartStore>()((set, get) => ({
     const ingredientChoices = input.ingredientChoices
       ? input.ingredientChoices.map((c) => ({ ingredient_id: c.ingredientId, action: c.action }))
       : null
+    const menuOptionChoices = input.menuOptionChoices
+      ? input.menuOptionChoices.map((c) => ({ option_id: c.optionId }))
+      : null
 
     const payload = {
       p_qr_token: qrCode,
@@ -163,6 +176,7 @@ export const useTableCartStore = create<TableCartStore>()((set, get) => ({
       p_notes: input.notes ?? null,
       p_added_by: getGuestId(),
       p_ingredient_choices: ingredientChoices,
+      p_menu_option_choices: menuOptionChoices,
     }
 
     let { error } = await supabase.rpc("cart_add_item_qr", {

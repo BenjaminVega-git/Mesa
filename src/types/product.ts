@@ -12,6 +12,12 @@ export type ProductIngredientOption = {
   extra_price: number
 }
 
+export type ProductMenuOption = {
+  id: number
+  name: string
+  extra_price: number
+}
+
 // Fila de configuración en el panel admin (Inventario): un insumo del
 // restaurante, configurado o no todavía para este producto. kind=null = sin
 // configurar ("No aplica").
@@ -48,4 +54,5 @@ export type Product = {
   // Opciones de personalización disponibles (comensal y POS del staff). Lo
   // expone get_public_menu / staff_get_menu; vacío si el admin no configuró.
   ingredient_options?: ProductIngredientOption[]
+  menu_options?: ProductMenuOption[]
 }

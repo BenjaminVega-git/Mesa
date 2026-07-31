@@ -524,6 +524,7 @@ async function crearProductos(ctx: AssistantContext, args: ToolArgs) {
         options: [
           { name: nombre, price: precio, imageUrl: null, imagePublicId: null, imageRecortada: false },
         ],
+        menuOptions: [],
       })
       return res.ok
         ? { id: (res.data as { id: number }).id, nombre, ok: true }

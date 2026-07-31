@@ -6,7 +6,7 @@ import { ProductImage } from "@/components/customer/ProductImage"
 import { flyToCart } from "@/lib/customer/fly-to-cart"
 import { calcIngredientExtra } from "@/lib/ingredient-customization"
 import type { Product } from "@/types/product"
-import type { CartIngredientChoice } from "@/types/cart-item"
+import type { CartIngredientChoice, CartMenuOptionChoice } from "@/types/cart-item"
 
 function formatPrice(price: number) {
   return `$${price.toLocaleString("es-CL")}`
@@ -54,8 +54,10 @@ export function ProductDetailSheet({
   // con precio fijo. Configurado en Inventario; vacío si el admin no lo usa.
   const removableOptions = (product.ingredient_options ?? []).filter((o) => o.kind === "removable")
   const extraOptions = (product.ingredient_options ?? []).filter((o) => o.kind === "extra")
+  const menuOptions = product.menu_options ?? []
   const [removed, setRemoved] = useState<Set<number>>(new Set())
   const [added, setAdded] = useState<Set<number>>(new Set())
+  const [selectedMenuOptions, setSelectedMenuOptions] = useState<Set<number>>(new Set())
 
   const ingredientChoices = useMemo<CartIngredientChoice[]>(() => {
     const choices: CartIngredientChoice[] = []
@@ -65,7 +67,11 @@ export function ProductDetailSheet({
   }, [removed, added])
 
   const extraTotal = calcIngredientExtra(ingredientChoices, product.ingredient_options)
-  const activePrice = basePrice + extraTotal
+  const menuOptionsTotal = menuOptions.reduce(
+    (sum, option) => sum + (selectedMenuOptions.has(option.id) ? option.extra_price : 0),
+    0
+  )
+  const activePrice = basePrice + extraTotal + menuOptionsTotal
 
   function toggleRemoved(id: number) {
     setRemoved((prev) => {
@@ -77,6 +83,14 @@ export function ProductDetailSheet({
   }
   function toggleAdded(id: number) {
     setAdded((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+  function toggleMenuOption(id: number) {
+    setSelectedMenuOptions((prev) => {
       const next = new Set(prev)
       if (next.has(id)) next.delete(id)
       else next.add(id)
@@ -147,6 +161,10 @@ export function ProductDetailSheet({
         price: activePrice,
         quantity: qty,
         ingredientChoices: ingredientChoices.length > 0 ? ingredientChoices : null,
+        menuOptionChoices:
+          selectedMenuOptions.size > 0
+            ? Array.from(selectedMenuOptions).map<CartMenuOptionChoice>((optionId) => ({ optionId }))
+            : null,
       })
       onAdded?.(product.product_name)
       requestClose()
@@ -306,6 +324,35 @@ export function ProductDetailSheet({
               </div>
             </div>
           )}
+
+          {menuOptions.length > 0 ? (
+            <div className="mt-5">
+              <p className="mb-2 text-[10px] font-extrabold uppercase tracking-[0.16em] text-[#71717a]">
+                Opciones adicionales
+              </p>
+              <div className="space-y-1.5">
+                {menuOptions.map((option) => (
+                  <label
+                    key={option.id}
+                    className="flex items-center justify-between gap-2 rounded-xl border border-[#27272a] bg-[#18181b] px-3 py-2.5"
+                  >
+                    <span className="flex min-w-0 items-center gap-2 text-[13px] font-semibold text-[#e4e4e7]">
+                      <input
+                        type="checkbox"
+                        checked={selectedMenuOptions.has(option.id)}
+                        onChange={() => toggleMenuOption(option.id)}
+                        className="h-4 w-4 rounded border-[#3f3f46] accent-[#fb923c]"
+                      />
+                      <span className="truncate">{option.name}</span>
+                    </span>
+                    <span className="shrink-0 text-[11px] font-bold text-[#fb923c]">
+                      {option.extra_price > 0 ? `+${formatPrice(option.extra_price)}` : "gratis"}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          ) : null}
 
         </div>
 

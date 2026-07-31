@@ -10,6 +10,7 @@ import { BackButton } from "@/components/ui/BackButton"
 import { ProductImage } from "@/components/customer/ProductImage"
 import { flyToCart } from "@/lib/customer/fly-to-cart"
 import type { MenuData } from "@/types/menu"
+import type { CartMenuOptionChoice } from "@/types/cart-item"
 
 function formatPrice(price: number) {
   return `$${price.toLocaleString("es-CL")}`
@@ -45,6 +46,7 @@ export function ProductDetailClient({
   const [isAdding, setIsAdding] = useState(false)
   const [message, setMessage] = useState("")
   const [qty, setQty] = useState(1)
+  const [selectedMenuOptions, setSelectedMenuOptions] = useState<Set<number>>(new Set())
   const imageRef = useRef<HTMLImageElement | null>(null)
   const touchStartX = useRef<number | null>(null)
 
@@ -59,7 +61,12 @@ export function ProductDetailClient({
   }
 
   const activeVariant = variants[Math.min(activeVariantIndex, variants.length - 1)] ?? null
-  const activePrice = activeVariant?.variant_price ?? product.product_price
+  const menuOptions = product.menu_options ?? []
+  const menuOptionsTotal = menuOptions.reduce(
+    (sum, option) => sum + (selectedMenuOptions.has(option.id) ? option.extra_price : 0),
+    0
+  )
+  const activePrice = (activeVariant?.variant_price ?? product.product_price) + menuOptionsTotal
   const activeImage = activeVariant?.variant_image ?? product.product_image
   const currentStatus = realtimeStatus ?? product.status_id
   // Agotado por stock: variante seleccionada (si hay) o el flag del producto.
@@ -81,6 +88,15 @@ export function ProductDetailClient({
     setActiveVariantIndex((i) =>
       dx < 0 ? Math.min(i + 1, variants.length - 1) : Math.max(i - 1, 0)
     )
+  }
+
+  function toggleMenuOption(id: number) {
+    setSelectedMenuOptions((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
   }
 
   async function handleAddToCart() {
@@ -105,6 +121,10 @@ export function ProductDetailClient({
         variantId: activeVariant?.id ?? null,
         price: activePrice,
         quantity: qty,
+        menuOptionChoices:
+          selectedMenuOptions.size > 0
+            ? Array.from(selectedMenuOptions).map<CartMenuOptionChoice>((optionId) => ({ optionId }))
+            : null,
       })
     } finally {
       setIsAdding(false)
@@ -190,6 +210,35 @@ export function ProductDetailClient({
                   {activeVariant.variant_description}
                 </p>
               ) : null}
+            </div>
+          ) : null}
+
+          {menuOptions.length > 0 ? (
+            <div className="mt-5">
+              <p className="mb-2 text-[10px] font-extrabold uppercase tracking-[0.16em] text-[#71717a]">
+                Opciones adicionales
+              </p>
+              <div className="space-y-1.5">
+                {menuOptions.map((option) => (
+                  <label
+                    key={option.id}
+                    className="flex items-center justify-between gap-2 rounded-xl border border-[#27272a] bg-[#18181b] px-3 py-2.5"
+                  >
+                    <span className="flex min-w-0 items-center gap-2 text-[13px] font-semibold text-[#e4e4e7]">
+                      <input
+                        type="checkbox"
+                        checked={selectedMenuOptions.has(option.id)}
+                        onChange={() => toggleMenuOption(option.id)}
+                        className="h-4 w-4 rounded border-[#3f3f46] accent-[#fb923c]"
+                      />
+                      <span className="truncate">{option.name}</span>
+                    </span>
+                    <span className="shrink-0 text-[11px] font-bold text-[#fb923c]">
+                      {option.extra_price > 0 ? `+${formatPrice(option.extra_price)}` : "gratis"}
+                    </span>
+                  </label>
+                ))}
+              </div>
             </div>
           ) : null}
 
