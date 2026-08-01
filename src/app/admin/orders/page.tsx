@@ -1,7 +1,9 @@
 "use client"
 
 import { useState } from "react"
+import { Barcode } from "lucide-react"
 import { useOrderList } from "@/hooks/useOrderList"
+import { useBarcodeScanner } from "@/hooks/useBarcodeScanner"
 import { OrderDetailModal } from "@/components/admin/OrderDetailModal"
 import { AdminChargeSection } from "@/components/admin/AdminChargeSection"
 import { PaymentsTodaySection } from "@/components/charge/PaymentsTodaySection"
@@ -133,9 +135,34 @@ export default function OrdersPage() {
   const [cancelTarget, setCancelTarget] = useState<{ id: number; label: string } | null>(null)
   const [cancelling, setCancelling] = useState(false)
   const [cancelError, setCancelError] = useState<string | null>(null)
+  const [scanNotice, setScanNotice] = useState<{ kind: "ok" | "error"; message: string } | null>(null)
 
   const tableOrders = orders.filter((order) => order.order_type !== "delivery")
   const onlineOrders = orders.filter((order) => order.order_type === "delivery")
+
+  useBarcodeScanner({
+    enabled: selectedOrderId === null && cancelTarget === null,
+    onScan: (code) => {
+      const numericPart = code.match(/\d+/g)?.join("") ?? ""
+      const scannedNumber = Number(numericPart || code)
+
+      if (!Number.isFinite(scannedNumber) || scannedNumber <= 0) {
+        setScanNotice({ kind: "error", message: `No pude leer un numero de pedido desde "${code}".` })
+        return
+      }
+
+      const match = orders.find((order) => order.order_number === scannedNumber)
+        ?? orders.find((order) => order.id === scannedNumber)
+
+      if (!match) {
+        setScanNotice({ kind: "error", message: `No encontre un pedido activo para el codigo ${code}.` })
+        return
+      }
+
+      setSelectedOrderId(match.id)
+      setScanNotice({ kind: "ok", message: `Pedido #${match.order_number ?? match.id} abierto desde escaner.` })
+    },
+  })
 
   async function handleConfirmCancel() {
     if (!cancelTarget || cancelling) return
@@ -178,6 +205,25 @@ export default function OrdersPage() {
           </p>
         </div>
       </div>
+
+      <div className="flex items-center gap-2 rounded-2xl border border-stone-200 bg-white px-4 py-3 text-xs font-semibold text-stone-600 shadow-sm">
+        <Barcode className="h-4 w-4 shrink-0 text-orange-500" aria-hidden="true" />
+        <span>
+          Escanea un numero de pedido para abrir su detalle.
+        </span>
+      </div>
+
+      {scanNotice && (
+        <div
+          className={`rounded-2xl border px-4 py-3 text-xs font-bold shadow-sm ${
+            scanNotice.kind === "ok"
+              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+              : "border-red-200 bg-red-50 text-red-700"
+          }`}
+        >
+          {scanNotice.message}
+        </div>
+      )}
 
       <section className="grid gap-3 sm:grid-cols-3">
         {summary.map((item) => (

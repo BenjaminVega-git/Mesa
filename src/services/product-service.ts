@@ -5,10 +5,12 @@ import {
   UpdateProductSchema,
   DeleteProductSchema,
   UpdateProductStatusSchema,
+  AssignProductScanCodeSchema,
   type CreateProductInput,
   type UpdateProductInput,
   type DeleteProductInput,
   type UpdateProductStatusInput,
+  type AssignProductScanCodeInput,
 } from "@/lib/validation/product"
 import { ok, fail, type Result } from "@/services/result"
 import { deleteImagesBestEffort } from "@/lib/cloudinary/delete-image-server"
@@ -23,6 +25,7 @@ export type ProductForEdit = {
   id: number
   name: string
   description: string | null
+  scanCode: string | null
   categoryId: number
   variants: Array<{
     id: number
@@ -75,7 +78,7 @@ export async function getProductForEdit(productId: number): Promise<Result<Produ
   const [productRes, variantsRes, menuOptionsRes] = await Promise.all([
     supabase
       .from("products")
-      .select("id, product_name, product_description, product_price, product_image, product_image_public_id, category_id, image_recortada")
+      .select("id, product_name, product_description, product_price, product_image, product_image_public_id, scan_code, category_id, image_recortada")
       .eq("id", productId)
       .maybeSingle(),
     supabase
@@ -100,6 +103,7 @@ export async function getProductForEdit(productId: number): Promise<Result<Produ
     id: productRes.data.id,
     name: productRes.data.product_name,
     description: productRes.data.product_description,
+    scanCode: productRes.data.scan_code ?? null,
     categoryId: productRes.data.category_id,
     fallbackPrice: productRes.data.product_price,
     fallbackImageUrl: productRes.data.product_image,
@@ -440,4 +444,38 @@ export async function updateProductStatus(input: UpdateProductStatusInput): Prom
 
   revalidateMenu(restaurantId)
   return ok({ id: productId })
+}
+
+
+export async function assignProductScanCode(input: AssignProductScanCodeInput): Promise<Result<{ id: number; scanCode: string }>> {
+  const validation = AssignProductScanCodeSchema.safeParse(input)
+
+  if (!validation.success) {
+    return fail(validation.error.issues[0]?.message ?? "Datos invalidos")
+  }
+
+  const { productId } = validation.data
+  const scanCode = validation.data.scanCode.trim()
+
+  const restaurantId = await getRestaurantIdForProduct(productId)
+  if (!restaurantId) return fail("Producto no encontrado")
+
+  const guard = await requireAdminForRestaurant(restaurantId)
+  if (!guard.ok) return fail(guard.error)
+  const { supabase } = guard.data
+
+  const { error } = await supabase
+    .from("products")
+    .update({ scan_code: scanCode })
+    .eq("id", productId)
+
+  if (error) {
+    if (error.code === "23505") {
+      return fail("Ese codigo ya esta asociado a otro producto")
+    }
+    return fail("Error al guardar el codigo del producto")
+  }
+
+  revalidateMenu(restaurantId)
+  return ok({ id: productId, scanCode })
 }

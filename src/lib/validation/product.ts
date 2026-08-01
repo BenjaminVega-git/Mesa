@@ -6,6 +6,7 @@ const PRICE_MAX = 9_999_999
 const OPTIONS_MAX = 30
 const MENU_OPTIONS_MAX = 20
 const PUBLIC_ID_MAX = 200
+const SCAN_CODE_MAX = 80
 
 const CLOUDINARY_PUBLIC_ID_REGEX = /^[a-zA-Z0-9_\-/.]+$/
 
@@ -158,3 +159,14 @@ export const UpdateProductStatusSchema = z.object({
 })
 
 export type UpdateProductStatusInput = z.infer<typeof UpdateProductStatusSchema>
+
+export const AssignProductScanCodeSchema = z.object({
+  productId: z.number().int().positive(),
+  scanCode: z
+    .string()
+    .trim()
+    .min(1, "El codigo escaneado es obligatorio")
+    .max(SCAN_CODE_MAX, "El codigo escaneado es demasiado largo"),
+})
+
+export type AssignProductScanCodeInput = z.infer<typeof AssignProductScanCodeSchema>

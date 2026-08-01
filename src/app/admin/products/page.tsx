@@ -2,13 +2,16 @@
 
 import Link from "next/link"
 import { useEffect, useState } from "react"
-import { Search, Sparkles, X } from "lucide-react"
+import { Barcode, Search, Sparkles, X } from "lucide-react"
 import { Pagination } from "@/components/ui/Pagination"
+import { Modal } from "@/components/ui/Modal"
 import { useProductList } from "@/hooks/useProductList"
 import { useAllCategories } from "@/hooks/useAllCategories"
+import { useBarcodeScanner } from "@/hooks/useBarcodeScanner"
 import { CreateProductDialog } from "@/components/admin/CreateProductDialog"
 import { EditProductDialog } from "@/components/admin/EditProductDialog"
 import { BulkRecipeDialog } from "@/components/admin/BulkRecipeDialog"
+import { assignProductScanCodeAction } from "@/app/actions/product-actions"
 
 const statusLabels: Record<number, string> = {
   1: "Disponible",
@@ -57,6 +60,11 @@ export default function ProductsPage() {
   const [editInitialTab, setEditInitialTab] = useState<"datos" | "receta">("datos")
   const [editAutoAI, setEditAutoAI] = useState(false)
   const [showBulkRecipe, setShowBulkRecipe] = useState(false)
+  const [scanDialogOpen, setScanDialogOpen] = useState(false)
+  const [scanCodeInput, setScanCodeInput] = useState("")
+  const [scanProductId, setScanProductId] = useState<number | null>(null)
+  const [savingScanCode, setSavingScanCode] = useState(false)
+  const [scanError, setScanError] = useState("")
   const { categories } = useAllCategories()
   const {
     products,
@@ -72,6 +80,23 @@ export default function ProductsPage() {
     refresh,
   } = useProductList({ page: currentPage, pageSize: 12, search, categoryId: categoryFilter, statusId: statusFilter })
   const [openMenuProductId, setOpenMenuProductId] = useState<number | null>(null)
+
+  function openScanCodeDialog(product?: { id: number; scan_code: string | null }) {
+    setScanCodeInput(product?.scan_code ?? "")
+    setScanProductId(product?.id ?? products[0]?.id ?? null)
+    setScanError("")
+    setScanDialogOpen(true)
+  }
+
+  useBarcodeScanner({
+    enabled: !showCreate && editingId === null && !showBulkRecipe && !scanDialogOpen,
+    onScan: (code) => {
+      setScanCodeInput(code)
+      setScanProductId(products[0]?.id ?? null)
+      setScanError("")
+      setScanDialogOpen(true)
+    },
+  })
 
   // Debounce: espera a que dejen de tipear antes de disparar la búsqueda.
   useEffect(() => {
@@ -91,6 +116,29 @@ export default function ProductsPage() {
       queueMicrotask(() => setCurrentPage(totalPages))
     }
   }, [currentPage, totalPages, loading])
+
+  async function handleSaveScanCode(e: React.FormEvent) {
+    e.preventDefault()
+    if (!scanProductId || savingScanCode) return
+
+    setSavingScanCode(true)
+    setScanError("")
+    const result = await assignProductScanCodeAction({
+      productId: scanProductId,
+      scanCode: scanCodeInput,
+    })
+    setSavingScanCode(false)
+
+    if (!result.ok) {
+      setScanError(result.error)
+      return
+    }
+
+    setScanDialogOpen(false)
+    setScanCodeInput("")
+    setScanProductId(null)
+    refresh()
+  }
 
   return (
     <div className="space-y-6">
@@ -122,6 +170,79 @@ export default function ProductsPage() {
         onSaved={refresh}
       />
       <BulkRecipeDialog open={showBulkRecipe} onClose={() => setShowBulkRecipe(false)} />
+      <Modal
+        open={scanDialogOpen}
+        onClose={() => {
+          if (!savingScanCode) setScanDialogOpen(false)
+        }}
+        locked={savingScanCode}
+        title="Codigo escaneado"
+        description="Revisa el codigo y elige a que producto quedara asociado."
+      >
+        <form onSubmit={handleSaveScanCode} className="space-y-4">
+          <div className="rounded-2xl border border-orange-200 bg-orange-50 px-4 py-3 text-xs font-semibold text-orange-800">
+            La pistola detecto un codigo. Puedes corregirlo antes de guardar.
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-xs font-semibold text-stone-700">
+              Codigo
+            </label>
+            <input
+              type="text"
+              required
+              disabled={savingScanCode}
+              value={scanCodeInput}
+              onChange={(e) => setScanCodeInput(e.target.value)}
+              className="w-full rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5 text-sm font-bold text-stone-900 outline-none transition focus:border-orange-300 focus:bg-white focus:ring-2 focus:ring-orange-100 disabled:opacity-50"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-xs font-semibold text-stone-700">
+              Producto
+            </label>
+            <select
+              required
+              disabled={savingScanCode || products.length === 0}
+              value={scanProductId ?? ""}
+              onChange={(e) => setScanProductId(Number(e.target.value) || null)}
+              className="w-full rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5 text-sm text-stone-900 outline-none transition focus:border-orange-300 focus:bg-white focus:ring-2 focus:ring-orange-100 disabled:opacity-50"
+            >
+              <option value="">Selecciona un producto</option>
+              {products.map((product) => (
+                <option key={product.id} value={product.id}>
+                  {product.product_name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {scanError && (
+            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-700">
+              {scanError}
+            </p>
+          )}
+
+          <div className="flex items-center justify-end gap-2 pt-2">
+            <button
+              type="button"
+              disabled={savingScanCode}
+              onClick={() => setScanDialogOpen(false)}
+              className="rounded-xl border border-stone-200 px-4 py-2 text-xs font-bold text-stone-700 transition hover:bg-stone-50 disabled:opacity-50"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={savingScanCode || !scanProductId}
+              className="rounded-xl bg-orange-500 px-4 py-2 text-xs font-bold text-white shadow transition hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {savingScanCode ? "Guardando..." : "Guardar codigo"}
+            </button>
+          </div>
+        </form>
+      </Modal>
 
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div>
@@ -381,13 +502,28 @@ export default function ProductsPage() {
                       </p>
                     </div>
 
-                    <div className="mt-auto grid grid-cols-2 gap-2">
+                    <div className="mb-4 flex items-center gap-2 rounded-xl border border-dashed border-stone-200 bg-white px-3 py-2 text-[11px] font-semibold text-stone-500">
+                      <Barcode className="h-3.5 w-3.5 shrink-0 text-stone-400" aria-hidden="true" />
+                      <span className="truncate">
+                        {product.scan_code ? `Codigo: ${product.scan_code}` : "Sin codigo de pistola"}
+                      </span>
+                    </div>
+
+                    <div className="mt-auto grid grid-cols-3 gap-2">
                       <button
                         type="button"
                         onClick={() => setEditingId(product.id)}
                         className="min-w-0 rounded-xl border border-stone-200 bg-stone-50 py-2.5 text-center text-xs font-bold text-stone-750 transition hover:bg-stone-100"
                       >
                         Editar
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => openScanCodeDialog(product)}
+                        className="min-w-0 rounded-xl border border-orange-200 bg-orange-50 py-2.5 text-center text-xs font-bold text-orange-700 transition hover:bg-orange-100/70"
+                      >
+                        Codigo
                       </button>
 
                       <button

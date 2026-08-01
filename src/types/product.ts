@@ -38,6 +38,7 @@ export type Product = {
   product_image: string | null
   product_image_public_id: string | null
   product_price: number
+  scan_code: string | null
   category_id: number
   restaurant_id: number
   status_id: number

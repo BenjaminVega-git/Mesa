@@ -51,7 +51,8 @@ export function useProducts({
       .eq("restaurant_id", restaurantId)
 
     if (trimmedSearch) {
-      query = query.ilike("product_name", `%${trimmedSearch}%`)
+      const escapedSearch = trimmedSearch.replaceAll(",", "\\,").replaceAll("%", "\\%")
+      query = query.or(`product_name.ilike.%${escapedSearch}%,scan_code.ilike.%${escapedSearch}%`)
     }
     if (categoryId != null) {
       query = query.eq("category_id", categoryId)
