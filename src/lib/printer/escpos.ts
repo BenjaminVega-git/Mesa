@@ -41,6 +41,8 @@ function concat(...chunks: Uint8Array[]): Uint8Array {
 export type TicketItem = {
   name: string
   quantity: number
+  unitPrice?: number | null
+  lineTotal?: number | null
 }
 
 export type TicketInput = {
@@ -134,6 +136,17 @@ function clpLine(label: string, amount: number | null, width: number): string {
   return label + " ".repeat(pad) + value
 }
 
+function receiptItemLine(item: TicketItem, width: number): string {
+  const amount = item.lineTotal ?? (item.unitPrice != null ? item.unitPrice * item.quantity : null)
+  if (amount == null) return `${item.quantity}x  ${item.name}`
+  const value = `$${Math.round(amount).toLocaleString("es-CL")}`
+  const label = `${item.quantity}x ${item.name}`.trim()
+  if (label.length + value.length + 1 <= width) {
+    return label + " ".repeat(width - label.length - value.length) + value
+  }
+  return `${label}\n${" ".repeat(Math.max(0, width - value.length))}${value}`
+}
+
 function fmtFecha(iso: string | null): string {
   if (!iso) return "—"
   const d = new Date(iso)
@@ -153,7 +166,7 @@ export function formatReceiptAsText(input: ReceiptInput, width: number = DEFAULT
   lines.push("-".repeat(width))
   if (input.items && input.items.length > 0) {
     for (const item of input.items) {
-      lines.push(`${item.quantity}x  ${item.name}`)
+      lines.push(receiptItemLine(item, width))
     }
     lines.push("-".repeat(width))
   }
@@ -188,7 +201,7 @@ export function buildReceiptTicket(input: ReceiptInput, width: number = DEFAULT_
   lines.push(ALIGN_LEFT)
   if (input.items && input.items.length > 0) {
     for (const item of input.items) {
-      lines.push(encodeText(`${item.quantity}x  ${item.name}`), NEWLINE)
+      lines.push(encodeText(receiptItemLine(item, width)), NEWLINE)
     }
     lines.push(separator, NEWLINE)
   }

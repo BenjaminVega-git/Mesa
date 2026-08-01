@@ -29,7 +29,7 @@ type Props = {
   /** Link al PDF oficial del proveedor (con timbre real). Solo con proveedor
    *  DTE real; tiene prioridad sobre el print HTML. */
   officialPdfHref?: string | null
-  items?: Array<{ name: string; variantName: string | null; quantity: number }>
+  items?: Array<{ name: string; variantName: string | null; quantity: number; unitPrice?: number | null; lineTotal?: number | null }>
 }
 
 /** XML representativo del documento (para el modo simulado). NO es un DTE válido. */
@@ -87,6 +87,8 @@ export function DocumentActions({ doc, emisor, officialPdfHref, items }: Props) 
         items: items?.map((item) => ({
           quantity: item.quantity,
           name: item.variantName ? `${item.name} - ${item.variantName}` : item.name,
+          unitPrice: item.unitPrice ?? null,
+          lineTotal: item.lineTotal ?? null,
         })),
       }
 

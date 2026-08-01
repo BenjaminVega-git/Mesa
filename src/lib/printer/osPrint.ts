@@ -109,6 +109,7 @@ export function buildReceiptHtml(input: ReceiptInput): string {
           <tr>
             <td style="font-weight:900; font-size:13px; padding-right:2mm; vertical-align:top;">${item.quantity}x</td>
             <td style="font-weight:900; font-size:13px; vertical-align:top;">${escapeHtml(item.name)}</td>
+            <td style="font-weight:900; font-size:13px; text-align:right; vertical-align:top;">${item.lineTotal != null ? clp(item.lineTotal) : item.unitPrice != null ? clp(item.unitPrice * item.quantity) : ""}</td>
           </tr>
         `).join("")}
       </table>
