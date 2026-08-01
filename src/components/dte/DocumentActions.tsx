@@ -16,6 +16,7 @@ type Props = {
     net: number | null
     iva: number | null
     total: number | null
+    tip?: number | null
     receptorRut: string | null
     receptorRazon: string | null
     trackId: string | null
@@ -82,6 +83,7 @@ export function DocumentActions({ doc, emisor, officialPdfHref, items }: Props) 
         net: doc.net,
         iva: doc.iva,
         total: doc.total,
+        tip: doc.tip ?? 0,
         items: items?.map((item) => ({
           quantity: item.quantity,
           name: item.variantName ? `${item.name} - ${item.variantName}` : item.name,

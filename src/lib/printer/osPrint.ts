@@ -127,6 +127,7 @@ export function buildReceiptHtml(input: ReceiptInput): string {
     ${items}
     ${HR_DASHED}
     ${row("Neto", clp(input.net))}
+    ${(input.tip ?? 0) > 0 ? row("Propina", clp(input.tip ?? 0)) : ""}
     ${row("IVA", clp(input.iva))}
     ${row("TOTAL", clp(input.total), true)}
     ${HR}

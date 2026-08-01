@@ -306,6 +306,7 @@ export type PaymentReceipt = {
     net: number | null
     iva: number | null
     total: number | null
+    tip: number | null
     receptorRut: string | null
     receptorRazon: string | null
     receptorGiro: string | null
@@ -357,6 +358,7 @@ export async function getPaymentReceipt(paymentId: number): Promise<Result<Payme
       net: d.net != null ? Number(d.net) : null,
       iva: d.iva != null ? Number(d.iva) : null,
       total: d.total != null ? Number(d.total) : null,
+      tip: d.tip != null ? Number(d.tip) : null,
       receptorRut: (d.receptor_rut as string) ?? null,
       receptorRazon: (d.receptor_razon as string) ?? null,
       receptorGiro: (d.receptor_giro as string) ?? null,

@@ -124,6 +124,7 @@ export type ReceiptInput = {
   net: number | null
   iva: number | null
   total: number | null
+  tip?: number | null
   items?: TicketItem[]
 }
 
@@ -157,6 +158,7 @@ export function formatReceiptAsText(input: ReceiptInput, width: number = DEFAULT
     lines.push("-".repeat(width))
   }
   lines.push(clpLine("Neto", input.net, width))
+  if ((input.tip ?? 0) > 0) lines.push(clpLine("Propina", input.tip ?? 0, width))
   lines.push(clpLine("IVA", input.iva, width))
   lines.push(clpLine("TOTAL", input.total, width))
   lines.push("-".repeat(width))
@@ -191,6 +193,7 @@ export function buildReceiptTicket(input: ReceiptInput, width: number = DEFAULT_
     lines.push(separator, NEWLINE)
   }
   lines.push(encodeText(clpLine("Neto", input.net, width)), NEWLINE)
+  if ((input.tip ?? 0) > 0) lines.push(encodeText(clpLine("Propina", input.tip ?? 0, width)), NEWLINE)
   lines.push(encodeText(clpLine("IVA", input.iva, width)), NEWLINE)
   lines.push(encodeText(clpLine("TOTAL", input.total, width)), NEWLINE)
 

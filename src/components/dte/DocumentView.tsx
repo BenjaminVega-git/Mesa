@@ -9,6 +9,7 @@ export type DocumentViewData = {
   net: number | null
   iva: number | null
   total: number | null
+  tip?: number | null
   receptorRut: string | null
   receptorRazon: string | null
   receptorGiro: string | null
@@ -113,6 +114,7 @@ export function DocumentView({
   const esBoleta = doc.docType === 39 || doc.docType === 41
   const esNotaCredito = doc.docType === 61
   const accent = esFactura ? ACCENT.factura : esNotaCredito ? ACCENT.notaCredito : ACCENT.boleta
+  const tip = Math.max(0, Math.round(doc.tip ?? 0))
 
   return (
     <article
@@ -262,6 +264,12 @@ export function DocumentView({
               <span>Neto</span>
               <span className="tabular-nums">{doc.net != null ? clp.format(doc.net) : "—"}</span>
             </div>
+            {tip > 0 ? (
+              <div className="flex justify-between text-[11px] font-semibold text-stone-700">
+                <span>Propina</span>
+                <span className="tabular-nums">{clp.format(tip)}</span>
+              </div>
+            ) : null}
             <div className="flex justify-between text-[11px] text-stone-500">
               <span>IVA (19%) incluido</span>
               <span className="tabular-nums">{doc.iva != null ? clp.format(doc.iva) : "—"}</span>
@@ -279,6 +287,12 @@ export function DocumentView({
               <span>Monto neto</span>
               <span className="tabular-nums">{doc.net != null ? clp.format(doc.net) : "—"}</span>
             </div>
+            {tip > 0 ? (
+              <div className="flex justify-between font-semibold text-stone-700">
+                <span>Propina</span>
+                <span className="tabular-nums">{clp.format(tip)}</span>
+              </div>
+            ) : null}
             <div className="flex justify-between text-stone-600">
               <span>IVA (19%)</span>
               <span className="tabular-nums">{doc.iva != null ? clp.format(doc.iva) : "—"}</span>
