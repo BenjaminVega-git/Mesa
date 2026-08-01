@@ -9,6 +9,12 @@ const DOUBLE_HEIGHT_WIDTH = new Uint8Array([GS, 0x21, 0x11])
 const NORMAL_SIZE = new Uint8Array([GS, 0x21, 0x00])
 const BOLD_ON = new Uint8Array([ESC, 0x45, 0x01])
 const BOLD_OFF = new Uint8Array([ESC, 0x45, 0x00])
+const DOUBLE_STRIKE_ON = new Uint8Array([ESC, 0x47, 0x01])
+const DOUBLE_STRIKE_OFF = new Uint8Array([ESC, 0x47, 0x00])
+const PRINT_DENSITY = new Uint8Array([
+  ESC, 0x37, 0x07, 0xff, 0x02,
+  0x12, 0x23, 0x08,
+])
 const CUT = new Uint8Array([GS, 0x56, 0x00])
 const NEWLINE = new Uint8Array([LF])
 
@@ -162,16 +168,16 @@ export function formatReceiptAsText(input: ReceiptInput, width: number = DEFAULT
 /** Comprobante de pago en ESC/POS, para la misma impresora térmica de cocina. */
 export function buildReceiptTicket(input: ReceiptInput, width: number = DEFAULT_TICKET_WIDTH): Uint8Array {
   const separator = encodeText("-".repeat(width))
-  const lines: Uint8Array[] = [INIT]
+  const lines: Uint8Array[] = [INIT, PRINT_DENSITY, DOUBLE_STRIKE_ON, BOLD_ON]
 
   lines.push(ALIGN_CENTER, BOLD_ON, DOUBLE_HEIGHT_WIDTH)
   lines.push(encodeText(input.restaurantName), NEWLINE)
-  lines.push(NORMAL_SIZE, BOLD_OFF)
+  lines.push(NORMAL_SIZE)
   if (input.restaurantRut) lines.push(encodeText(`RUT ${input.restaurantRut}`), NEWLINE)
 
   lines.push(separator, NEWLINE)
 
-  lines.push(BOLD_ON, encodeText(input.docLabel), NEWLINE, BOLD_OFF)
+  lines.push(encodeText(input.docLabel), NEWLINE)
   if (input.folio != null) lines.push(encodeText(`N° ${input.folio}`), NEWLINE)
   lines.push(encodeText(fmtFecha(input.emittedAt)), NEWLINE)
 
@@ -186,21 +192,21 @@ export function buildReceiptTicket(input: ReceiptInput, width: number = DEFAULT_
   }
   lines.push(encodeText(clpLine("Neto", input.net, width)), NEWLINE)
   lines.push(encodeText(clpLine("IVA", input.iva, width)), NEWLINE)
-  lines.push(BOLD_ON, encodeText(clpLine("TOTAL", input.total, width)), NEWLINE, BOLD_OFF)
+  lines.push(encodeText(clpLine("TOTAL", input.total, width)), NEWLINE)
 
   lines.push(separator, NEWLINE)
   lines.push(ALIGN_CENTER)
   lines.push(encodeText("Gracias por tu visita"), NEWLINE)
   lines.push(encodeText("tumesaqr.com"), NEWLINE)
 
-  lines.push(NEWLINE, NEWLINE, NEWLINE, CUT)
+  lines.push(BOLD_OFF, DOUBLE_STRIKE_OFF, NEWLINE, NEWLINE, NEWLINE, CUT)
 
   return concat(...lines)
 }
 
 export function buildOrderTicket(input: TicketInput, width: number = DEFAULT_TICKET_WIDTH): Uint8Array {
   const separator = encodeText("-".repeat(width))
-  const lines: Uint8Array[] = [INIT]
+  const lines: Uint8Array[] = [INIT, PRINT_DENSITY]
 
   lines.push(ALIGN_CENTER, BOLD_ON, DOUBLE_HEIGHT_WIDTH)
   lines.push(encodeText(input.restaurantName), NEWLINE)

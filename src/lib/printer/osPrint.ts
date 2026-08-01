@@ -41,6 +41,8 @@ function ticketShell(bodyHtml: string): string {
       background:#fff;
       color:#000;
       font-family:Arial,Helvetica,sans-serif;
+      font-weight:900;
+      font-synthesis-weight:auto;
       -webkit-print-color-adjust:exact;
       print-color-adjust:exact;
       padding:0 2mm;
@@ -51,8 +53,8 @@ function ticketShell(bodyHtml: string): string {
   `
 }
 
-const HR = `<div style="border-top:2px solid #000; margin:2mm 0;"></div>`
-const HR_DASHED = `<div style="border-top:1.5px dashed #000; margin:2mm 0;"></div>`
+const HR = `<div style="border-top:3px solid #000; margin:2mm 0;"></div>`
+const HR_DASHED = `<div style="border-top:2px dashed #000; margin:2mm 0;"></div>`
 
 /** Comanda de cocina: refleja el pedido real (mesa, N°, ítems y cantidades). */
 export function buildTicketHtml(input: TicketInput): string {
@@ -95,7 +97,7 @@ export function buildReceiptHtml(input: ReceiptInput): string {
   })()
 
   const row = (label: string, value: string, bold = false) => `
-    <div style="display:flex; justify-content:space-between; font-weight:${bold ? 800 : 700}; font-size:${bold ? 14 : 13}px;">
+    <div style="display:flex; justify-content:space-between; font-weight:900; font-size:${bold ? 15 : 13}px;">
       <span>${label}</span><span>${value}</span>
     </div>
   `
@@ -105,8 +107,8 @@ export function buildReceiptHtml(input: ReceiptInput): string {
       <table style="width:100%; border-collapse:collapse;">
         ${input.items.map((item) => `
           <tr>
-            <td style="font-weight:800; font-size:12px; padding-right:2mm; vertical-align:top;">${item.quantity}x</td>
-            <td style="font-weight:700; font-size:12px; vertical-align:top;">${escapeHtml(item.name)}</td>
+            <td style="font-weight:900; font-size:13px; padding-right:2mm; vertical-align:top;">${item.quantity}x</td>
+            <td style="font-weight:900; font-size:13px; vertical-align:top;">${escapeHtml(item.name)}</td>
           </tr>
         `).join("")}
       </table>
