@@ -624,25 +624,37 @@ function CheckoutDialog({
   onSubmit: () => void
 }) {
   const field = (key: keyof DeliveryForm) => (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => onChange({ ...form, [key]: event.target.value })
+  const fulfillmentOptionClass = (type: FulfillmentType, enabled: boolean) => {
+    if (!enabled) return "flex cursor-not-allowed flex-col items-center gap-2 rounded-md border border-stone-200 bg-stone-100 p-3 text-center text-stone-400 opacity-70"
+    return fulfillmentType === type
+      ? "flex cursor-pointer flex-col items-center gap-2 rounded-md border border-orange-400 bg-orange-50 p-3 text-center"
+      : "flex cursor-pointer flex-col items-center gap-2 rounded-md border border-stone-200 p-3 text-center"
+  }
+  const changeFulfillment = (type: FulfillmentType) => {
+    if (type === "home_delivery" && !deliveryOptions.home_delivery) return
+    if (type === "pickup" && !deliveryOptions.pickup) return
+    onFulfillmentTypeChange(type)
+  }
+
   return <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 sm:items-center" onClick={onClose}><section className="max-h-[94vh] w-full max-w-lg overflow-y-auto rounded-t-lg bg-white p-5 text-stone-950 sm:rounded-lg" onClick={(event) => event.stopPropagation()}>
     <div className="flex items-center justify-between"><button type="button" onClick={onBack} className="h-9 w-9" aria-label="Volver"><ArrowLeft className="mx-auto" /></button><h2 className="text-lg font-black">Completar pedido</h2><button type="button" onClick={onClose} className="h-9 w-9" aria-label="Cerrar"><X className="mx-auto" /></button></div>
-    {deliveryOptions.home_delivery && deliveryOptions.pickup ? (
-      <fieldset className="mt-5">
-        <legend className="text-xs font-black uppercase text-stone-500">¿Cómo quieres recibirlo?</legend>
-        <div className="mt-2 grid grid-cols-2 gap-2">
-          <label className={fulfillmentType === "home_delivery" ? "flex cursor-pointer flex-col items-center gap-2 rounded-md border border-orange-400 bg-orange-50 p-3 text-center" : "flex cursor-pointer flex-col items-center gap-2 rounded-md border border-stone-200 p-3 text-center"}>
-            <input type="radio" name="fulfillment" checked={fulfillmentType === "home_delivery"} onChange={() => onFulfillmentTypeChange("home_delivery")} />
-            <MapPin className="h-5 w-5 text-orange-600" />
-            <b className="text-sm">A domicilio</b>
-          </label>
-          <label className={fulfillmentType === "pickup" ? "flex cursor-pointer flex-col items-center gap-2 rounded-md border border-orange-400 bg-orange-50 p-3 text-center" : "flex cursor-pointer flex-col items-center gap-2 rounded-md border border-stone-200 p-3 text-center"}>
-            <input type="radio" name="fulfillment" checked={fulfillmentType === "pickup"} onChange={() => onFulfillmentTypeChange("pickup")} />
-            <Store className="h-5 w-5 text-orange-600" />
-            <b className="text-sm">Retiro en tienda</b>
-          </label>
-        </div>
-      </fieldset>
-    ) : null}
+    <fieldset className="mt-5">
+      <legend className="text-xs font-black uppercase text-stone-500">¿Cómo quieres recibirlo?</legend>
+      <div className="mt-2 grid grid-cols-2 gap-2">
+        <label className={fulfillmentOptionClass("home_delivery", Boolean(deliveryOptions.home_delivery))}>
+          <input type="radio" name="fulfillment" disabled={!deliveryOptions.home_delivery} checked={fulfillmentType === "home_delivery"} onChange={() => changeFulfillment("home_delivery")} />
+          <MapPin className={`h-5 w-5 ${deliveryOptions.home_delivery ? "text-orange-600" : "text-stone-400"}`} />
+          <b className="text-sm">A domicilio</b>
+          {!deliveryOptions.home_delivery ? <span className="text-[11px] font-bold uppercase">No disponible</span> : null}
+        </label>
+        <label className={fulfillmentOptionClass("pickup", Boolean(deliveryOptions.pickup))}>
+          <input type="radio" name="fulfillment" disabled={!deliveryOptions.pickup} checked={fulfillmentType === "pickup"} onChange={() => changeFulfillment("pickup")} />
+          <Store className={`h-5 w-5 ${deliveryOptions.pickup ? "text-orange-600" : "text-stone-400"}`} />
+          <b className="text-sm">Retiro en tienda</b>
+          {!deliveryOptions.pickup ? <span className="text-[11px] font-bold uppercase">No disponible</span> : null}
+        </label>
+      </div>
+    </fieldset>
     <div className="mt-5 space-y-4">
       <InputField icon={<User />} label="Nombre" value={form.name} onChange={field("name")} maxLength={80} />
       <InputField icon={<Phone />} label="Teléfono" value={form.phone} onChange={field("phone")} maxLength={24} type="tel" />
