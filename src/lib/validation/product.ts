@@ -36,6 +36,12 @@ export const CreateProductOptionSchema = z.object({
     .trim()
     .min(1, "El nombre de la opcion es obligatorio")
     .max(NAME_MAX, "El nombre de la opcion es demasiado largo"),
+  codigo: z
+    .string()
+    .trim()
+    .max(SCAN_CODE_MAX, "El codigo es demasiado largo")
+    .nullable()
+    .optional(),
   description: z
     .string()
     .trim()
@@ -95,6 +101,12 @@ export const UpdateProductOptionSchema = z.object({
     .trim()
     .min(1, "El nombre de la opcion es obligatorio")
     .max(NAME_MAX, "El nombre de la opcion es demasiado largo"),
+  codigo: z
+    .string()
+    .trim()
+    .max(SCAN_CODE_MAX, "El codigo es demasiado largo")
+    .nullable()
+    .optional(),
   description: z
     .string()
     .trim()
@@ -113,6 +125,7 @@ export type ProductOptionForm = {
   localId: string
   variantId?: number
   name: string
+  codigo: string
   description: string
   price: string
   imageFile: File | null

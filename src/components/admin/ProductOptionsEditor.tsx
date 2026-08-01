@@ -9,6 +9,7 @@ type ProductOptionsEditorProps = {
   onAddOption: () => void
   onRemoveOption: (localId: string) => void
   onOptionNameChange: (localId: string, value: string) => void
+  onOptionCodigoChange: (localId: string, value: string) => void
   onOptionDescriptionChange: (localId: string, value: string) => void
   onOptionPriceChange: (localId: string, value: string) => void
   onOptionImageChange: (localId: string, file: File | null) => void
@@ -135,6 +136,7 @@ export function ProductOptionsEditor({
   onAddOption,
   onRemoveOption,
   onOptionNameChange,
+  onOptionCodigoChange,
   onOptionDescriptionChange,
   onOptionPriceChange,
   onOptionImageChange,
@@ -175,6 +177,20 @@ export function ProductOptionsEditor({
               value={options[0]?.price ?? ""}
               onChange={(event) => onOptionPriceChange(options[0].localId, event.target.value)}
               className="w-full rounded-xl border border-stone-200 bg-white px-3 py-2.5 text-sm text-stone-900 outline-none transition focus:border-orange-300 focus:ring-2 focus:ring-orange-100"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-xs font-semibold text-stone-700">
+              Codigo
+            </label>
+            <input
+              type="text"
+              placeholder="Escanea o escribe el codigo"
+              value={options[0]?.codigo ?? ""}
+              disabled={disabled}
+              onChange={(event) => onOptionCodigoChange(options[0].localId, event.target.value)}
+              className="w-full rounded-xl border border-stone-200 bg-white px-3 py-2.5 text-sm text-stone-900 outline-none transition focus:border-orange-300 focus:ring-2 focus:ring-orange-100 disabled:opacity-50"
             />
           </div>
 
@@ -230,6 +246,20 @@ export function ProductOptionsEditor({
                       value={option.name}
                       onChange={(event) => onOptionNameChange(option.localId, event.target.value)}
                       className="w-full rounded-xl border border-stone-200 bg-stone-50 px-3 py-2 text-sm text-stone-900 outline-none transition focus:border-orange-300 focus:bg-white focus:ring-2 focus:ring-orange-100"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-1.5 block text-xs font-semibold text-stone-700">
+                      Codigo
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Escanea o escribe el codigo de esta variante"
+                      value={option.codigo}
+                      disabled={disabled}
+                      onChange={(event) => onOptionCodigoChange(option.localId, event.target.value)}
+                      className="w-full rounded-xl border border-stone-200 bg-stone-50 px-3 py-2 text-sm text-stone-900 outline-none transition focus:border-orange-300 focus:bg-white focus:ring-2 focus:ring-orange-100 disabled:opacity-50"
                     />
                   </div>
 

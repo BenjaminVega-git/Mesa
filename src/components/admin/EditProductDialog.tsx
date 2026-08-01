@@ -55,6 +55,7 @@ export function EditProductDialog({
     setMenuOptionName,
     setMenuOptionPrice,
     setOptionName,
+    setOptionCodigo,
     setOptionDescription,
     setOptionPrice,
     setOptionImage,
@@ -170,6 +171,7 @@ export function EditProductDialog({
             onAddOption={addOption}
             onRemoveOption={removeOption}
             onOptionNameChange={setOptionName}
+            onOptionCodigoChange={setOptionCodigo}
             onOptionDescriptionChange={setOptionDescription}
             onOptionPriceChange={setOptionPrice}
             onOptionImageChange={setOptionImage}

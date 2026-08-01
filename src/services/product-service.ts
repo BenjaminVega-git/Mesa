@@ -30,6 +30,7 @@ export type ProductForEdit = {
   variants: Array<{
     id: number
     name: string
+    codigo: string | null
     description: string | null
     price: number
     imageUrl: string | null
@@ -49,6 +50,76 @@ export type ProductForEdit = {
 function revalidateMenu(restaurantId: number) {
   revalidateTag(menuTag(restaurantId), "max")
   revalidatePath("/[id]/menu", "page")
+}
+
+function normalizeCodigo(value?: string | null) {
+  const trimmed = value?.trim() ?? ""
+  return trimmed.length > 0 ? trimmed : null
+}
+
+function findRepeatedCodigo(codes: Array<string | null | undefined>) {
+  const seen = new Set<string>()
+  for (const code of codes) {
+    const normalized = normalizeCodigo(code)?.toLowerCase()
+    if (!normalized) continue
+    if (seen.has(normalized)) return code?.trim() ?? normalized
+    seen.add(normalized)
+  }
+  return null
+}
+
+async function ensureCodigosAvailable({
+  supabase,
+  restaurantId,
+  codes,
+  excludeProductId = null,
+  excludeVariantsForProduct = true,
+}: {
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>
+  restaurantId: number
+  codes: Array<string | null | undefined>
+  excludeProductId?: number | null
+  excludeVariantsForProduct?: boolean
+}): Promise<string | null> {
+  const normalizedCodes = new Set(
+    codes
+      .map((code) => normalizeCodigo(code)?.toLowerCase())
+      .filter((code): code is string => Boolean(code))
+  )
+  if (normalizedCodes.size === 0) return null
+
+  const [productsRes, variantsRes] = await Promise.all([
+    supabase
+      .from("products")
+      .select("id, codigo")
+      .eq("restaurant_id", restaurantId)
+      .not("codigo", "is", null),
+    supabase
+      .from("product_variants")
+      .select("id, codigo, products!inner(id, restaurant_id)")
+      .eq("products.restaurant_id", restaurantId)
+      .not("codigo", "is", null),
+  ])
+
+  if (productsRes.error || variantsRes.error) {
+    return "No se pudieron validar los codigos"
+  }
+
+  for (const product of productsRes.data ?? []) {
+    if (excludeProductId != null && product.id === excludeProductId) continue
+    const code = normalizeCodigo(product.codigo)?.toLowerCase()
+    if (code && normalizedCodes.has(code)) return `El codigo ${product.codigo} ya esta asociado a otro producto`
+  }
+
+  for (const variant of variantsRes.data ?? []) {
+    const productJoin = variant.products as { id?: number } | { id?: number }[] | null
+    const owner = Array.isArray(productJoin) ? productJoin[0] : productJoin
+    if (excludeVariantsForProduct && excludeProductId != null && owner?.id === excludeProductId) continue
+    const code = normalizeCodigo(variant.codigo)?.toLowerCase()
+    if (code && normalizedCodes.has(code)) return `El codigo ${variant.codigo} ya esta asociado a otra variante`
+  }
+
+  return null
 }
 
 
@@ -83,7 +154,7 @@ export async function getProductForEdit(productId: number): Promise<Result<Produ
       .maybeSingle(),
     supabase
       .from("product_variants")
-      .select("id, variant_name, variant_description, variant_price, variant_image, variant_image_public_id")
+      .select("id, variant_name, codigo, variant_description, variant_price, variant_image, variant_image_public_id")
       .eq("product_id", productId)
       .order("created_at", { ascending: true }),
     supabase
@@ -112,6 +183,7 @@ export async function getProductForEdit(productId: number): Promise<Result<Produ
     variants: (variantsRes.data ?? []).map((variant) => ({
       id: variant.id,
       name: variant.variant_name,
+      codigo: variant.codigo ?? null,
       description: variant.variant_description ?? null,
       price: variant.variant_price,
       imageUrl: variant.variant_image,
@@ -138,6 +210,14 @@ export async function createProduct(input: CreateProductInput): Promise<Result<C
   const guard = await requireAdminForRestaurant(restaurantId)
   if (!guard.ok) return fail(guard.error)
   const { supabase } = guard.data
+  const repeatedCodigo = findRepeatedCodigo(options.map((option) => option.codigo))
+  if (repeatedCodigo) return fail(`El codigo ${repeatedCodigo} esta repetido en este producto`)
+  const codigoConflict = await ensureCodigosAvailable({
+    supabase,
+    restaurantId,
+    codes: options.map((option) => option.codigo),
+  })
+  if (codigoConflict) return fail(codigoConflict)
 
   const coverIndex = Math.floor((options.length - 1) / 2)
   const coverOption = options[coverIndex]
@@ -148,6 +228,7 @@ export async function createProduct(input: CreateProductInput): Promise<Result<C
       product_name: name,
       product_description: description,
       product_price: coverOption.price,
+      codigo: options.length === 1 ? coverOption.codigo ?? null : null,
       product_image: coverOption.imageUrl,
       product_image_public_id: coverOption.imagePublicId,
       image_recortada: coverOption.imageRecortada,
@@ -169,6 +250,7 @@ export async function createProduct(input: CreateProductInput): Promise<Result<C
         options.map((option) => ({
           product_id: productData.id,
           variant_name: option.name,
+          codigo: option.codigo ?? null,
           variant_description: option.description ?? null,
           variant_price: option.price,
           variant_image: option.imageUrl,
@@ -221,6 +303,15 @@ export async function updateProduct(input: UpdateProductInput): Promise<Result<{
   const guard = await requireAdminForRestaurant(restaurantId)
   if (!guard.ok) return fail(guard.error)
   const { supabase } = guard.data
+  const repeatedCodigo = findRepeatedCodigo(options.map((option) => option.codigo))
+  if (repeatedCodigo) return fail(`El codigo ${repeatedCodigo} esta repetido en este producto`)
+  const codigoConflict = await ensureCodigosAvailable({
+    supabase,
+    restaurantId,
+    codes: options.map((option) => option.codigo),
+    excludeProductId: productId,
+  })
+  if (codigoConflict) return fail(codigoConflict)
 
   const [previousProductRes, previousVariantsRes] = await Promise.all([
     supabase
@@ -252,6 +343,7 @@ export async function updateProduct(input: UpdateProductInput): Promise<Result<{
       product_image_public_id: coverOption.imagePublicId,
       image_recortada: coverOption.imageRecortada,
       category_id: categoryId,
+      codigo: options.length === 1 ? coverOption.codigo ?? null : null,
     })
     .eq("id", productId)
 
@@ -308,6 +400,7 @@ export async function updateProduct(input: UpdateProductInput): Promise<Result<{
           .from("product_variants")
           .update({
             variant_name: option.name,
+            codigo: option.codigo ?? null,
             variant_description: option.description ?? null,
             variant_price: option.price,
             variant_image: option.imageUrl,
@@ -322,6 +415,7 @@ export async function updateProduct(input: UpdateProductInput): Promise<Result<{
           .insert({
             product_id: productId,
             variant_name: option.name,
+            codigo: option.codigo ?? null,
             variant_description: option.description ?? null,
             variant_price: option.price,
             variant_image: option.imageUrl,
@@ -463,6 +557,14 @@ export async function assignProductCodigo(input: AssignProductCodigoInput): Prom
   const guard = await requireAdminForRestaurant(restaurantId)
   if (!guard.ok) return fail(guard.error)
   const { supabase } = guard.data
+  const codigoConflict = await ensureCodigosAvailable({
+    supabase,
+    restaurantId,
+    codes: [codigo],
+    excludeProductId: productId,
+    excludeVariantsForProduct: false,
+  })
+  if (codigoConflict) return fail(codigoConflict)
 
   const { error } = await supabase
     .from("products")

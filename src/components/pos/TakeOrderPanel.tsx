@@ -228,11 +228,64 @@ export function TakeOrderPanel({
     })
   }
 
+  function addScannedVariant(product: Product, variantId: number) {
+    const variant = product.product_variants?.find((v) => v.id === variantId)
+    if (!variant) return
+    const hasIngredientOptions = (product.ingredient_options ?? []).length > 0
+    const hasMenuOptions = (product.menu_options ?? []).length > 0
+
+    if (hasIngredientOptions || hasMenuOptions) {
+      setCustomize({
+        product,
+        variantId,
+        removed: new Set(),
+        added: new Set(),
+        menuOptions: new Set(),
+      })
+      return
+    }
+
+    addLine({
+      productId: product.id,
+      variantId,
+      name: product.product_name,
+      detail: variant.variant_name,
+      unitPrice: variant.variant_price,
+      quantity: 1,
+      notes: "",
+    })
+  }
+
   useBarcodeScanner({
     enabled: Boolean(data) && !done && !submitting && !customize && !buildPromo,
     onScan: (rawCode) => {
       if (!data) return
       const code = rawCode.trim().toLowerCase()
+      const variantMatch = data.menu.products
+        .map((product) => ({
+          product,
+          variant: product.product_variants?.find(
+            (variant) => (variant.codigo ?? "").trim().toLowerCase() === code
+          ) ?? null,
+        }))
+        .find((match) => match.variant)
+
+      if (variantMatch?.variant) {
+        if (variantMatch.product.status_id !== 1) {
+          setScanMessage({ kind: "error", text: `${variantMatch.product.product_name} no esta disponible.` })
+          return
+        }
+
+        addScannedVariant(variantMatch.product, variantMatch.variant.id)
+        setCartOpen(true)
+        setError(null)
+        setScanMessage({
+          kind: "ok",
+          text: `${variantMatch.product.product_name} - ${variantMatch.variant.variant_name} agregado por codigo.`,
+        })
+        return
+      }
+
       const product = data.menu.products.find((p) => (p.codigo ?? "").trim().toLowerCase() === code)
 
       if (!product) {

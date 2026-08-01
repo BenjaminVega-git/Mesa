@@ -30,6 +30,7 @@ function createLocalOption(name = ""): ProductOptionForm {
   return {
     localId: `option-${Date.now()}-${optionIdSeed}`,
     name,
+    codigo: "",
     description: "",
     price: "",
     imageFile: null,
@@ -119,6 +120,10 @@ export function useCreateProduct() {
 
   function setOptionName(localId: string, value: string) {
     updateOption(localId, { name: value })
+  }
+
+  function setOptionCodigo(localId: string, value: string) {
+    updateOption(localId, { codigo: value })
   }
 
   function setOptionDescription(localId: string, value: string) {
@@ -248,6 +253,7 @@ export function useCreateProduct() {
     for (const { option, imageUrl, imagePublicId, imageRecortada } of uploadResults) {
       const rawOption = {
         name: option.name.trim() || "Principal",
+        codigo: option.codigo.trim() || null,
         description: option.description.trim() || null,
         price: Number(option.price),
         imageUrl,
@@ -382,6 +388,7 @@ export function useCreateProduct() {
     setMenuOptionName,
     setMenuOptionPrice,
     setOptionName,
+    setOptionCodigo,
     setOptionDescription,
     setOptionPrice,
     setOptionImage,
