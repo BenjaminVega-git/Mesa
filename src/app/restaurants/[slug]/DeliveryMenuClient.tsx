@@ -1,14 +1,16 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   ArrowLeft,
   Check,
+  ClipboardList,
   CreditCard,
   MapPin,
   Minus,
   Phone,
   Plus,
+  RefreshCw,
   Search,
   Store,
   Trash2,
@@ -86,6 +88,20 @@ type CartItem = {
 
 type DeliveryForm = { name: string; phone: string; address: string; reference: string; email: string }
 type PaymentMethod = "online" | "pay_at_store"
+type TrackedDeliveryOrder = { id: number; phone: string; total: number; fulfillmentType: FulfillmentType; createdAt: string }
+type DeliveryOrderStatus = {
+  id: number
+  total: number
+  status_id: number
+  status_name: string
+  created_at: string
+  fulfillment_type: FulfillmentType
+  customer_name: string | null
+  address: string | null
+  reference: string | null
+  payment_method: PaymentMethod | null
+  items: Array<{ name: string; variant_name: string | null; quantity: number; notes: string | null }>
+}
 
 const EMPTY_FORM: DeliveryForm = { name: "", phone: "", address: "", reference: "", email: "" }
 const PAYMENT_PROVIDER_LABEL: Record<string, string> = {
@@ -113,6 +129,10 @@ function newRequestId() {
   })
 }
 
+function mergeTrackedOrder(orders: TrackedDeliveryOrder[], order: TrackedDeliveryOrder) {
+  return [order, ...orders.filter((entry) => entry.id !== order.id)].slice(0, 6)
+}
+
 export function DeliveryMenuClient({
   data,
   paymentProvider,
@@ -137,14 +157,60 @@ export function DeliveryMenuClient({
     : deliveryOptions.pickup
       ? "Retiro en tienda"
       : "Delivery"
-  const [completed, setCompleted] = useState<{ id: number; total: number; fulfillmentType: FulfillmentType } | null>(null)
+  const [completed, setCompleted] = useState<{ id: number; total: number; fulfillmentType: FulfillmentType; phone: string } | null>(null)
   const [fulfillmentType, setFulfillmentType] = useState<FulfillmentType>(defaultFulfillment)
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(paymentProvider ? "online" : "pay_at_store")
   const [searchQuery, setSearchQuery] = useState("")
   const [activeCategory, setActiveCategory] = useState<number | "all">("all")
   const [hydrated, setHydrated] = useState(false)
+  const [trackedOrders, setTrackedOrders] = useState<TrackedDeliveryOrder[]>([])
+  const [statusOpen, setStatusOpen] = useState(false)
+  const [statusOrder, setStatusOrder] = useState<TrackedDeliveryOrder | null>(null)
+  const [orderStatus, setOrderStatus] = useState<DeliveryOrderStatus | null>(null)
+  const [statusLoading, setStatusLoading] = useState(false)
+  const [statusError, setStatusError] = useState("")
   const requestIdRef = useRef<string | null>(null)
   const pendingKey = `mesa-delivery-payment:${restaurant.delivery_slug}`
+  const trackingKey = `mesa-delivery-orders:${restaurant.delivery_slug}`
+
+  const saveTrackedOrder = useCallback((order: TrackedDeliveryOrder) => {
+    setTrackedOrders((current) => {
+      const next = mergeTrackedOrder(current, order)
+      localStorage.setItem(trackingKey, JSON.stringify(next))
+      return next
+    })
+  }, [trackingKey])
+
+  const loadOrderStatus = useCallback(async (order: TrackedDeliveryOrder, silent = false) => {
+    if (!silent) {
+      setStatusLoading(true)
+      setStatusError("")
+    }
+    try {
+      const supabase = createSupabaseAnonClient()
+      const { data: result, error: rpcError } = await supabase.rpc("get_delivery_order_status", {
+        p_slug: restaurant.delivery_slug,
+        p_order_id: order.id,
+        p_customer_phone: order.phone,
+      })
+      if (rpcError) throw rpcError
+      setOrderStatus(result as DeliveryOrderStatus)
+      setStatusError("")
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : "No pudimos cargar el estado"
+      if (!silent) setStatusError(message)
+    } finally {
+      if (!silent) setStatusLoading(false)
+    }
+  }, [restaurant.delivery_slug])
+
+  const openOrderStatus = useCallback((order: TrackedDeliveryOrder) => {
+    setStatusOrder(order)
+    setStatusOpen(true)
+    setOrderStatus(null)
+    setStatusError("")
+    void loadOrderStatus(order)
+  }, [loadOrderStatus])
 
   useEffect(() => {
     try {
@@ -154,22 +220,37 @@ export function DeliveryMenuClient({
     } catch {
       localStorage.removeItem(storageKey)
     }
+    try {
+      const savedOrders = localStorage.getItem(trackingKey)
+      if (savedOrders) setTrackedOrders(JSON.parse(savedOrders) as TrackedDeliveryOrder[])
+    } catch {
+      localStorage.removeItem(trackingKey)
+    }
     setHydrated(true)
 
     const params = new URLSearchParams(window.location.search)
     const payment = params.get("payment")
     if (payment === "exito") {
       const pending = localStorage.getItem(pendingKey)
-      let parsed: { id: number; total: number; fulfillmentType?: FulfillmentType } | null = null
+      let parsed: { id: number; total: number; fulfillmentType?: FulfillmentType; phone?: string; createdAt?: string } | null = null
       try {
-        parsed = pending ? JSON.parse(pending) as { id: number; total: number; fulfillmentType?: FulfillmentType } : null
+        parsed = pending ? JSON.parse(pending) as { id: number; total: number; fulfillmentType?: FulfillmentType; phone?: string; createdAt?: string } : null
       } catch {
         localStorage.removeItem(pendingKey)
       }
+      const tracked = parsed?.phone ? {
+        id: parsed.id,
+        phone: parsed.phone,
+        total: parsed.total ?? 0,
+        fulfillmentType: parsed.fulfillmentType ?? defaultFulfillment,
+        createdAt: parsed.createdAt ?? new Date().toISOString(),
+      } : null
+      if (tracked) saveTrackedOrder(tracked)
       setCompleted({
         id: parsed?.id ?? (Number(params.get("order")) || 0),
         total: parsed?.total ?? 0,
         fulfillmentType: parsed?.fulfillmentType ?? defaultFulfillment,
+        phone: parsed?.phone ?? "",
       })
       localStorage.removeItem(pendingKey)
       window.history.replaceState({}, "", window.location.pathname)
@@ -178,15 +259,23 @@ export function DeliveryMenuClient({
       setError("El pago no se completó. Puedes intentarlo nuevamente o pagar al retirar.")
       window.history.replaceState({}, "", window.location.pathname)
     } else if (payment === "pendiente") {
-      setCompleted({ id: Number(params.get("order")) || 0, total: 0, fulfillmentType: defaultFulfillment })
+      setCompleted({ id: Number(params.get("order")) || 0, total: 0, fulfillmentType: defaultFulfillment, phone: "" })
       window.history.replaceState({}, "", window.location.pathname)
     }
-  }, [defaultFulfillment, pendingKey, storageKey])
+  }, [defaultFulfillment, pendingKey, saveTrackedOrder, storageKey, trackingKey])
 
   useEffect(() => {
     if (!hydrated) return
     localStorage.setItem(storageKey, JSON.stringify(cart))
   }, [cart, hydrated, storageKey])
+
+  useEffect(() => {
+    if (!statusOpen || !statusOrder) return
+    const interval = window.setInterval(() => {
+      void loadOrderStatus(statusOrder, true)
+    }, 5000)
+    return () => window.clearInterval(interval)
+  }, [loadOrderStatus, statusOpen, statusOrder])
 
   const visibleProducts = useMemo(() => {
     const query = searchQuery.trim().toLocaleLowerCase("es")
@@ -289,14 +378,28 @@ export function DeliveryMenuClient({
         const payment = await response.json().catch(() => null) as { checkoutUrl?: string; error?: string } | null
         if (!response.ok || !payment?.checkoutUrl) throw new Error(payment?.error ?? "No se pudo iniciar el pago")
 
-        localStorage.setItem(pendingKey, JSON.stringify({ id: order.id, total: order.total, fulfillmentType }))
+        localStorage.setItem(pendingKey, JSON.stringify({
+          id: order.id,
+          total: order.total,
+          fulfillmentType,
+          phone: form.phone.trim(),
+          createdAt: new Date().toISOString(),
+        }))
         setCart([])
         localStorage.removeItem(storageKey)
         window.location.assign(payment.checkoutUrl)
         return
       }
 
-      setCompleted({ id: order.id, total: order.total, fulfillmentType })
+      const trackedOrder = {
+        id: order.id,
+        phone: form.phone.trim(),
+        total: order.total,
+        fulfillmentType,
+        createdAt: new Date().toISOString(),
+      }
+      saveTrackedOrder(trackedOrder)
+      setCompleted({ id: order.id, total: order.total, fulfillmentType, phone: form.phone.trim() })
       requestIdRef.current = null
       setCart([])
       setForm(EMPTY_FORM)
@@ -345,6 +448,19 @@ export function DeliveryMenuClient({
           <input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Buscar platos, ingredientes…" className="h-full min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-[#71717a]" />
           {searchQuery ? <button type="button" onClick={() => setSearchQuery("")} aria-label="Limpiar búsqueda" className="text-[#a1a1aa]"><X className="h-4 w-4" /></button> : null}
         </div>
+        {trackedOrders.length ? (
+          <button
+            type="button"
+            onClick={() => openOrderStatus(trackedOrders[0])}
+            className="mt-3 flex w-full items-center justify-between rounded-2xl border border-[#2f2f35] bg-[#18181b] px-3.5 py-3 text-left text-sm font-bold text-[#fafafa]"
+          >
+            <span className="flex min-w-0 items-center gap-2.5">
+              <ClipboardList className="h-4 w-4 shrink-0 text-[#fb923c]" />
+              <span className="truncate">Mis pedidos online</span>
+            </span>
+            <span className="rounded-full bg-[#27272a] px-2.5 py-1 text-xs text-[#d4d4d8]">#{trackedOrders[0].id}</span>
+          </button>
+        ) : null}
         <nav className="mt-3 flex gap-2 overflow-x-auto [&::-webkit-scrollbar]:hidden">
           <button type="button" onClick={() => setActiveCategory("all")} className={`shrink-0 rounded-full px-4 py-2 text-[13px] font-semibold ${activeCategory === "all" ? "bg-[#fb923c] text-[#1a1a1a]" : "border border-[#27272a] bg-[#18181b] text-[#d4d4d8]"}`}>Todos</button>
           {visibleCategories.map((category) => (
@@ -458,14 +574,155 @@ export function DeliveryMenuClient({
                   : `Tu pedido #${completed.id} fue enviado. Pagarás al recibirlo.`}
             </p>
             {completed.total > 0 ? <p className="mt-4 text-xl font-black">{money(completed.total)}</p> : null}
+            {completed.phone ? (
+              <button
+                type="button"
+                onClick={() => openOrderStatus({
+                  id: completed.id,
+                  phone: completed.phone,
+                  total: completed.total,
+                  fulfillmentType: completed.fulfillmentType,
+                  createdAt: new Date().toISOString(),
+                })}
+                className="mt-5 w-full rounded-lg border border-stone-200 px-4 py-3 text-sm font-bold text-stone-950"
+              >
+                Ver estado del pedido
+              </button>
+            ) : null}
             <button type="button" onClick={() => setCompleted(null)} className="mt-6 w-full rounded-lg bg-stone-950 px-4 py-3 text-sm font-bold text-white">
               Volver al menú
             </button>
           </section>
         </div>
       ) : null}
+      {statusOpen ? (
+        <DeliveryStatusDialog
+          orders={trackedOrders}
+          selectedOrder={statusOrder}
+          status={orderStatus}
+          loading={statusLoading}
+          error={statusError}
+          onSelect={openOrderStatus}
+          onRefresh={() => statusOrder ? void loadOrderStatus(statusOrder) : undefined}
+          onClose={() => setStatusOpen(false)}
+        />
+      ) : null}
       </section>
     </main>
+  )
+}
+
+function statusStep(statusName: string | undefined) {
+  const normalized = (statusName ?? "").toLocaleLowerCase("es")
+  if (normalized.includes("pendiente")) return 0
+  if (normalized.includes("nuevo")) return 1
+  if (normalized.includes("prepar")) return 2
+  if (normalized.includes("listo")) return 3
+  if (normalized.includes("pagado")) return 4
+  if (normalized.includes("cancel")) return -1
+  return 1
+}
+
+function DeliveryStatusDialog({
+  orders,
+  selectedOrder,
+  status,
+  loading,
+  error,
+  onSelect,
+  onRefresh,
+  onClose,
+}: {
+  orders: TrackedDeliveryOrder[]
+  selectedOrder: TrackedDeliveryOrder | null
+  status: DeliveryOrderStatus | null
+  loading: boolean
+  error: string
+  onSelect: (order: TrackedDeliveryOrder) => void
+  onRefresh: () => void
+  onClose: () => void
+}) {
+  const step = statusStep(status?.status_name)
+  const steps = ["Recibido", "En cocina", "Listo", "Cerrado"]
+  const fulfillment = (status?.fulfillment_type ?? selectedOrder?.fulfillmentType) === "pickup" ? "Retiro en tienda" : "A domicilio"
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 sm:items-center" onClick={onClose}>
+      <section className="max-h-[94vh] w-full max-w-lg overflow-y-auto rounded-t-lg bg-white p-5 text-stone-950 shadow-2xl sm:rounded-lg" onClick={(event) => event.stopPropagation()}>
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-black">Mis pedidos online</h2>
+          <div className="flex items-center gap-1">
+            <button type="button" onClick={onRefresh} disabled={!selectedOrder || loading} className="flex h-9 w-9 items-center justify-center rounded-md border border-stone-200 disabled:opacity-50" aria-label="Actualizar">
+              <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+            </button>
+            <button type="button" onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-md border border-stone-200" aria-label="Cerrar">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+
+        {orders.length > 1 ? (
+          <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
+            {orders.map((order) => (
+              <button
+                key={order.id}
+                type="button"
+                onClick={() => onSelect(order)}
+                className={`shrink-0 rounded-full border px-3 py-2 text-xs font-black ${selectedOrder?.id === order.id ? "border-orange-400 bg-orange-50 text-orange-700" : "border-stone-200 text-stone-600"}`}
+              >
+                Pedido #{order.id}
+              </button>
+            ))}
+          </div>
+        ) : null}
+
+        {error ? <p className="mt-4 rounded-md bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">{error}</p> : null}
+        {!status && !error ? <p className="mt-8 text-center text-sm font-semibold text-stone-500">{loading ? "Cargando estado..." : "Selecciona un pedido para ver su estado."}</p> : null}
+
+        {status ? (
+          <div className="mt-5">
+            <div className="rounded-lg border border-stone-200 p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs font-black uppercase text-stone-500">Pedido #{status.id}</p>
+                  <h3 className="mt-1 text-xl font-black">{status.status_name}</h3>
+                  <p className="mt-1 text-sm font-semibold text-stone-500">{fulfillment}</p>
+                </div>
+                <b className="shrink-0 text-lg">{money(status.total)}</b>
+              </div>
+
+              <div className="mt-5 grid grid-cols-4 gap-2">
+                {steps.map((label, index) => {
+                  const active = step === -1 ? false : index <= Math.max(0, step - 1)
+                  return (
+                    <div key={label} className="min-w-0">
+                      <div className={`h-2 rounded-full ${active ? "bg-orange-500" : "bg-stone-200"}`} />
+                      <p className={`mt-2 text-[11px] font-black leading-tight ${active ? "text-stone-950" : "text-stone-400"}`}>{label}</p>
+                    </div>
+                  )
+                })}
+              </div>
+
+              {status.fulfillment_type === "home_delivery" && status.address ? <p className="mt-5 text-sm text-stone-600">{status.address}</p> : null}
+              {status.reference ? <p className="mt-2 text-sm italic text-stone-500">{status.reference}</p> : null}
+            </div>
+
+            <div className="mt-4 divide-y divide-stone-100 rounded-lg border border-stone-200">
+              {status.items.map((item, index) => (
+                <div key={`${item.name}-${index}`} className="flex gap-3 p-3">
+                  <b className="text-sm">{item.quantity}x</b>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-bold">{item.name}{item.variant_name ? ` · ${item.variant_name}` : ""}</p>
+                    {item.notes ? <p className="mt-1 text-xs italic text-stone-500">{item.notes}</p> : null}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <p className="mt-3 text-center text-xs font-semibold text-stone-400">Se actualiza automáticamente cada pocos segundos.</p>
+          </div>
+        ) : null}
+      </section>
+    </div>
   )
 }
 
