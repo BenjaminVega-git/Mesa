@@ -199,7 +199,7 @@ begin
     if jsonb_array_length(p_items) > 30 then raise exception 'La promoción no puede tener más de 30 productos'; end if;
   else
     if p_discount_pct is null or p_discount_pct < 1 or p_discount_pct > 100 then
-      raise exception 'Ingresá un descuento entre 1% y 100%';
+      raise exception 'Ingresá un descuento entre 1%% y 100%%';
     end if;
     v_price := 0;          -- el precio del combo se calcula sobre lo elegido
     v_pct   := p_discount_pct;

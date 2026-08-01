@@ -40,6 +40,11 @@ export type TicketItem = {
 export type TicketInput = {
   restaurantName: string
   tableNumber: number | string
+  destinationLabel?: string
+  customerName?: string | null
+  customerPhone?: string | null
+  deliveryAddress?: string | null
+  deliveryReference?: string | null
   orderId: number
   items: TicketItem[]
 }
@@ -90,8 +95,12 @@ export function formatTicketAsText(input: TicketInput, width: number = DEFAULT_T
   const lines: string[] = []
   lines.push(centerLine(input.restaurantName.toUpperCase(), width))
   lines.push("-".repeat(width))
-  lines.push(`Mesa ${input.tableNumber}`)
+  lines.push(input.destinationLabel ?? `Mesa ${input.tableNumber}`)
   lines.push(`Pedido #${input.orderId}`)
+  if (input.customerName) lines.push(`Cliente: ${input.customerName}`)
+  if (input.customerPhone) lines.push(`Telefono: ${input.customerPhone}`)
+  if (input.deliveryAddress) lines.push(`Direccion: ${input.deliveryAddress}`)
+  if (input.deliveryReference) lines.push(`Referencia: ${input.deliveryReference}`)
   lines.push("-".repeat(width))
   for (const item of input.items) {
     lines.push(`${item.quantity}x  ${item.name}`)
@@ -199,8 +208,12 @@ export function buildOrderTicket(input: TicketInput, width: number = DEFAULT_TIC
 
   lines.push(separator, NEWLINE)
 
-  lines.push(BOLD_ON, encodeText(`Mesa ${input.tableNumber}`), NEWLINE, BOLD_OFF)
+  lines.push(BOLD_ON, encodeText(input.destinationLabel ?? `Mesa ${input.tableNumber}`), NEWLINE, BOLD_OFF)
   lines.push(encodeText(`Pedido #${input.orderId}`), NEWLINE)
+  if (input.customerName) lines.push(encodeText(`Cliente: ${input.customerName}`), NEWLINE)
+  if (input.customerPhone) lines.push(encodeText(`Telefono: ${input.customerPhone}`), NEWLINE)
+  if (input.deliveryAddress) lines.push(encodeText(`Direccion: ${input.deliveryAddress}`), NEWLINE)
+  if (input.deliveryReference) lines.push(encodeText(`Referencia: ${input.deliveryReference}`), NEWLINE)
 
   lines.push(separator, NEWLINE)
 

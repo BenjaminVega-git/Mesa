@@ -1,6 +1,10 @@
 import { withSentryConfig } from "@sentry/nextjs"
 import type { NextConfig } from "next"
 
+const localSupabaseConnect = process.env.MESA_LOCAL_SUPABASE === "1"
+  ? " http://localhost:54321 http://127.0.0.1:54321 ws://localhost:54321 ws://127.0.0.1:54321"
+  : ""
+
 // CSP conservadora: permite los orígenes que el cliente realmente usa
 // (Supabase REST/realtime, Cloudinary) y mantiene 'unsafe-inline'/'unsafe-eval'
 // en scripts para no romper la hidratación de Next ni librerías; el control
@@ -15,7 +19,7 @@ const csp = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https://res.cloudinary.com https://*.supabase.co",
   "font-src 'self' data:",
-  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.cloudinary.com",
+  `connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.cloudinary.com${localSupabaseConnect}`,
   "worker-src 'self' blob:",
   "manifest-src 'self'",
 ].join("; ")

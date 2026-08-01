@@ -69,7 +69,9 @@ export function useWaiterOrders(restaurantId: number | null) {
       if (newlyArrived.length > 0) {
         playNewOrderSound()
         for (const o of newlyArrived) {
-          const tableLabel = o.tableNumber != null ? `Mesa ${o.tableNumber}` : `Mesa #${o.tableId ?? "?"}`
+          const tableLabel = o.orderType === "delivery"
+            ? `Domicilio · ${o.deliveryCustomerName ?? "Cliente"}`
+            : o.tableNumber != null ? `Mesa ${o.tableNumber}` : `Mesa #${o.tableId ?? "?"}`
           const itemsSummary = o.items
             .slice(0, 3)
             .map(orderItemSummary)

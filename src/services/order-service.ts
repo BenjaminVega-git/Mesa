@@ -32,6 +32,11 @@ export type WaiterOrder = {
   createdAt: string | null
   dinerSlot: number | null
   dinerLabel: string | null
+  orderType: "dine_in" | "delivery"
+  deliveryCustomerName: string | null
+  deliveryCustomerPhone: string | null
+  deliveryAddress: string | null
+  deliveryReference: string | null
   items: WaiterOrderItem[]
 }
 
@@ -44,6 +49,11 @@ type OrderRow = {
   ready_at: string | null
   diner_slot: number | null
   diner_label: string | null
+  order_type: "dine_in" | "delivery" | null
+  delivery_customer_name: string | null
+  delivery_customer_phone: string | null
+  delivery_address: string | null
+  delivery_reference: string | null
   tables: { table_number: number | null } | null
   order_items: Array<{
     id: number
@@ -66,6 +76,11 @@ function mapOrderRow(row: OrderRow): WaiterOrder {
     readyAt: row.ready_at,
     dinerSlot: row.diner_slot,
     dinerLabel: row.diner_label,
+    orderType: row.order_type === "delivery" ? "delivery" : "dine_in",
+    deliveryCustomerName: row.delivery_customer_name,
+    deliveryCustomerPhone: row.delivery_customer_phone,
+    deliveryAddress: row.delivery_address,
+    deliveryReference: row.delivery_reference,
     items: (row.order_items ?? []).map((it) => ({
       id: it.id,
       productName: it.product_name ?? "",
@@ -111,7 +126,7 @@ export async function listActiveOrdersForRestaurant(
   const { data, error } = await supabase
     .from("orders")
     .select(
-      "id, table_id, total, status_id, created_at, ready_at, diner_slot, diner_label, tables(table_number), order_items(id, product_name, variant_name, product_price, product_quantity, notes)"
+      "id, table_id, total, status_id, created_at, ready_at, diner_slot, diner_label, order_type, delivery_customer_name, delivery_customer_phone, delivery_address, delivery_reference, tables(table_number), order_items(id, product_name, variant_name, product_price, product_quantity, notes)"
     )
     .eq("restaurant_id", restaurantId)
     .in("status_id", [ORDER_STATUS_NUEVO, ORDER_STATUS_PREPARANDO, ORDER_STATUS_LISTO, ORDER_STATUS_PAGADO])

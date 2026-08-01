@@ -36,6 +36,11 @@ type FetchedOrder = {
   id: number
   status_id: number
   table_id: number
+  order_type: "dine_in" | "delivery"
+  delivery_customer_name: string | null
+  delivery_customer_phone: string | null
+  delivery_address: string | null
+  delivery_reference: string | null
   tables: { table_number: number | null } | null
   order_items: { product_quantity: number; product_name: string | null; variant_name: string | null; notes: string | null }[]
 }
@@ -244,7 +249,7 @@ export default function PrinterPage() {
     try {
       const { data, error } = await supabase
         .from("orders")
-        .select("id, status_id, table_id, tables ( table_number ), order_items ( product_quantity, product_name, variant_name, notes )")
+        .select("id, status_id, table_id, order_type, delivery_customer_name, delivery_customer_phone, delivery_address, delivery_reference, tables ( table_number ), order_items ( product_quantity, product_name, variant_name, notes )")
         .eq("id", orderId)
         .maybeSingle<FetchedOrder>()
 
@@ -262,6 +267,11 @@ export default function PrinterPage() {
       const ticketInput = {
         restaurantName: current.restaurant_name ?? "Restaurante",
         tableNumber: data.tables?.table_number === 0 ? "Recepción" : data.tables?.table_number ?? data.table_id,
+        destinationLabel: data.order_type === "delivery" ? "DOMICILIO" : undefined,
+        customerName: data.delivery_customer_name,
+        customerPhone: data.delivery_customer_phone,
+        deliveryAddress: data.delivery_address,
+        deliveryReference: data.delivery_reference,
         orderId: data.id,
         items: data.order_items.map((item) => ({
           quantity: item.product_quantity,

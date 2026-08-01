@@ -98,7 +98,7 @@ begin
             where p.category_id = g.category_id
               and p.restaurant_id = pr.restaurant_id
               and p.status_id = 1
-          ) gm on true
+          ) gm
           where g.promotion_id = pr.id
         ) end,
         'items', (

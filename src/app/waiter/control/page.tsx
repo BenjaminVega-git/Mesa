@@ -70,6 +70,7 @@ function elapsedMinutes(
 }
 
 function tableLabel(o: WaiterOrder): string {
+  if (o.orderType === "delivery") return "Domicilio"
   if (o.tableNumber === 0) return "Recepción"
   if (o.tableNumber != null) return `Mesa ${o.tableNumber}`
   if (o.tableId != null) return `Mesa #${o.tableId}`
@@ -81,6 +82,7 @@ function orderItemLabel(item: WaiterOrder["items"][number]) {
 }
 
 function orderTableKey(order: WaiterOrder) {
+  if (order.orderType === "delivery") return `delivery:${order.id}`
   if (order.tableId != null) return `table:${order.tableId}`
   if (order.tableNumber != null) return `number:${order.tableNumber}`
   return "no-table"
@@ -129,6 +131,7 @@ function WaiterControlSystem() {
     loading: ordersLoading,
     error: ordersError,
     advance,
+    markPaid,
     advancingId,
   } = useWaiterOrders(restaurantId)
   // Pasarela conectada (o null) para ofrecer "QR de pago" en el cobro.
@@ -242,7 +245,12 @@ function WaiterControlSystem() {
     [advance, triggerToast]
   )
 
-  const handleMarkPaid = useCallback((order: WaiterOrder) => {
+  const handleMarkPaid = useCallback(async (order: WaiterOrder) => {
+    if (order.orderType === "delivery") {
+      const ok = await markPaid(order.id)
+      if (ok) triggerToast(`Pedido a domicilio #${order.id} marcado como pagado`)
+      return
+    }
     if (order.tableId == null) return
     const tableLabel =
       order.tableNumber === 0
@@ -256,7 +264,7 @@ function WaiterControlSystem() {
       total: order.total,
       ordersCount: 1,
     })
-  }, [])
+  }, [markPaid, triggerToast])
 
   const handleAttendCall = useCallback(
     async (callId: number, tableLabel: string) => {
@@ -313,7 +321,7 @@ function WaiterControlSystem() {
   const ownOrders = useMemo(
     () =>
       orders.filter(
-        (o) => o.tableNumber === 0 || (o.tableId != null && assignedTableIds.has(o.tableId))
+        (o) => o.orderType === "delivery" || o.tableNumber === 0 || (o.tableId != null && assignedTableIds.has(o.tableId))
       ),
     [orders, assignedTableIds]
   )
@@ -686,7 +694,7 @@ function WaiterControlSystem() {
             <div className="rounded-2xl border border-dashed border-stone-200 bg-white py-16 text-center text-sm font-medium text-stone-500">
               Cargando órdenes...
             </div>
-          ) : assignedTables.length === 0 ? (
+          ) : assignedTables.length === 0 && ownOrders.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-orange-200 bg-orange-50/40 py-16 px-6 text-center">
               <p className="text-sm font-semibold text-stone-700">
                 No tienes mesas asignadas
@@ -723,7 +731,7 @@ function WaiterControlSystem() {
                           key={ord.id}
                           order={ord}
                           config={STATUS_STYLE[ord.statusId]}
-                          dinerLabel={dinerLabelByTable.get(orderTableKey(ord)) ??
+                          dinerLabel={ord.orderType === "delivery" ? "" : dinerLabelByTable.get(orderTableKey(ord)) ??
                             formatDinerNumbers(ord.dinerSlot == null ? [] : [ord.dinerSlot])}
                           onAdvance={handleAdvance}
                           onMarkPaid={handleMarkPaid}
@@ -755,8 +763,10 @@ function WaiterControlSystem() {
                   Pedido #{selectedOrder.id} • {tableLabel(selectedOrder)}
                 </h2>
                 <p className="mt-1 text-xs font-semibold text-stone-500">
-                  {dinerLabelByTable.get(orderTableKey(selectedOrder)) ??
-                    formatDinerNumbers(selectedOrder.dinerSlot == null ? [] : [selectedOrder.dinerSlot])}
+                  {selectedOrder.orderType === "delivery"
+                    ? selectedOrder.deliveryCustomerName ?? "Cliente"
+                    : dinerLabelByTable.get(orderTableKey(selectedOrder)) ??
+                      formatDinerNumbers(selectedOrder.dinerSlot == null ? [] : [selectedOrder.dinerSlot])}
                 </p>
               </div>
               <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${STATUS_STYLE[selectedOrder.statusId].bg}`}>
@@ -795,6 +805,16 @@ function WaiterControlSystem() {
                 </span>
               </div>
             </div>
+
+            {selectedOrder.orderType === "delivery" ? (
+              <div className="mt-4 rounded-xl border border-orange-200 bg-orange-50 p-4 text-sm text-stone-700">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-orange-700">Datos de entrega</p>
+                <p className="mt-2 font-bold">{selectedOrder.deliveryCustomerName ?? "Cliente"}</p>
+                <p>{selectedOrder.deliveryCustomerPhone ?? "Sin teléfono"}</p>
+                <p className="mt-1 font-semibold">{selectedOrder.deliveryAddress ?? "Sin dirección"}</p>
+                {selectedOrder.deliveryReference ? <p className="mt-1 text-xs text-stone-500">{selectedOrder.deliveryReference}</p> : null}
+              </div>
+            ) : null}
 
             <div className="mt-4 flex justify-between text-xs text-stone-500 bg-stone-100/80 rounded-xl p-3 border border-stone-200/40">
               <div>

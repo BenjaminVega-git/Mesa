@@ -72,8 +72,12 @@ export function buildTicketHtml(input: TicketInput): string {
       ${escapeHtml(input.restaurantName)}
     </div>
     ${HR}
-    <div style="font-weight:800; font-size:15px;">Mesa ${escapeHtml(String(input.tableNumber))}</div>
+    <div style="font-weight:800; font-size:15px;">${escapeHtml(input.destinationLabel ?? `Mesa ${String(input.tableNumber)}`)}</div>
     <div style="font-weight:700; font-size:13px;">Pedido #${input.orderId}</div>
+    ${input.customerName ? `<div style="font-weight:700; font-size:12px; margin-top:1mm;">Cliente: ${escapeHtml(input.customerName)}</div>` : ""}
+    ${input.customerPhone ? `<div style="font-weight:700; font-size:12px;">Telefono: ${escapeHtml(input.customerPhone)}</div>` : ""}
+    ${input.deliveryAddress ? `<div style="font-weight:800; font-size:12px; margin-top:1mm;">Direccion: ${escapeHtml(input.deliveryAddress)}</div>` : ""}
+    ${input.deliveryReference ? `<div style="font-weight:700; font-size:12px;">Referencia: ${escapeHtml(input.deliveryReference)}</div>` : ""}
     ${HR}
     <table style="width:100%; border-collapse:collapse;">${items}</table>
     ${HR}
