@@ -11,7 +11,7 @@ import { useBarcodeScanner } from "@/hooks/useBarcodeScanner"
 import { CreateProductDialog } from "@/components/admin/CreateProductDialog"
 import { EditProductDialog } from "@/components/admin/EditProductDialog"
 import { BulkRecipeDialog } from "@/components/admin/BulkRecipeDialog"
-import { assignProductScanCodeAction } from "@/app/actions/product-actions"
+import { assignProductCodigoAction } from "@/app/actions/product-actions"
 
 const statusLabels: Record<number, string> = {
   1: "Disponible",
@@ -81,8 +81,8 @@ export default function ProductsPage() {
   } = useProductList({ page: currentPage, pageSize: 12, search, categoryId: categoryFilter, statusId: statusFilter })
   const [openMenuProductId, setOpenMenuProductId] = useState<number | null>(null)
 
-  function openScanCodeDialog(product?: { id: number; scan_code: string | null }) {
-    setScanCodeInput(product?.scan_code ?? "")
+  function openScanCodeDialog(product?: { id: number; codigo: string | null }) {
+    setScanCodeInput(product?.codigo ?? "")
     setScanProductId(product?.id ?? products[0]?.id ?? null)
     setScanError("")
     setScanDialogOpen(true)
@@ -123,9 +123,9 @@ export default function ProductsPage() {
 
     setSavingScanCode(true)
     setScanError("")
-    const result = await assignProductScanCodeAction({
+    const result = await assignProductCodigoAction({
       productId: scanProductId,
-      scanCode: scanCodeInput,
+      codigo: scanCodeInput,
     })
     setSavingScanCode(false)
 
@@ -505,7 +505,7 @@ export default function ProductsPage() {
                     <div className="mb-4 flex items-center gap-2 rounded-xl border border-dashed border-stone-200 bg-white px-3 py-2 text-[11px] font-semibold text-stone-500">
                       <Barcode className="h-3.5 w-3.5 shrink-0 text-stone-400" aria-hidden="true" />
                       <span className="truncate">
-                        {product.scan_code ? `Codigo: ${product.scan_code}` : "Sin codigo de pistola"}
+                        {product.codigo ? `Codigo: ${product.codigo}` : "Sin codigo de pistola"}
                       </span>
                     </div>
 

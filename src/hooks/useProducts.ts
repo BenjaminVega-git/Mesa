@@ -52,7 +52,7 @@ export function useProducts({
 
     if (trimmedSearch) {
       const escapedSearch = trimmedSearch.replaceAll(",", "\\,").replaceAll("%", "\\%")
-      query = query.or(`product_name.ilike.%${escapedSearch}%,scan_code.ilike.%${escapedSearch}%`)
+      query = query.or(`product_name.ilike.%${escapedSearch}%,codigo.ilike.%${escapedSearch}%`)
     }
     if (categoryId != null) {
       query = query.eq("category_id", categoryId)

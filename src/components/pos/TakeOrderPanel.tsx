@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { X } from "lucide-react"
+import { Barcode, X } from "lucide-react"
 import {
   getPosData,
   createPosOrder,
@@ -13,6 +13,7 @@ import {
 } from "@/services/pos-service"
 import { BuildPromoDialog } from "@/components/customer/BuildPromoDialog"
 import { calcIngredientExtra } from "@/lib/ingredient-customization"
+import { useBarcodeScanner } from "@/hooks/useBarcodeScanner"
 import type { MenuPromotion } from "@/types/menu"
 import type { Product } from "@/types/product"
 import type { CreateOrderItemInput } from "@/lib/validation/order"
@@ -95,6 +96,7 @@ export function TakeOrderPanel({
   const [cartOpen, setCartOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [scanMessage, setScanMessage] = useState<{ kind: "ok" | "error"; text: string } | null>(null)
   const [done, setDone] = useState<PosOrderResult | null>(null)
 
   useEffect(() => {
@@ -225,6 +227,30 @@ export function TakeOrderPanel({
       notes: "",
     })
   }
+
+  useBarcodeScanner({
+    enabled: Boolean(data) && !done && !submitting && !customize && !buildPromo,
+    onScan: (rawCode) => {
+      if (!data) return
+      const code = rawCode.trim().toLowerCase()
+      const product = data.menu.products.find((p) => (p.codigo ?? "").trim().toLowerCase() === code)
+
+      if (!product) {
+        setScanMessage({ kind: "error", text: `No encontre producto con codigo ${rawCode}.` })
+        return
+      }
+
+      if (product.status_id !== 1) {
+        setScanMessage({ kind: "error", text: `${product.product_name} no esta disponible.` })
+        return
+      }
+
+      addProduct(product)
+      setCartOpen(true)
+      setError(null)
+      setScanMessage({ kind: "ok", text: `${product.product_name} agregado por codigo.` })
+    },
+  })
 
   function confirmCustomize() {
     if (!customize) return
@@ -393,6 +419,21 @@ export function TakeOrderPanel({
           {/* Carta */}
           <div className="flex min-h-0 flex-1 flex-col">
             <div className="space-y-2.5 border-b border-stone-200/70 bg-white/60 px-4 py-3 sm:px-6">
+              <div className="flex items-center gap-2 rounded-2xl border border-stone-200 bg-white px-3 py-2 text-[11px] font-semibold text-stone-600 shadow-sm">
+                <Barcode className="h-3.5 w-3.5 shrink-0 text-orange-500" aria-hidden="true" />
+                <span>Escanea el codigo del producto para agregarlo al pedido.</span>
+              </div>
+              {scanMessage && (
+                <div
+                  className={`rounded-2xl border px-3 py-2 text-[11px] font-bold ${
+                    scanMessage.kind === "ok"
+                      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                      : "border-red-200 bg-red-50 text-red-700"
+                  }`}
+                >
+                  {scanMessage.text}
+                </div>
+              )}
               <input
                 type="search"
                 placeholder="Buscar en la carta…"

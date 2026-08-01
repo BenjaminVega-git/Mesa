@@ -5,12 +5,12 @@ import {
   UpdateProductSchema,
   DeleteProductSchema,
   UpdateProductStatusSchema,
-  AssignProductScanCodeSchema,
+  AssignProductCodigoSchema,
   type CreateProductInput,
   type UpdateProductInput,
   type DeleteProductInput,
   type UpdateProductStatusInput,
-  type AssignProductScanCodeInput,
+  type AssignProductCodigoInput,
 } from "@/lib/validation/product"
 import { ok, fail, type Result } from "@/services/result"
 import { deleteImagesBestEffort } from "@/lib/cloudinary/delete-image-server"
@@ -25,7 +25,7 @@ export type ProductForEdit = {
   id: number
   name: string
   description: string | null
-  scanCode: string | null
+  codigo: string | null
   categoryId: number
   variants: Array<{
     id: number
@@ -78,7 +78,7 @@ export async function getProductForEdit(productId: number): Promise<Result<Produ
   const [productRes, variantsRes, menuOptionsRes] = await Promise.all([
     supabase
       .from("products")
-      .select("id, product_name, product_description, product_price, product_image, product_image_public_id, scan_code, category_id, image_recortada")
+      .select("id, product_name, product_description, product_price, product_image, product_image_public_id, codigo, category_id, image_recortada")
       .eq("id", productId)
       .maybeSingle(),
     supabase
@@ -103,7 +103,7 @@ export async function getProductForEdit(productId: number): Promise<Result<Produ
     id: productRes.data.id,
     name: productRes.data.product_name,
     description: productRes.data.product_description,
-    scanCode: productRes.data.scan_code ?? null,
+    codigo: productRes.data.codigo ?? null,
     categoryId: productRes.data.category_id,
     fallbackPrice: productRes.data.product_price,
     fallbackImageUrl: productRes.data.product_image,
@@ -447,15 +447,15 @@ export async function updateProductStatus(input: UpdateProductStatusInput): Prom
 }
 
 
-export async function assignProductScanCode(input: AssignProductScanCodeInput): Promise<Result<{ id: number; scanCode: string }>> {
-  const validation = AssignProductScanCodeSchema.safeParse(input)
+export async function assignProductCodigo(input: AssignProductCodigoInput): Promise<Result<{ id: number; codigo: string }>> {
+  const validation = AssignProductCodigoSchema.safeParse(input)
 
   if (!validation.success) {
     return fail(validation.error.issues[0]?.message ?? "Datos invalidos")
   }
 
   const { productId } = validation.data
-  const scanCode = validation.data.scanCode.trim()
+  const codigo = validation.data.codigo.trim()
 
   const restaurantId = await getRestaurantIdForProduct(productId)
   if (!restaurantId) return fail("Producto no encontrado")
@@ -466,7 +466,7 @@ export async function assignProductScanCode(input: AssignProductScanCodeInput): 
 
   const { error } = await supabase
     .from("products")
-    .update({ scan_code: scanCode })
+    .update({ codigo })
     .eq("id", productId)
 
   if (error) {
@@ -477,5 +477,5 @@ export async function assignProductScanCode(input: AssignProductScanCodeInput): 
   }
 
   revalidateMenu(restaurantId)
-  return ok({ id: productId, scanCode })
+  return ok({ id: productId, codigo })
 }
