@@ -23,6 +23,11 @@ type OrderDetail = {
   ready_at: string | null
   diner_slot: number | null
   diner_label: string | null
+  order_type: "dine_in" | "delivery" | null
+  delivery_customer_name: string | null
+  delivery_customer_phone: string | null
+  delivery_address: string | null
+  delivery_reference: string | null
   table_number: number | null
   status_name: string | null
   items: {
@@ -73,7 +78,7 @@ export function OrderDetailModal({ orderId, onClose }: Props) {
       const { data, error: e } = await supabase
         .from("orders")
         .select(
-          "id, order_number, total, table_id, status_id, created_at, ready_at, diner_slot, diner_label, tables(table_number), order_status(status_name), order_items(id, product_name, variant_name, product_price, product_quantity, notes)"
+          "id, order_number, total, table_id, status_id, created_at, ready_at, diner_slot, diner_label, order_type, delivery_customer_name, delivery_customer_phone, delivery_address, delivery_reference, tables(table_number), order_status(status_name), order_items(id, product_name, variant_name, product_price, product_quantity, notes)"
         )
         .eq("id", orderId)
         .maybeSingle()
@@ -113,6 +118,11 @@ export function OrderDetailModal({ orderId, onClose }: Props) {
         ready_at: data.ready_at,
         diner_slot: data.diner_slot,
         diner_label: data.diner_label,
+        order_type: data.order_type === "delivery" ? "delivery" : "dine_in",
+        delivery_customer_name: data.delivery_customer_name,
+        delivery_customer_phone: data.delivery_customer_phone,
+        delivery_address: data.delivery_address,
+        delivery_reference: data.delivery_reference,
         table_number: tableNumber,
         status_name: statusName,
         items,
@@ -132,7 +142,9 @@ export function OrderDetailModal({ orderId, onClose }: Props) {
     : "bg-stone-100 text-stone-500 ring-stone-200"
 
   const tableLabel = order
-    ? order.table_number != null
+    ? order.order_type === "delivery"
+      ? "Delivery"
+      : order.table_number != null
       ? `Mesa ${order.table_number}`
       : order.table_id != null
         ? `Mesa #${order.table_id}`
@@ -210,6 +222,15 @@ export function OrderDetailModal({ orderId, onClose }: Props) {
               <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-stone-500">
                 Productos ({order.items.length})
               </p>
+
+              {order.order_type === "delivery" ? (
+                <div className="mb-4 rounded-2xl border border-orange-100 bg-orange-50 px-4 py-3 text-xs text-stone-700">
+                  <p className="font-bold text-stone-900">{order.delivery_customer_name ?? "Cliente delivery"}</p>
+                  {order.delivery_customer_phone ? <p className="mt-1">{order.delivery_customer_phone}</p> : null}
+                  {order.delivery_address ? <p className="mt-1">{order.delivery_address}</p> : null}
+                  {order.delivery_reference ? <p className="mt-1 text-stone-500">{order.delivery_reference}</p> : null}
+                </div>
+              ) : null}
 
               {order.items.length === 0 ? (
                 <p className="rounded-2xl border border-dashed border-stone-200 bg-stone-50 py-6 text-center text-xs font-semibold text-stone-500">

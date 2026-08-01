@@ -165,7 +165,11 @@ export default function AdminPage() {
                   <div className="flex items-center justify-between gap-4">
                     <div>
                       <h4 className="font-bold text-stone-900">
-                        {`Mesa ${tableNumber ?? order.table_id}`}
+                        {order.order_type === "delivery"
+                          ? `Delivery${order.delivery_customer_name ? ` · ${order.delivery_customer_name}` : ""}`
+                          : tableNumber === 0
+                            ? "Recepción"
+                            : `Mesa ${tableNumber ?? order.table_id ?? "—"}`}
                       </h4>
                       <p className="mt-1 text-xs font-medium text-stone-500 tabular-nums">
                         Pedido #{order.id} · ${order.total.toLocaleString("es-CL")}

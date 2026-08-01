@@ -135,7 +135,11 @@ export default function OrdersPage() {
               const tableNumber = Array.isArray(tablesData)
                 ? tablesData[0]?.table_number
                 : tablesData?.table_number
-              const tableName = `Mesa ${tableNumber ?? order.table_id}`
+              const tableName = order.order_type === "delivery"
+                ? `Delivery${order.delivery_customer_name ? ` · ${order.delivery_customer_name}` : ""}`
+                : tableNumber === 0
+                  ? "Recepción"
+                  : `Mesa ${tableNumber ?? order.table_id ?? "—"}`
 
               return (
                 <article

@@ -34,7 +34,7 @@ export function AdminChargeSection({ orders }: { orders: Order[] }) {
   const groups = useMemo<TableGroup[]>(() => {
     const map = new Map<number, TableGroup>()
     for (const o of orders) {
-      if (o.status_id === 4) continue
+      if (o.status_id === 4 || o.table_id == null) continue
       const tablesData = o.tables as
         | { table_number: number | null }
         | { table_number: number | null }[]

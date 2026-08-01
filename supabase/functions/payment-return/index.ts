@@ -12,7 +12,19 @@ import { getPaymentAdapter } from "../_shared/payment-adapters.ts";
 
 const APP_BASE_URL = "https://tumesaqr.com";
 
-function redirectResult(estado: string, qrToken: string | null): Response {
+function redirectResult(
+  estado: string,
+  qrToken: string | null,
+  deliverySlug: string | null = null,
+  orderId: string | null = null,
+): Response {
+  if (deliverySlug && /^[a-z0-9][a-z0-9-]*$/i.test(deliverySlug)) {
+    const order = orderId && /^\d+$/.test(orderId) ? `&order=${orderId}` : "";
+    return new Response(null, {
+      status: 303,
+      headers: { location: `${APP_BASE_URL}/restaurants/${encodeURIComponent(deliverySlug)}?payment=${estado}${order}` },
+    });
+  }
   const r = qrToken ? `&r=${encodeURIComponent(qrToken)}` : "";
   return new Response(null, {
     status: 303,
@@ -41,8 +53,11 @@ Deno.serve(async (req: Request) => {
   const reqUrl = new URL(req.url);
   const query = Object.fromEntries(reqUrl.searchParams.entries());
   const qrToken = query.r ?? null;
+  const deliverySlug = query.d ?? null;
+  const deliveryOrderId = query.oid ?? null;
+  const done = (estado: string) => redirectResult(estado, qrToken, deliverySlug, deliveryOrderId);
   const pid = Number.parseInt(query.pid ?? "", 10);
-  if (!Number.isFinite(pid)) return redirectResult("error", qrToken);
+  if (!Number.isFinite(pid)) return done("error");
 
   const rawBody = req.method === "POST" ? await req.text() : "";
   const admin = createClient(url, svc);
@@ -52,11 +67,11 @@ Deno.serve(async (req: Request) => {
     .select("id, restaurant_id, provider, provider_payment_id, status, amount, tip")
     .eq("id", pid)
     .maybeSingle();
-  if (!pay) return redirectResult("error", qrToken);
+  if (!pay) return done("error");
 
   // Refresh / doble visita: estados terminales redirigen directo.
-  if (pay.status === "paid" || pay.status === "refunded") return redirectResult("exito", qrToken);
-  if (pay.status === "failed") return redirectResult("rechazado", qrToken);
+  if (pay.status === "paid" || pay.status === "refunded") return done("exito");
+  if (pay.status === "failed") return done("rechazado");
 
   // Candado: pending → authorized (solo un request procesa; clave para el
   // commit de Transbank, que no admite repetición ciega).
@@ -74,11 +89,11 @@ Deno.serve(async (req: Request) => {
       await new Promise((res) => setTimeout(res, 1500));
       const { data: again } = await admin.from("payments").select("status").eq("id", pid).maybeSingle();
       if (again && again.status !== "authorized" && again.status !== "pending") {
-        return redirectResult(ESTADO[again.status] ?? "pendiente", qrToken);
+        return done(ESTADO[again.status] ?? "pendiente");
       }
-      if (again && again.status === "paid") return redirectResult("exito", qrToken);
+      if (again && again.status === "paid") return done("exito");
     }
-    return redirectResult("pendiente", qrToken);
+    return done("pendiente");
   }
 
   // Credenciales de la pasarela del restaurante.
@@ -138,7 +153,7 @@ Deno.serve(async (req: Request) => {
     // No se pudo confirmar (red/pasarela): soltar el candado para que el
     // webhook o un reintento lo resuelvan.
     await admin.from("payments").update({ status: "pending" }).eq("id", pid).eq("status", "authorized");
-    return redirectResult("pendiente", qrToken);
+    return done("pendiente");
   }
 
   const { data: applied, error: applyErr } = await admin.rpc("payment_apply_gateway_result", {
@@ -148,9 +163,9 @@ Deno.serve(async (req: Request) => {
   });
   if (applyErr) {
     await admin.from("payments").update({ status: "pending" }).eq("id", pid).eq("status", "authorized");
-    return redirectResult("pendiente", qrToken);
+    return done("pendiente");
   }
 
   const settledStatus = (applied as { status?: string } | null)?.status ?? finalStatus;
-  return redirectResult(ESTADO[settledStatus] ?? "pendiente", qrToken);
+  return done(ESTADO[settledStatus] ?? "pendiente");
 });

@@ -1,21 +1,22 @@
 "use client"
 
-import Image from "next/image"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import {
   ArrowLeft,
   Check,
-  ChevronRight,
+  CreditCard,
   MapPin,
   Minus,
   Phone,
   Plus,
-  ShoppingBag,
+  Search,
+  Store,
   Trash2,
   User,
   X,
 } from "lucide-react"
 import { createSupabaseAnonClient } from "@/lib/supabase/anon"
+import { ProductImage } from "@/components/customer/ProductImage"
 import type { MenuTemplate } from "@/types/restaurant"
 
 type Variant = {
@@ -83,9 +84,16 @@ type CartItem = {
   notes: string
 }
 
-type DeliveryForm = { name: string; phone: string; address: string; reference: string }
+type DeliveryForm = { name: string; phone: string; address: string; reference: string; email: string }
+type PaymentMethod = "online" | "pay_at_store"
 
-const EMPTY_FORM: DeliveryForm = { name: "", phone: "", address: "", reference: "" }
+const EMPTY_FORM: DeliveryForm = { name: "", phone: "", address: "", reference: "", email: "" }
+const PAYMENT_PROVIDER_LABEL: Record<string, string> = {
+  flow: "Flow",
+  mercadopago: "Mercado Pago",
+  transbank: "Transbank Webpay",
+  simulated: "Pago de prueba",
+}
 
 function money(value: number) {
   return `$${Math.round(value).toLocaleString("es-CL")}`
@@ -105,7 +113,7 @@ function newRequestId() {
   })
 }
 
-export function DeliveryMenuClient({ data }: { data: DeliveryMenuData }) {
+export function DeliveryMenuClient({ data, paymentProvider }: { data: DeliveryMenuData; paymentProvider: string | null }) {
   const { restaurant, categories, products } = data
   const storageKey = `mesa-delivery-cart:${restaurant.delivery_slug}`
   const [cart, setCart] = useState<CartItem[]>([])
@@ -116,8 +124,12 @@ export function DeliveryMenuClient({ data }: { data: DeliveryMenuData }) {
   const [sending, setSending] = useState(false)
   const [error, setError] = useState("")
   const [completed, setCompleted] = useState<{ id: number; total: number } | null>(null)
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(paymentProvider ? "online" : "pay_at_store")
+  const [searchQuery, setSearchQuery] = useState("")
+  const [activeCategory, setActiveCategory] = useState<number | "all">("all")
   const [hydrated, setHydrated] = useState(false)
   const requestIdRef = useRef<string | null>(null)
+  const pendingKey = `mesa-delivery-payment:${restaurant.delivery_slug}`
 
   useEffect(() => {
     try {
@@ -128,19 +140,45 @@ export function DeliveryMenuClient({ data }: { data: DeliveryMenuData }) {
       localStorage.removeItem(storageKey)
     }
     setHydrated(true)
-  }, [storageKey])
+
+    const params = new URLSearchParams(window.location.search)
+    const payment = params.get("payment")
+    if (payment === "exito") {
+      const pending = localStorage.getItem(pendingKey)
+      let parsed: { id: number; total: number } | null = null
+      try {
+        parsed = pending ? JSON.parse(pending) as { id: number; total: number } : null
+      } catch {
+        localStorage.removeItem(pendingKey)
+      }
+      setCompleted(parsed ?? { id: Number(params.get("order")) || 0, total: 0 })
+      localStorage.removeItem(pendingKey)
+      window.history.replaceState({}, "", window.location.pathname)
+    } else if (payment === "rechazado" || payment === "cancelado" || payment === "error") {
+      setCheckoutOpen(true)
+      setError("El pago no se completó. Puedes intentarlo nuevamente o pagar al retirar.")
+      window.history.replaceState({}, "", window.location.pathname)
+    } else if (payment === "pendiente") {
+      setCompleted({ id: Number(params.get("order")) || 0, total: 0 })
+      window.history.replaceState({}, "", window.location.pathname)
+    }
+  }, [pendingKey, storageKey])
 
   useEffect(() => {
     if (!hydrated) return
     localStorage.setItem(storageKey, JSON.stringify(cart))
   }, [cart, hydrated, storageKey])
 
-  const groups = categories
-    .map((category) => ({
-      category,
-      products: products.filter((product) => product.category_id === category.id),
-    }))
-    .filter((group) => group.products.length > 0)
+  const visibleProducts = useMemo(() => {
+    const query = searchQuery.trim().toLocaleLowerCase("es")
+    return products.filter((product) => {
+      const matchesCategory = activeCategory === "all" || product.category_id === activeCategory
+      const matchesSearch = !query || `${product.product_name} ${product.product_description ?? ""}`.toLocaleLowerCase("es").includes(query)
+      return matchesCategory && matchesSearch
+    })
+  }, [activeCategory, products, searchQuery])
+
+  const visibleCategories = categories.filter((category) => products.some((product) => product.category_id === category.id))
 
   const quantity = cart.reduce((sum, item) => sum + item.quantity, 0)
   const total = cart.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0)
@@ -175,6 +213,10 @@ export function DeliveryMenuClient({ data }: { data: DeliveryMenuData }) {
       setError("Completa tu nombre, teléfono y dirección para continuar.")
       return
     }
+    if (paymentMethod === "online" && paymentProvider === "flow" && !form.email.trim()) {
+      setError("Ingresa tu email para recibir el comprobante de Flow.")
+      return
+    }
 
     setSending(true)
     setError("")
@@ -200,10 +242,36 @@ export function DeliveryMenuClient({ data }: { data: DeliveryMenuData }) {
         p_address: form.address.trim(),
         p_reference: form.reference.trim() || null,
         p_request_id: requestId,
+        p_payment_method: paymentMethod,
       })
 
       if (rpcError) throw rpcError
       const order = result as unknown as { id: number; total: number }
+
+      if (paymentMethod === "online") {
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/payment-create-delivery-charge`,
+          {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              slug: restaurant.delivery_slug,
+              orderId: order.id,
+              requestId,
+              payerEmail: form.email.trim() || undefined,
+            }),
+          }
+        )
+        const payment = await response.json().catch(() => null) as { checkoutUrl?: string; error?: string } | null
+        if (!response.ok || !payment?.checkoutUrl) throw new Error(payment?.error ?? "No se pudo iniciar el pago")
+
+        localStorage.setItem(pendingKey, JSON.stringify({ id: order.id, total: order.total }))
+        setCart([])
+        localStorage.removeItem(storageKey)
+        window.location.assign(payment.checkoutUrl)
+        return
+      }
+
       setCompleted({ id: order.id, total: order.total })
       requestIdRef.current = null
       setCart([])
@@ -220,59 +288,60 @@ export function DeliveryMenuClient({ data }: { data: DeliveryMenuData }) {
   }
 
   return (
-    <main className="min-h-screen bg-[#f7f5f2] pb-28 text-stone-950">
-      <header className="border-b border-stone-200 bg-white">
-        <div className="mx-auto flex max-w-5xl items-center gap-4 px-4 py-5 sm:px-6">
+    <main className="min-h-screen bg-black font-[family-name:var(--font-manrope)] text-[#fafafa] sm:py-4">
+      <section className="relative mx-auto min-h-screen w-full overflow-hidden bg-[#0a0a0b] pb-28 shadow-[0_30px_80px_rgba(0,0,0,0.5)] sm:min-h-[calc(100vh-32px)] sm:max-w-[440px] sm:rounded-[38px] sm:border-[10px] sm:border-[#050506]">
+      <header className="px-4 pt-5">
+        <div className="flex items-center gap-3">
           {restaurant.restaurant_logo ? (
-            <Image
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
               src={restaurant.restaurant_logo}
-              alt=""
-              width={64}
-              height={64}
-              className="h-14 w-14 rounded-lg border border-stone-200 object-cover"
-              unoptimized
+              alt={restaurant.restaurant_name}
+              className="h-11 w-11 rounded-full border border-[#fb923c]/60 object-cover"
             />
           ) : (
-            <div className="flex h-14 w-14 items-center justify-center rounded-lg bg-stone-950 text-xl font-black text-white">
+            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#fb923c] text-lg font-black text-[#1a1a1a]">
               {restaurant.restaurant_name.slice(0, 1).toUpperCase()}
             </div>
           )}
           <div className="min-w-0 flex-1">
-            <p className="text-xs font-bold uppercase text-orange-600">Pedidos a domicilio</p>
-            <h1 className="truncate text-2xl font-black">{restaurant.restaurant_name}</h1>
+            <h1 className="truncate font-[family-name:var(--font-grotesk)] text-[21px] font-extrabold">{restaurant.restaurant_name}</h1>
             {restaurant.restaurant_city ? (
-              <p className="mt-0.5 flex items-center gap-1 text-xs text-stone-500">
-                <MapPin className="h-3.5 w-3.5" /> {restaurant.restaurant_city}
+              <p className="mt-0.5 flex items-center gap-1 text-xs text-[#a1a1aa]">
+                <MapPin className="h-3.5 w-3.5" /> Delivery · {restaurant.restaurant_city}
               </p>
-            ) : null}
+            ) : <p className="mt-0.5 text-xs text-[#a1a1aa]">Pedidos delivery</p>}
           </div>
         </div>
       </header>
 
-      <div className="sticky top-0 z-20 border-b border-stone-200 bg-white/95 backdrop-blur">
-        <nav className="mx-auto flex max-w-5xl gap-2 overflow-x-auto px-4 py-3 sm:px-6">
-          {groups.map(({ category }) => (
-            <a
+      <div className="sticky top-0 z-20 mt-4 border-b border-[#1f1f23] bg-[#0a0a0b]/95 px-4 pb-3 pt-3 backdrop-blur-xl">
+        <div className="flex h-11 items-center gap-2.5 rounded-2xl border border-[#27272a] bg-[#18181b] px-3.5">
+          <Search className="h-[18px] w-[18px] text-[#a1a1aa]" />
+          <input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Buscar platos, ingredientes…" className="h-full min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-[#71717a]" />
+          {searchQuery ? <button type="button" onClick={() => setSearchQuery("")} aria-label="Limpiar búsqueda" className="text-[#a1a1aa]"><X className="h-4 w-4" /></button> : null}
+        </div>
+        <nav className="mt-3 flex gap-2 overflow-x-auto [&::-webkit-scrollbar]:hidden">
+          <button type="button" onClick={() => setActiveCategory("all")} className={`shrink-0 rounded-full px-4 py-2 text-[13px] font-semibold ${activeCategory === "all" ? "bg-[#fb923c] text-[#1a1a1a]" : "border border-[#27272a] bg-[#18181b] text-[#d4d4d8]"}`}>Todos</button>
+          {visibleCategories.map((category) => (
+            <button
               key={category.id}
-              href={`#category-${category.id}`}
-              className="shrink-0 rounded-full border border-stone-200 px-3 py-1.5 text-xs font-bold text-stone-700 hover:border-orange-300 hover:text-orange-700"
+              type="button"
+              onClick={() => setActiveCategory(category.id)}
+              className={`shrink-0 rounded-full px-4 py-2 text-[13px] font-semibold ${activeCategory === category.id ? "bg-[#fb923c] text-[#1a1a1a]" : "border border-[#27272a] bg-[#18181b] text-[#d4d4d8]"}`}
             >
               {category.category_name}
-            </a>
+            </button>
           ))}
         </nav>
       </div>
 
-      <div className="mx-auto max-w-5xl px-4 py-7 sm:px-6">
-        {groups.length === 0 ? (
-          <p className="py-20 text-center text-sm font-semibold text-stone-500">No hay productos disponibles.</p>
+      <div className="px-4 pt-4">
+        {visibleProducts.length === 0 ? (
+          <p className="py-20 text-center text-sm font-semibold text-[#71717a]">No hay productos disponibles.</p>
         ) : (
-          <div className="space-y-10">
-            {groups.map(({ category, products: categoryProducts }) => (
-              <section key={category.id} id={`category-${category.id}`} className="scroll-mt-20">
-                <h2 className="mb-4 text-xl font-black">{category.category_name}</h2>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {categoryProducts.map((product) => {
+          <div className="flex flex-col gap-3.5">
+                  {visibleProducts.map((product) => {
                     const soldOut = product.stock_out || (
                       product.variants.length > 0 && product.variants.every((variant) => variant.stock_out)
                     )
@@ -285,32 +354,22 @@ export function DeliveryMenuClient({ data }: { data: DeliveryMenuData }) {
                         type="button"
                         disabled={soldOut}
                         onClick={() => setSelected(product)}
-                        className="group flex min-h-28 items-center gap-4 rounded-lg border border-stone-200 bg-white p-3 text-left shadow-sm transition hover:border-orange-300 hover:shadow-md disabled:opacity-55"
+                        className="group flex min-h-[128px] w-full items-stretch overflow-hidden rounded-[26px] border border-[#1f1f23] bg-[#161618] text-left transition active:scale-[0.985] disabled:opacity-55"
                       >
-                        <div className="h-24 w-24 shrink-0 overflow-hidden rounded-md bg-stone-100">
-                          {product.product_image ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img src={product.product_image} alt="" className="h-full w-full object-contain p-1" />
-                          ) : (
-                            <div className="flex h-full items-center justify-center text-stone-300"><ShoppingBag /></div>
-                          )}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <h3 className="font-extrabold leading-tight">{product.product_name}</h3>
+                        <ProductImage src={product.product_image} alt={product.product_name} hasBackground={!product.image_recortada} fade="right" className="w-[128px] shrink-0" />
+                        <div className="flex min-w-0 flex-1 flex-col justify-center py-3.5 pl-1 pr-2">
+                          <h3 className="line-clamp-2 font-[family-name:var(--font-grotesk)] text-[16px] font-bold leading-tight">{product.product_name}</h3>
                           {product.product_description ? (
-                            <p className="mt-1 line-clamp-2 text-xs leading-5 text-stone-500">{product.product_description}</p>
+                            <p className="mt-1 line-clamp-2 text-[12.5px] leading-snug text-[#a1a1aa]">{product.product_description}</p>
                           ) : null}
-                          <p className="mt-2 text-sm font-black text-orange-700">
+                          <p className="mt-2 text-[17px] font-extrabold text-[#fb923c]">
                             {product.variants.length ? "Desde " : ""}{money(fromPrice)}
                           </p>
                         </div>
-                        <ChevronRight className="h-5 w-5 shrink-0 text-stone-300 group-hover:text-orange-500" />
+                        <span className="my-auto mr-3 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#fb923c] text-[22px] font-light text-[#1a1a1a]">+</span>
                       </button>
                     )
                   })}
-                </div>
-              </section>
-            ))}
           </div>
         )}
       </div>
@@ -347,6 +406,9 @@ export function DeliveryMenuClient({ data }: { data: DeliveryMenuData }) {
           total={total}
           sending={sending}
           error={error}
+          paymentProvider={paymentProvider}
+          paymentMethod={paymentMethod}
+          onPaymentMethodChange={setPaymentMethod}
           onChange={setForm}
           onBack={() => { setCheckoutOpen(false); setCartOpen(true); setError("") }}
           onClose={() => setCheckoutOpen(false)}
@@ -361,14 +423,15 @@ export function DeliveryMenuClient({ data }: { data: DeliveryMenuData }) {
               <Check className="h-7 w-7" />
             </div>
             <h2 className="mt-4 text-2xl font-black">Pedido recibido</h2>
-            <p className="mt-2 text-sm text-stone-600">Tu pedido #{completed.id} ya fue enviado al restaurante.</p>
-            <p className="mt-4 text-xl font-black">{money(completed.total)}</p>
+            <p className="mt-2 text-sm text-stone-600">{paymentMethod === "online" ? `Pago recibido. Tu pedido #${completed.id} ya fue enviado al restaurante.` : `Tu pedido #${completed.id} ya fue enviado. Pagarás al retirar o recibir.`}</p>
+            {completed.total > 0 ? <p className="mt-4 text-xl font-black">{money(completed.total)}</p> : null}
             <button type="button" onClick={() => setCompleted(null)} className="mt-6 w-full rounded-lg bg-stone-950 px-4 py-3 text-sm font-bold text-white">
               Volver al menú
             </button>
           </section>
         </div>
       ) : null}
+      </section>
     </main>
   )
 }
@@ -508,14 +571,47 @@ function CartDialog({ cart, total, onClose, onChangeQuantity, onCheckout }: { ca
   </section></div>
 }
 
-function CheckoutDialog({ form, total, sending, error, onChange, onBack, onClose, onSubmit }: { form: DeliveryForm; total: number; sending: boolean; error: string; onChange: (form: DeliveryForm) => void; onBack: () => void; onClose: () => void; onSubmit: () => void }) {
+function CheckoutDialog({
+  form, total, sending, error, paymentProvider, paymentMethod,
+  onPaymentMethodChange, onChange, onBack, onClose, onSubmit,
+}: {
+  form: DeliveryForm
+  total: number
+  sending: boolean
+  error: string
+  paymentProvider: string | null
+  paymentMethod: PaymentMethod
+  onPaymentMethodChange: (method: PaymentMethod) => void
+  onChange: (form: DeliveryForm) => void
+  onBack: () => void
+  onClose: () => void
+  onSubmit: () => void
+}) {
   const field = (key: keyof DeliveryForm) => (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => onChange({ ...form, [key]: event.target.value })
   return <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 sm:items-center" onClick={onClose}><section className="max-h-[94vh] w-full max-w-lg overflow-y-auto rounded-t-lg bg-white p-5 sm:rounded-lg" onClick={(event) => event.stopPropagation()}>
     <div className="flex items-center justify-between"><button type="button" onClick={onBack} className="h-9 w-9" aria-label="Volver"><ArrowLeft className="mx-auto" /></button><h2 className="text-lg font-black">Datos de entrega</h2><button type="button" onClick={onClose} className="h-9 w-9" aria-label="Cerrar"><X className="mx-auto" /></button></div>
     <div className="mt-5 space-y-4"><InputField icon={<User />} label="Nombre" value={form.name} onChange={field("name")} maxLength={80} /><InputField icon={<Phone />} label="Teléfono" value={form.phone} onChange={field("phone")} maxLength={24} type="tel" /><InputField icon={<MapPin />} label="Dirección completa" value={form.address} onChange={field("address")} maxLength={180} /><label className="block text-xs font-bold text-stone-600">Referencia (opcional)<textarea value={form.reference} onChange={field("reference")} maxLength={250} placeholder="Casa azul, timbre 2..." className="mt-1 min-h-20 w-full resize-none rounded-md border border-stone-200 p-3 text-sm font-normal outline-none focus:border-orange-400" /></label></div>
+    <fieldset className="mt-5">
+      <legend className="text-xs font-black uppercase text-stone-500">Forma de pago</legend>
+      <div className="mt-2 grid gap-2">
+        {paymentProvider ? (
+          <label className={`flex cursor-pointer items-center gap-3 rounded-md border p-3 ${paymentMethod === "online" ? "border-orange-400 bg-orange-50" : "border-stone-200"}`}>
+            <input type="radio" name="delivery-payment" checked={paymentMethod === "online"} onChange={() => onPaymentMethodChange("online")} />
+            <CreditCard className="h-5 w-5 text-orange-600" />
+            <span className="min-w-0"><b className="block text-sm">Pagar online</b><span className="block text-xs text-stone-500">Con {PAYMENT_PROVIDER_LABEL[paymentProvider] ?? paymentProvider}</span></span>
+          </label>
+        ) : null}
+        <label className={`flex cursor-pointer items-center gap-3 rounded-md border p-3 ${paymentMethod === "pay_at_store" ? "border-orange-400 bg-orange-50" : "border-stone-200"}`}>
+          <input type="radio" name="delivery-payment" checked={paymentMethod === "pay_at_store"} onChange={() => onPaymentMethodChange("pay_at_store")} />
+          <Store className="h-5 w-5 text-orange-600" />
+          <span><b className="block text-sm">Pagar al retirar o recibir</b><span className="block text-xs text-stone-500">El pedido se confirma ahora y pagas después</span></span>
+        </label>
+      </div>
+    </fieldset>
+    {paymentMethod === "online" && paymentProvider === "flow" ? <div className="mt-4"><InputField icon={<User />} label="Email para el comprobante" value={form.email} onChange={field("email")} maxLength={120} type="email" /></div> : null}
     {error ? <p className="mt-4 rounded-md bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">{error}</p> : null}
     <div className="mt-5 flex items-center justify-between border-t border-stone-200 pt-4 text-lg font-black"><span>Total</span><span>{money(total)}</span></div>
-    <button type="button" disabled={sending} onClick={onSubmit} className="mt-4 w-full rounded-md bg-orange-600 px-4 py-3.5 text-sm font-bold text-white disabled:opacity-60">{sending ? "Enviando pedido..." : "Confirmar pedido"}</button>
+    <button type="button" disabled={sending} onClick={onSubmit} className="mt-4 w-full rounded-md bg-orange-600 px-4 py-3.5 text-sm font-bold text-white disabled:opacity-60">{sending ? (paymentMethod === "online" ? "Conectando con la pasarela..." : "Enviando pedido...") : paymentMethod === "online" ? `Pagar online · ${money(total)}` : "Confirmar pedido"}</button>
   </section></div>
 }
 
