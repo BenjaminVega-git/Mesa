@@ -47,8 +47,9 @@ async function emitBoletaInternal(
   paymentId: number,
   total: number
 ): Promise<Result<BoletaInfo>> {
-  // Documento afecto: IVA (19%) desglosado desde el total. La propina no es
-  // venta afecta: la boleta va por el monto de la cuenta, sin propina.
+  // Documento afecto: IVA (19%) desglosado desde el total cobrado.
+  // MESA incluye la propina en la boleta para que el comprobante cuadre con
+  // lo pagado por el cliente.
   const net = Math.round(total / 1.19)
   const iva = total - net
 
@@ -115,7 +116,7 @@ export async function registerStaffPayment(
   const tip = Number(data?.tip ?? 0)
   const tableReleased = Boolean(data?.table_released)
 
-  const boleta = await emitBoletaInternal(supabase, paymentId, amount)
+  const boleta = await emitBoletaInternal(supabase, paymentId, amount + tip)
 
   return ok({
     paymentId,
@@ -144,7 +145,7 @@ export async function emitBoletaForPayment(paymentId: number): Promise<Result<Bo
     })
   }
 
-  return emitBoletaInternal(supabase, paymentId, Number(pay.amount ?? 0))
+  return emitBoletaInternal(supabase, paymentId, Number(pay.amount ?? 0) + Number(pay.tip ?? 0))
 }
 
 export type GatewayCharge = { paymentId: number; checkoutUrl: string }

@@ -120,9 +120,17 @@ export function DocumentActions({ doc, emisor, officialPdfHref, items }: Props) 
     const pageStyle = document.createElement("style")
     pageStyle.textContent = "@page { size: auto; margin: 0; }"
     document.head.appendChild(pageStyle)
+    const roots = Array.from(document.querySelectorAll<HTMLElement>("[data-print-root]"))
+    const previousRoots = roots.map((root) => root.getAttribute("data-print-root"))
+    roots.forEach((root) => root.setAttribute("data-print-root", "active"))
     document.body.setAttribute("data-printing", "")
     const cleanup = () => {
       document.body.removeAttribute("data-printing")
+      roots.forEach((root, index) => {
+        const previous = previousRoots[index]
+        if (previous == null) root.removeAttribute("data-print-root")
+        else root.setAttribute("data-print-root", previous)
+      })
       pageStyle.remove()
       window.removeEventListener("afterprint", cleanup)
     }

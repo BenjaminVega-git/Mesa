@@ -225,7 +225,7 @@ async function printHtml(html: string): Promise<void> {
   // La regla global body[data-printing] [data-print-root] en globals.css ya
   // fuerza position:absolute + width:100% + margin/padding:0 en este nodo.
   const root = document.createElement("div")
-  root.setAttribute("data-print-root", "")
+  root.setAttribute("data-print-root", "active")
   root.innerHTML = html
   document.body.appendChild(root)
   document.body.setAttribute("data-printing", "")
