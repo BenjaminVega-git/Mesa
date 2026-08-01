@@ -17,7 +17,7 @@ import {
 } from "lucide-react"
 import { createSupabaseAnonClient } from "@/lib/supabase/anon"
 import { ProductImage } from "@/components/customer/ProductImage"
-import type { MenuTemplate } from "@/types/restaurant"
+import type { FulfillmentType, MenuTemplate } from "@/types/restaurant"
 
 type Variant = {
   id: number
@@ -113,7 +113,15 @@ function newRequestId() {
   })
 }
 
-export function DeliveryMenuClient({ data, paymentProvider }: { data: DeliveryMenuData; paymentProvider: string | null }) {
+export function DeliveryMenuClient({
+  data,
+  paymentProvider,
+  deliveryOptions,
+}: {
+  data: DeliveryMenuData
+  paymentProvider: string | null
+  deliveryOptions: { home_delivery?: boolean; pickup?: boolean }
+}) {
   const { restaurant, categories, products } = data
   const storageKey = `mesa-delivery-cart:${restaurant.delivery_slug}`
   const [cart, setCart] = useState<CartItem[]>([])
@@ -123,7 +131,14 @@ export function DeliveryMenuClient({ data, paymentProvider }: { data: DeliveryMe
   const [form, setForm] = useState<DeliveryForm>(EMPTY_FORM)
   const [sending, setSending] = useState(false)
   const [error, setError] = useState("")
-  const [completed, setCompleted] = useState<{ id: number; total: number } | null>(null)
+  const defaultFulfillment: FulfillmentType = deliveryOptions.home_delivery ? "home_delivery" : "pickup"
+  const serviceLabel = deliveryOptions.home_delivery && deliveryOptions.pickup
+    ? "Delivery y retiro"
+    : deliveryOptions.pickup
+      ? "Retiro en tienda"
+      : "Delivery"
+  const [completed, setCompleted] = useState<{ id: number; total: number; fulfillmentType: FulfillmentType } | null>(null)
+  const [fulfillmentType, setFulfillmentType] = useState<FulfillmentType>(defaultFulfillment)
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(paymentProvider ? "online" : "pay_at_store")
   const [searchQuery, setSearchQuery] = useState("")
   const [activeCategory, setActiveCategory] = useState<number | "all">("all")
@@ -145,13 +160,17 @@ export function DeliveryMenuClient({ data, paymentProvider }: { data: DeliveryMe
     const payment = params.get("payment")
     if (payment === "exito") {
       const pending = localStorage.getItem(pendingKey)
-      let parsed: { id: number; total: number } | null = null
+      let parsed: { id: number; total: number; fulfillmentType?: FulfillmentType } | null = null
       try {
-        parsed = pending ? JSON.parse(pending) as { id: number; total: number } : null
+        parsed = pending ? JSON.parse(pending) as { id: number; total: number; fulfillmentType?: FulfillmentType } : null
       } catch {
         localStorage.removeItem(pendingKey)
       }
-      setCompleted(parsed ?? { id: Number(params.get("order")) || 0, total: 0 })
+      setCompleted({
+        id: parsed?.id ?? (Number(params.get("order")) || 0),
+        total: parsed?.total ?? 0,
+        fulfillmentType: parsed?.fulfillmentType ?? defaultFulfillment,
+      })
       localStorage.removeItem(pendingKey)
       window.history.replaceState({}, "", window.location.pathname)
     } else if (payment === "rechazado" || payment === "cancelado" || payment === "error") {
@@ -159,10 +178,10 @@ export function DeliveryMenuClient({ data, paymentProvider }: { data: DeliveryMe
       setError("El pago no se completó. Puedes intentarlo nuevamente o pagar al retirar.")
       window.history.replaceState({}, "", window.location.pathname)
     } else if (payment === "pendiente") {
-      setCompleted({ id: Number(params.get("order")) || 0, total: 0 })
+      setCompleted({ id: Number(params.get("order")) || 0, total: 0, fulfillmentType: defaultFulfillment })
       window.history.replaceState({}, "", window.location.pathname)
     }
-  }, [pendingKey, storageKey])
+  }, [defaultFulfillment, pendingKey, storageKey])
 
   useEffect(() => {
     if (!hydrated) return
@@ -209,8 +228,12 @@ export function DeliveryMenuClient({ data, paymentProvider }: { data: DeliveryMe
 
   async function submitOrder() {
     if (sending || cart.length === 0) return
-    if (form.name.trim().length < 2 || form.phone.trim().length < 7 || form.address.trim().length < 5) {
-      setError("Completa tu nombre, teléfono y dirección para continuar.")
+    if (form.name.trim().length < 2 || form.phone.trim().length < 7) {
+      setError("Completa tu nombre y teléfono para continuar.")
+      return
+    }
+    if (fulfillmentType === "home_delivery" && form.address.trim().length < 5) {
+      setError("Ingresa la dirección donde debemos entregar el pedido.")
       return
     }
     if (paymentMethod === "online" && paymentProvider === "flow" && !form.email.trim()) {
@@ -243,6 +266,7 @@ export function DeliveryMenuClient({ data, paymentProvider }: { data: DeliveryMe
         p_reference: form.reference.trim() || null,
         p_request_id: requestId,
         p_payment_method: paymentMethod,
+        p_fulfillment_type: fulfillmentType,
       })
 
       if (rpcError) throw rpcError
@@ -265,14 +289,14 @@ export function DeliveryMenuClient({ data, paymentProvider }: { data: DeliveryMe
         const payment = await response.json().catch(() => null) as { checkoutUrl?: string; error?: string } | null
         if (!response.ok || !payment?.checkoutUrl) throw new Error(payment?.error ?? "No se pudo iniciar el pago")
 
-        localStorage.setItem(pendingKey, JSON.stringify({ id: order.id, total: order.total }))
+        localStorage.setItem(pendingKey, JSON.stringify({ id: order.id, total: order.total, fulfillmentType }))
         setCart([])
         localStorage.removeItem(storageKey)
         window.location.assign(payment.checkoutUrl)
         return
       }
 
-      setCompleted({ id: order.id, total: order.total })
+      setCompleted({ id: order.id, total: order.total, fulfillmentType })
       requestIdRef.current = null
       setCart([])
       setForm(EMPTY_FORM)
@@ -308,9 +332,9 @@ export function DeliveryMenuClient({ data, paymentProvider }: { data: DeliveryMe
             <h1 className="truncate font-[family-name:var(--font-grotesk)] text-[21px] font-extrabold">{restaurant.restaurant_name}</h1>
             {restaurant.restaurant_city ? (
               <p className="mt-0.5 flex items-center gap-1 text-xs text-[#a1a1aa]">
-                <MapPin className="h-3.5 w-3.5" /> Delivery · {restaurant.restaurant_city}
+                <MapPin className="h-3.5 w-3.5" /> {serviceLabel} · {restaurant.restaurant_city}
               </p>
-            ) : <p className="mt-0.5 text-xs text-[#a1a1aa]">Pedidos delivery</p>}
+            ) : <p className="mt-0.5 text-xs text-[#a1a1aa]">{serviceLabel}</p>}
           </div>
         </div>
       </header>
@@ -408,6 +432,9 @@ export function DeliveryMenuClient({ data, paymentProvider }: { data: DeliveryMe
           error={error}
           paymentProvider={paymentProvider}
           paymentMethod={paymentMethod}
+          fulfillmentType={fulfillmentType}
+          deliveryOptions={deliveryOptions}
+          onFulfillmentTypeChange={setFulfillmentType}
           onPaymentMethodChange={setPaymentMethod}
           onChange={setForm}
           onBack={() => { setCheckoutOpen(false); setCartOpen(true); setError("") }}
@@ -418,12 +445,18 @@ export function DeliveryMenuClient({ data, paymentProvider }: { data: DeliveryMe
 
       {completed ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <section className="w-full max-w-sm rounded-lg bg-white p-7 text-center shadow-2xl">
+          <section className="w-full max-w-sm rounded-lg bg-white p-7 text-center text-stone-950 shadow-2xl">
             <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
               <Check className="h-7 w-7" />
             </div>
             <h2 className="mt-4 text-2xl font-black">Pedido recibido</h2>
-            <p className="mt-2 text-sm text-stone-600">{paymentMethod === "online" ? `Pago recibido. Tu pedido #${completed.id} ya fue enviado al restaurante.` : `Tu pedido #${completed.id} ya fue enviado. Pagarás al retirar o recibir.`}</p>
+            <p className="mt-2 text-sm text-stone-600">
+              {paymentMethod === "online"
+                ? `Pago recibido. Tu pedido #${completed.id} ya fue enviado al restaurante.`
+                : completed.fulfillmentType === "pickup"
+                  ? `Tu pedido #${completed.id} fue enviado. Pagarás al retirarlo en tienda.`
+                  : `Tu pedido #${completed.id} fue enviado. Pagarás al recibirlo.`}
+            </p>
             {completed.total > 0 ? <p className="mt-4 text-xl font-black">{money(completed.total)}</p> : null}
             <button type="button" onClick={() => setCompleted(null)} className="mt-6 w-full rounded-lg bg-stone-950 px-4 py-3 text-sm font-bold text-white">
               Volver al menú
@@ -475,7 +508,7 @@ function ProductDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 sm:items-center" onClick={onClose}>
-      <section className="max-h-[94vh] w-full max-w-lg overflow-y-auto rounded-t-lg bg-white sm:rounded-lg" onClick={(event) => event.stopPropagation()}>
+      <section className="max-h-[94vh] w-full max-w-lg overflow-y-auto rounded-t-lg bg-white text-stone-950 sm:rounded-lg" onClick={(event) => event.stopPropagation()}>
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-stone-200 bg-white px-4 py-3">
           <button type="button" onClick={onClose} className="flex h-9 w-9 items-center justify-center" aria-label="Cerrar"><X /></button>
           <p className="text-sm font-bold">Personalizar producto</p>
@@ -563,17 +596,17 @@ function CheckChoice({ checked, label, price, onChange }: { checked: boolean; la
 }
 
 function CartDialog({ cart, total, onClose, onChangeQuantity, onCheckout }: { cart: CartItem[]; total: number; onClose: () => void; onChangeQuantity: (key: string, delta: number) => void; onCheckout: () => void }) {
-  return <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 sm:items-center" onClick={onClose}><section className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-lg bg-white p-5 sm:rounded-lg" onClick={(event) => event.stopPropagation()}>
+  return <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 sm:items-center" onClick={onClose}><section className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-lg bg-white p-5 text-stone-950 sm:rounded-lg" onClick={(event) => event.stopPropagation()}>
     <div className="flex items-center justify-between"><h2 className="text-xl font-black">Tu pedido</h2><button type="button" onClick={onClose} className="h-9 w-9" aria-label="Cerrar"><X className="mx-auto" /></button></div>
     <div className="mt-4 divide-y divide-stone-200">{cart.map((item) => <div key={item.key} className="py-4"><div className="flex gap-3"><div className="min-w-0 flex-1"><p className="font-bold">{item.productName}{item.variantName ? ` · ${item.variantName}` : ""}</p>{[...item.ingredientChoices, ...item.menuOptionChoices].length ? <p className="mt-1 text-xs leading-5 text-stone-500">{[...item.ingredientChoices, ...item.menuOptionChoices].map((choice) => choice.name).join(", ")}</p> : null}{item.notes ? <p className="mt-1 text-xs italic text-stone-500">{item.notes}</p> : null}</div><b>{money(item.unitPrice * item.quantity)}</b></div><div className="mt-3 flex items-center gap-3"><button type="button" onClick={() => onChangeQuantity(item.key, -1)} className="flex h-8 w-8 items-center justify-center rounded-md border border-stone-200">{item.quantity === 1 ? <Trash2 className="h-4 w-4" /> : <Minus className="h-4 w-4" />}</button><span className="text-sm font-black">{item.quantity}</span><button type="button" onClick={() => onChangeQuantity(item.key, 1)} className="flex h-8 w-8 items-center justify-center rounded-md border border-stone-200"><Plus className="h-4 w-4" /></button></div></div>)}</div>
     <div className="mt-5 flex items-center justify-between border-t border-stone-200 pt-4 text-lg font-black"><span>Total</span><span>{money(total)}</span></div>
-    <button type="button" disabled={!cart.length} onClick={onCheckout} className="mt-4 w-full rounded-md bg-orange-600 px-4 py-3.5 text-sm font-bold text-white disabled:opacity-50">Ingresar datos de entrega</button>
+    <button type="button" disabled={!cart.length} onClick={onCheckout} className="mt-4 w-full rounded-md bg-orange-600 px-4 py-3.5 text-sm font-bold text-white disabled:opacity-50">Continuar con el pedido</button>
   </section></div>
 }
 
 function CheckoutDialog({
-  form, total, sending, error, paymentProvider, paymentMethod,
-  onPaymentMethodChange, onChange, onBack, onClose, onSubmit,
+  form, total, sending, error, paymentProvider, paymentMethod, fulfillmentType,
+  deliveryOptions, onFulfillmentTypeChange, onPaymentMethodChange, onChange, onBack, onClose, onSubmit,
 }: {
   form: DeliveryForm
   total: number
@@ -581,6 +614,9 @@ function CheckoutDialog({
   error: string
   paymentProvider: string | null
   paymentMethod: PaymentMethod
+  fulfillmentType: FulfillmentType
+  deliveryOptions: { home_delivery?: boolean; pickup?: boolean }
+  onFulfillmentTypeChange: (type: FulfillmentType) => void
   onPaymentMethodChange: (method: PaymentMethod) => void
   onChange: (form: DeliveryForm) => void
   onBack: () => void
@@ -588,9 +624,37 @@ function CheckoutDialog({
   onSubmit: () => void
 }) {
   const field = (key: keyof DeliveryForm) => (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => onChange({ ...form, [key]: event.target.value })
-  return <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 sm:items-center" onClick={onClose}><section className="max-h-[94vh] w-full max-w-lg overflow-y-auto rounded-t-lg bg-white p-5 sm:rounded-lg" onClick={(event) => event.stopPropagation()}>
-    <div className="flex items-center justify-between"><button type="button" onClick={onBack} className="h-9 w-9" aria-label="Volver"><ArrowLeft className="mx-auto" /></button><h2 className="text-lg font-black">Datos de entrega</h2><button type="button" onClick={onClose} className="h-9 w-9" aria-label="Cerrar"><X className="mx-auto" /></button></div>
-    <div className="mt-5 space-y-4"><InputField icon={<User />} label="Nombre" value={form.name} onChange={field("name")} maxLength={80} /><InputField icon={<Phone />} label="Teléfono" value={form.phone} onChange={field("phone")} maxLength={24} type="tel" /><InputField icon={<MapPin />} label="Dirección completa" value={form.address} onChange={field("address")} maxLength={180} /><label className="block text-xs font-bold text-stone-600">Referencia (opcional)<textarea value={form.reference} onChange={field("reference")} maxLength={250} placeholder="Casa azul, timbre 2..." className="mt-1 min-h-20 w-full resize-none rounded-md border border-stone-200 p-3 text-sm font-normal outline-none focus:border-orange-400" /></label></div>
+  return <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 sm:items-center" onClick={onClose}><section className="max-h-[94vh] w-full max-w-lg overflow-y-auto rounded-t-lg bg-white p-5 text-stone-950 sm:rounded-lg" onClick={(event) => event.stopPropagation()}>
+    <div className="flex items-center justify-between"><button type="button" onClick={onBack} className="h-9 w-9" aria-label="Volver"><ArrowLeft className="mx-auto" /></button><h2 className="text-lg font-black">Completar pedido</h2><button type="button" onClick={onClose} className="h-9 w-9" aria-label="Cerrar"><X className="mx-auto" /></button></div>
+    {deliveryOptions.home_delivery && deliveryOptions.pickup ? (
+      <fieldset className="mt-5">
+        <legend className="text-xs font-black uppercase text-stone-500">¿Cómo quieres recibirlo?</legend>
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          <label className={fulfillmentType === "home_delivery" ? "flex cursor-pointer flex-col items-center gap-2 rounded-md border border-orange-400 bg-orange-50 p-3 text-center" : "flex cursor-pointer flex-col items-center gap-2 rounded-md border border-stone-200 p-3 text-center"}>
+            <input type="radio" name="fulfillment" checked={fulfillmentType === "home_delivery"} onChange={() => onFulfillmentTypeChange("home_delivery")} />
+            <MapPin className="h-5 w-5 text-orange-600" />
+            <b className="text-sm">A domicilio</b>
+          </label>
+          <label className={fulfillmentType === "pickup" ? "flex cursor-pointer flex-col items-center gap-2 rounded-md border border-orange-400 bg-orange-50 p-3 text-center" : "flex cursor-pointer flex-col items-center gap-2 rounded-md border border-stone-200 p-3 text-center"}>
+            <input type="radio" name="fulfillment" checked={fulfillmentType === "pickup"} onChange={() => onFulfillmentTypeChange("pickup")} />
+            <Store className="h-5 w-5 text-orange-600" />
+            <b className="text-sm">Retiro en tienda</b>
+          </label>
+        </div>
+      </fieldset>
+    ) : null}
+    <div className="mt-5 space-y-4">
+      <InputField icon={<User />} label="Nombre" value={form.name} onChange={field("name")} maxLength={80} />
+      <InputField icon={<Phone />} label="Teléfono" value={form.phone} onChange={field("phone")} maxLength={24} type="tel" />
+      {fulfillmentType === "home_delivery" ? (
+        <>
+          <InputField icon={<MapPin />} label="Dirección completa" value={form.address} onChange={field("address")} maxLength={180} />
+          <label className="block text-xs font-bold text-stone-600">Referencia (opcional)<textarea value={form.reference} onChange={field("reference")} maxLength={250} placeholder="Casa azul, timbre 2..." className="mt-1 min-h-20 w-full resize-none rounded-md border border-stone-200 p-3 text-sm font-normal text-stone-950 outline-none focus:border-orange-400" /></label>
+        </>
+      ) : (
+        <label className="block text-xs font-bold text-stone-600">Comentario para el retiro (opcional)<textarea value={form.reference} onChange={field("reference")} maxLength={250} placeholder="Ej: retiraré a nombre de..." className="mt-1 min-h-20 w-full resize-none rounded-md border border-stone-200 p-3 text-sm font-normal text-stone-950 outline-none focus:border-orange-400" /></label>
+      )}
+    </div>
     <fieldset className="mt-5">
       <legend className="text-xs font-black uppercase text-stone-500">Forma de pago</legend>
       <div className="mt-2 grid gap-2">
@@ -604,7 +668,10 @@ function CheckoutDialog({
         <label className={`flex cursor-pointer items-center gap-3 rounded-md border p-3 ${paymentMethod === "pay_at_store" ? "border-orange-400 bg-orange-50" : "border-stone-200"}`}>
           <input type="radio" name="delivery-payment" checked={paymentMethod === "pay_at_store"} onChange={() => onPaymentMethodChange("pay_at_store")} />
           <Store className="h-5 w-5 text-orange-600" />
-          <span><b className="block text-sm">Pagar al retirar o recibir</b><span className="block text-xs text-stone-500">El pedido se confirma ahora y pagas después</span></span>
+          <span>
+            <b className="block text-sm">{fulfillmentType === "pickup" ? "Pagar al retirar" : "Pagar al recibir"}</b>
+            <span className="block text-xs text-stone-500">El pedido se confirma ahora y pagas después</span>
+          </span>
         </label>
       </div>
     </fieldset>
@@ -616,5 +683,5 @@ function CheckoutDialog({
 }
 
 function InputField({ icon, label, value, onChange, maxLength, type = "text" }: { icon: React.ReactNode; label: string; value: string; onChange: React.ChangeEventHandler<HTMLInputElement>; maxLength: number; type?: string }) {
-  return <label className="block text-xs font-bold text-stone-600">{label}<span className="mt-1 flex items-center gap-2 rounded-md border border-stone-200 px-3 focus-within:border-orange-400"><span className="[&>svg]:h-4 [&>svg]:w-4 text-stone-400">{icon}</span><input type={type} value={value} onChange={onChange} maxLength={maxLength} className="h-11 min-w-0 flex-1 text-sm font-normal outline-none" /></span></label>
+  return <label className="block text-xs font-bold text-stone-600">{label}<span className="mt-1 flex items-center gap-2 rounded-md border border-stone-200 px-3 focus-within:border-orange-400"><span className="[&>svg]:h-4 [&>svg]:w-4 text-stone-400">{icon}</span><input type={type} value={value} onChange={onChange} maxLength={maxLength} className="h-11 min-w-0 flex-1 text-sm font-normal text-stone-950 outline-none" /></span></label>
 }

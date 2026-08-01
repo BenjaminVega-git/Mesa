@@ -459,9 +459,13 @@ function slugify(value: string): string {
 function DeliverySection({ restaurant, onSaved }: DeliverySectionProps) {
   const initialEnabled = restaurant?.delivery_enabled ?? false
   const initialSlug = restaurant?.delivery_slug ?? ""
+  const initialHomeDelivery = restaurant?.delivery_home_enabled ?? true
+  const initialPickup = restaurant?.pickup_enabled ?? false
 
   const [enabledOverride, setEnabledOverride] = useState<boolean | null>(null)
   const [slugOverride, setSlugOverride] = useState<string | null>(null)
+  const [homeDeliveryOverride, setHomeDeliveryOverride] = useState<boolean | null>(null)
+  const [pickupOverride, setPickupOverride] = useState<boolean | null>(null)
   const [saving, setSaving] = useState(false)
   const [feedback, setFeedback] = useState<{ kind: "ok" | "error"; message: string } | null>(null)
   const [copied, setCopied] = useState(false)
@@ -484,8 +488,12 @@ function DeliverySection({ restaurant, onSaved }: DeliverySectionProps) {
 
   const enabled = enabledOverride ?? initialEnabled
   const slug = slugOverride ?? initialSlug
+  const homeDelivery = homeDeliveryOverride ?? initialHomeDelivery
+  const pickup = pickupOverride ?? initialPickup
   const isDirty =
     enabled !== initialEnabled ||
+    homeDelivery !== initialHomeDelivery ||
+    pickup !== initialPickup ||
     (slugOverride !== null && slugOverride.trim() !== initialSlug.trim())
 
   async function handleSave() {
@@ -496,6 +504,8 @@ function DeliverySection({ restaurant, onSaved }: DeliverySectionProps) {
       const result = await updateDeliveryConfig({
         enabled,
         slug: slug.trim() || null,
+        homeDelivery,
+        pickup,
       })
       if (!result.ok) {
         setFeedback({ kind: "error", message: result.error })
@@ -504,6 +514,8 @@ function DeliverySection({ restaurant, onSaved }: DeliverySectionProps) {
       onSaved()
       setEnabledOverride(null)
       setSlugOverride(null)
+      setHomeDeliveryOverride(null)
+      setPickupOverride(null)
       setFeedback({ kind: "ok", message: "Cambios guardados" })
     } finally {
       setSaving(false)
@@ -517,9 +529,9 @@ function DeliverySection({ restaurant, onSaved }: DeliverySectionProps) {
 
   return (
     <section className="rounded-3xl border border-stone-200 bg-white p-6 shadow-sm">
-      <h3 className="text-lg font-bold text-stone-900">Delivery</h3>
+      <h3 className="text-lg font-bold text-stone-900">Pedidos online</h3>
       <p className="mt-1 text-xs font-medium text-stone-500">
-        Activá delivery para aparecer en el directorio público y tener tu URL propia.
+        Comparte tu menú público para recibir pedidos a domicilio, para retiro o ambos.
       </p>
 
       <div className="mt-5 flex items-center gap-3">
@@ -539,12 +551,44 @@ function DeliverySection({ restaurant, onSaved }: DeliverySectionProps) {
           />
         </button>
         <span className="text-sm font-semibold text-stone-900">
-          {enabled ? "Delivery activado" : "Delivery desactivado"}
+          {enabled ? "Pedidos online activados" : "Pedidos online desactivados"}
         </span>
       </div>
 
       {enabled && (
         <div className="mt-6 max-w-md">
+          <fieldset className="mb-6">
+            <legend className="text-xs font-bold uppercase tracking-wider text-stone-500">
+              Modalidades disponibles
+            </legend>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              <label className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 ${homeDelivery ? "border-orange-300 bg-orange-50" : "border-stone-200 bg-white"}`}>
+                <input
+                  type="checkbox"
+                  checked={homeDelivery}
+                  onChange={(event) => setHomeDeliveryOverride(event.target.checked)}
+                  className="mt-0.5 h-4 w-4 accent-orange-500"
+                />
+                <span>
+                  <span className="block text-sm font-bold text-stone-900">Entrega a domicilio</span>
+                  <span className="mt-0.5 block text-[11px] leading-4 text-stone-500">Solicita dirección y referencia.</span>
+                </span>
+              </label>
+              <label className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 ${pickup ? "border-orange-300 bg-orange-50" : "border-stone-200 bg-white"}`}>
+                <input
+                  type="checkbox"
+                  checked={pickup}
+                  onChange={(event) => setPickupOverride(event.target.checked)}
+                  className="mt-0.5 h-4 w-4 accent-orange-500"
+                />
+                <span>
+                  <span className="block text-sm font-bold text-stone-900">Retiro en tienda</span>
+                  <span className="mt-0.5 block text-[11px] leading-4 text-stone-500">No solicita ubicación al cliente.</span>
+                </span>
+              </label>
+            </div>
+          </fieldset>
+
           <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-stone-500">
             Identificador (slug)
           </label>

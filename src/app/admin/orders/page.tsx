@@ -136,7 +136,7 @@ export default function OrdersPage() {
                 ? tablesData[0]?.table_number
                 : tablesData?.table_number
               const tableName = order.order_type === "delivery"
-                ? `Delivery${order.delivery_customer_name ? ` · ${order.delivery_customer_name}` : ""}`
+                ? `${order.fulfillment_type === "pickup" ? "Retiro en tienda" : "Domicilio"}${order.delivery_customer_name ? ` · ${order.delivery_customer_name}` : ""}`
                 : tableNumber === 0
                   ? "Recepción"
                   : `Mesa ${tableNumber ?? order.table_id ?? "—"}`

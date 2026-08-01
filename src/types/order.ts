@@ -6,6 +6,7 @@ export type Order = {
   order_number: number | null
   table_id: number | null
   order_type: "dine_in" | "delivery" | null
+  fulfillment_type: "home_delivery" | "pickup" | null
   delivery_customer_name: string | null
   total: number
   status_id: number

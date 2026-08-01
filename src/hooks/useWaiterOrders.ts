@@ -70,7 +70,7 @@ export function useWaiterOrders(restaurantId: number | null) {
         playNewOrderSound()
         for (const o of newlyArrived) {
           const tableLabel = o.orderType === "delivery"
-            ? `Domicilio · ${o.deliveryCustomerName ?? "Cliente"}`
+            ? `${o.fulfillmentType === "pickup" ? "Retiro en tienda" : "Domicilio"} · ${o.deliveryCustomerName ?? "Cliente"}`
             : o.tableNumber != null ? `Mesa ${o.tableNumber}` : `Mesa #${o.tableId ?? "?"}`
           const itemsSummary = o.items
             .slice(0, 3)

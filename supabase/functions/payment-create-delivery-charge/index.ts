@@ -43,7 +43,7 @@ Deno.serve(async (req: Request) => {
   const admin = createClient(url, svc);
   const { data: order, error: orderError } = await admin
     .from("orders")
-    .select("id, restaurant_id, total, status_id, delivery_request_id, delivery_customer_name, delivery_payment_method, restaurants!inner(delivery_slug)")
+    .select("id, restaurant_id, total, status_id, delivery_request_id, delivery_customer_name, delivery_payment_method, fulfillment_type, restaurants!inner(delivery_slug)")
     .eq("id", orderId)
     .eq("order_type", "delivery")
     .eq("delivery_payment_method", "online")
@@ -103,7 +103,7 @@ Deno.serve(async (req: Request) => {
     amount: order.total,
     tip: 0,
     currency: "CLP",
-    description: `Pedido delivery #${order.id}`,
+    description: `Pedido ${order.fulfillment_type === "pickup" ? "para retiro" : "delivery"} #${order.id}`,
     reference: `MESA-P${paymentId}`,
     payerEmail: payerEmail || null,
     returnUrl,

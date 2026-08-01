@@ -70,7 +70,7 @@ function elapsedMinutes(
 }
 
 function tableLabel(o: WaiterOrder): string {
-  if (o.orderType === "delivery") return "Domicilio"
+  if (o.orderType === "delivery") return o.fulfillmentType === "pickup" ? "Retiro en tienda" : "Domicilio"
   if (o.tableNumber === 0) return "Recepción"
   if (o.tableNumber != null) return `Mesa ${o.tableNumber}`
   if (o.tableId != null) return `Mesa #${o.tableId}`
@@ -248,7 +248,7 @@ function WaiterControlSystem() {
   const handleMarkPaid = useCallback(async (order: WaiterOrder) => {
     if (order.orderType === "delivery") {
       const ok = await markPaid(order.id)
-      if (ok) triggerToast(`Pedido a domicilio #${order.id} marcado como pagado`)
+      if (ok) triggerToast(`Pedido ${order.fulfillmentType === "pickup" ? "para retiro" : "a domicilio"} #${order.id} marcado como pagado`)
       return
     }
     if (order.tableId == null) return
@@ -808,10 +808,14 @@ function WaiterControlSystem() {
 
             {selectedOrder.orderType === "delivery" ? (
               <div className="mt-4 rounded-xl border border-orange-200 bg-orange-50 p-4 text-sm text-stone-700">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-orange-700">Datos de entrega</p>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-orange-700">
+                  {selectedOrder.fulfillmentType === "pickup" ? "Datos de retiro" : "Datos de entrega"}
+                </p>
                 <p className="mt-2 font-bold">{selectedOrder.deliveryCustomerName ?? "Cliente"}</p>
                 <p>{selectedOrder.deliveryCustomerPhone ?? "Sin teléfono"}</p>
-                <p className="mt-1 font-semibold">{selectedOrder.deliveryAddress ?? "Sin dirección"}</p>
+                {selectedOrder.fulfillmentType === "home_delivery" ? (
+                  <p className="mt-1 font-semibold">{selectedOrder.deliveryAddress ?? "Sin dirección"}</p>
+                ) : null}
                 {selectedOrder.deliveryReference ? <p className="mt-1 text-xs text-stone-500">{selectedOrder.deliveryReference}</p> : null}
               </div>
             ) : null}

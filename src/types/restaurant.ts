@@ -10,6 +10,7 @@ export type ReservationContactType = "none" | "whatsapp"
 //   'block' = el stock oculta/bloquea productos (según insumos críticos).
 //   'info'  = el stock nunca oculta ni bloquea; solo alimenta las alertas.
 export type StockMenuMode = "block" | "info"
+export type FulfillmentType = "home_delivery" | "pickup"
 
 export type PublicRestaurant = {
   id: number
@@ -25,6 +26,8 @@ export type Restaurant = PublicRestaurant & {
   restaurant_city: string | null
   delivery_enabled: boolean
   delivery_slug: string | null
+  delivery_home_enabled: boolean
+  pickup_enabled: boolean
   reservation_contact_type: ReservationContactType
   reservation_whatsapp: string | null
   reservation_duration_minutes: number

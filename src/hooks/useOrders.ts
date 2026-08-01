@@ -12,7 +12,7 @@ export function useOrders({ limit = 30 }: { limit?: number } = {}) {
   const fetchOrders = useCallback(async (): Promise<Order[]> => {
     const { data, error } = await supabase
       .from("orders")
-      .select("id, order_number, table_id, total, status_id, created_at, order_type, delivery_customer_name, order_status(status_name), tables(table_number)")
+      .select("id, order_number, table_id, total, status_id, created_at, order_type, fulfillment_type, delivery_customer_name, order_status(status_name), tables(table_number)")
       .eq("restaurant_id", restaurantId)
       .in("status_id", [1, 2, 3])
       .order("created_at", { ascending: false })

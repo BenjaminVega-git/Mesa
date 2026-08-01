@@ -166,7 +166,7 @@ export default function AdminPage() {
                     <div>
                       <h4 className="font-bold text-stone-900">
                         {order.order_type === "delivery"
-                          ? `Delivery${order.delivery_customer_name ? ` · ${order.delivery_customer_name}` : ""}`
+                          ? `${order.fulfillment_type === "pickup" ? "Retiro en tienda" : "Domicilio"}${order.delivery_customer_name ? ` · ${order.delivery_customer_name}` : ""}`
                           : tableNumber === 0
                             ? "Recepción"
                             : `Mesa ${tableNumber ?? order.table_id ?? "—"}`}

@@ -33,6 +33,7 @@ export type WaiterOrder = {
   dinerSlot: number | null
   dinerLabel: string | null
   orderType: "dine_in" | "delivery"
+  fulfillmentType: "home_delivery" | "pickup" | null
   deliveryCustomerName: string | null
   deliveryCustomerPhone: string | null
   deliveryAddress: string | null
@@ -50,6 +51,7 @@ type OrderRow = {
   diner_slot: number | null
   diner_label: string | null
   order_type: "dine_in" | "delivery" | null
+  fulfillment_type: "home_delivery" | "pickup" | null
   delivery_customer_name: string | null
   delivery_customer_phone: string | null
   delivery_address: string | null
@@ -77,6 +79,7 @@ function mapOrderRow(row: OrderRow): WaiterOrder {
     dinerSlot: row.diner_slot,
     dinerLabel: row.diner_label,
     orderType: row.order_type === "delivery" ? "delivery" : "dine_in",
+    fulfillmentType: row.fulfillment_type === "pickup" ? "pickup" : row.fulfillment_type === "home_delivery" ? "home_delivery" : null,
     deliveryCustomerName: row.delivery_customer_name,
     deliveryCustomerPhone: row.delivery_customer_phone,
     deliveryAddress: row.delivery_address,
@@ -126,7 +129,7 @@ export async function listActiveOrdersForRestaurant(
   const { data, error } = await supabase
     .from("orders")
     .select(
-      "id, table_id, total, status_id, created_at, ready_at, diner_slot, diner_label, order_type, delivery_customer_name, delivery_customer_phone, delivery_address, delivery_reference, tables(table_number), order_items(id, product_name, variant_name, product_price, product_quantity, notes)"
+      "id, table_id, total, status_id, created_at, ready_at, diner_slot, diner_label, order_type, fulfillment_type, delivery_customer_name, delivery_customer_phone, delivery_address, delivery_reference, tables(table_number), order_items(id, product_name, variant_name, product_price, product_quantity, notes)"
     )
     .eq("restaurant_id", restaurantId)
     .in("status_id", [ORDER_STATUS_NUEVO, ORDER_STATUS_PREPARANDO, ORDER_STATUS_LISTO, ORDER_STATUS_PAGADO])

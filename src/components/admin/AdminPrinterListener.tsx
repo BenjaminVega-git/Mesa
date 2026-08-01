@@ -18,6 +18,7 @@ type FetchedOrder = {
   status_id: number
   table_id: number
   order_type: "dine_in" | "delivery"
+  fulfillment_type: "home_delivery" | "pickup" | null
   delivery_customer_name: string | null
   delivery_customer_phone: string | null
   delivery_address: string | null
@@ -67,7 +68,7 @@ export function AdminPrinterListener() {
     try {
       const { data, error } = await supabase
         .from("orders")
-        .select("id, status_id, table_id, order_type, delivery_customer_name, delivery_customer_phone, delivery_address, delivery_reference, tables ( table_number ), order_items ( product_quantity, product_name, variant_name, notes )")
+        .select("id, status_id, table_id, order_type, fulfillment_type, delivery_customer_name, delivery_customer_phone, delivery_address, delivery_reference, tables ( table_number ), order_items ( product_quantity, product_name, variant_name, notes )")
         .eq("id", orderId)
         .maybeSingle<FetchedOrder>()
 
@@ -84,7 +85,9 @@ export function AdminPrinterListener() {
       const ticketInput = {
         restaurantName: current.restaurant_name ?? "Restaurante",
         tableNumber: data.tables?.table_number === 0 ? "Recepcion" : data.tables?.table_number ?? data.table_id,
-        destinationLabel: data.order_type === "delivery" ? "DOMICILIO" : undefined,
+        destinationLabel: data.order_type === "delivery"
+          ? data.fulfillment_type === "pickup" ? "RETIRO EN TIENDA" : "DOMICILIO"
+          : undefined,
         customerName: data.delivery_customer_name,
         customerPhone: data.delivery_customer_phone,
         deliveryAddress: data.delivery_address,

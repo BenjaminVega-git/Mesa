@@ -11,9 +11,10 @@ export default async function DeliveryRestaurantPage({ params }: { params: Param
   if (!slug || !/^[a-z0-9][a-z0-9-]*$/i.test(slug)) notFound()
 
   const supabase = createSupabaseAnonClient()
-  const [{ data, error }, { data: paymentProvider }] = await Promise.all([
+  const [{ data, error }, { data: paymentProvider }, { data: deliveryOptions }] = await Promise.all([
     supabase.rpc("get_restaurant_by_slug", { p_slug: slug }),
     supabase.rpc("delivery_payment_available", { p_slug: slug }),
+    supabase.rpc("get_delivery_options", { p_slug: slug }),
   ])
   if (error || !data) notFound()
 
@@ -21,6 +22,10 @@ export default async function DeliveryRestaurantPage({ params }: { params: Param
     <DeliveryMenuClient
       data={data as unknown as DeliveryMenuData}
       paymentProvider={typeof paymentProvider === "string" ? paymentProvider : null}
+      deliveryOptions={(deliveryOptions as { home_delivery?: boolean; pickup?: boolean } | null) ?? {
+        home_delivery: true,
+        pickup: false,
+      }}
     />
   )
 }

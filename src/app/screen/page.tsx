@@ -13,6 +13,7 @@ type FetchedOrder = {
   status_id: number
   table_id: number
   order_type: "dine_in" | "delivery"
+  fulfillment_type: "home_delivery" | "pickup" | null
   delivery_customer_name: string | null
   delivery_customer_phone: string | null
   delivery_address: string | null
@@ -27,7 +28,7 @@ type DisplayOrder = {
   tableNumber: number | string
   receivedAt: Date
   items: { quantity: number; name: string; notes: string | null }[]
-  delivery: { name: string | null; phone: string | null; address: string | null; reference: string | null } | null
+  delivery: { fulfillmentType: "home_delivery" | "pickup"; name: string | null; phone: string | null; address: string | null; reference: string | null } | null
 }
 
 const EN_PREPARACION_STATUS_ID = 2
@@ -39,7 +40,7 @@ function formatClock(date: Date) {
 function rowToDisplay(data: FetchedOrder): DisplayOrder {
   return {
     id: data.id,
-    tableNumber: data.order_type === "delivery" ? "Domicilio" : data.tables?.table_number ?? data.table_id,
+    tableNumber: data.order_type === "delivery" ? (data.fulfillment_type === "pickup" ? "Retiro en tienda" : "Domicilio") : data.tables?.table_number ?? data.table_id,
     receivedAt: new Date(data.created_at),
     items: data.order_items.map((item) => ({
       quantity: item.product_quantity,
@@ -49,6 +50,7 @@ function rowToDisplay(data: FetchedOrder): DisplayOrder {
       notes: item.notes,
     })),
     delivery: data.order_type === "delivery" ? {
+      fulfillmentType: data.fulfillment_type === "pickup" ? "pickup" : "home_delivery",
       name: data.delivery_customer_name,
       phone: data.delivery_customer_phone,
       address: data.delivery_address,
@@ -82,7 +84,7 @@ function ScreenPage() {
     const { data, error } = await supabase
       .from("orders")
       .select(
-        "id, status_id, table_id, created_at, order_type, delivery_customer_name, delivery_customer_phone, delivery_address, delivery_reference, tables ( table_number ), order_items ( product_quantity, product_name, variant_name, notes )"
+        "id, status_id, table_id, created_at, order_type, fulfillment_type, delivery_customer_name, delivery_customer_phone, delivery_address, delivery_reference, tables ( table_number ), order_items ( product_quantity, product_name, variant_name, notes )"
       )
       .eq("id", orderId)
       .maybeSingle<FetchedOrder>()
@@ -133,7 +135,7 @@ function ScreenPage() {
       const { data, error } = await supabase
         .from("orders")
         .select(
-          "id, status_id, table_id, created_at, order_type, delivery_customer_name, delivery_customer_phone, delivery_address, delivery_reference, tables ( table_number ), order_items ( product_quantity, product_name, variant_name, notes )"
+          "id, status_id, table_id, created_at, order_type, fulfillment_type, delivery_customer_name, delivery_customer_phone, delivery_address, delivery_reference, tables ( table_number ), order_items ( product_quantity, product_name, variant_name, notes )"
         )
         .eq("restaurant_id", restaurant.id)
         .eq("status_id", EN_PREPARACION_STATUS_ID)
@@ -275,7 +277,7 @@ function ScreenPage() {
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-wider text-orange-300">
-                    {order.delivery ? "Domicilio" : `Mesa ${order.tableNumber}`}
+                    {order.delivery ? (order.delivery.fulfillmentType === "pickup" ? "Retiro en tienda" : "Domicilio") : `Mesa ${order.tableNumber}`}
                   </p>
                   <p className="mt-1 text-3xl font-extrabold tracking-tight tabular-nums">#{order.id}</p>
                 </div>
@@ -287,7 +289,7 @@ function ScreenPage() {
               {order.delivery ? (
                 <div className="mt-3 rounded-xl border border-orange-400/30 bg-orange-500/10 px-3 py-2 text-xs leading-5 text-orange-100">
                   <p className="font-bold">{order.delivery.name ?? "Cliente"} · {order.delivery.phone ?? "Sin teléfono"}</p>
-                  <p>{order.delivery.address ?? "Sin dirección"}</p>
+                  {order.delivery.fulfillmentType === "home_delivery" ? <p>{order.delivery.address ?? "Sin dirección"}</p> : null}
                   {order.delivery.reference ? <p className="text-orange-200/75">{order.delivery.reference}</p> : null}
                 </div>
               ) : null}

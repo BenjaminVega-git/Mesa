@@ -214,6 +214,8 @@ const SLUG_REGEX = /^[a-z0-9]+(-[a-z0-9]+)*$/
 
 const UpdateDeliveryConfigSchema = z.object({
   enabled: z.boolean(),
+  homeDelivery: z.boolean(),
+  pickup: z.boolean(),
   slug: z
     .string()
     .trim()
@@ -238,10 +240,13 @@ export async function updateDeliveryConfig(
     return fail(parsed.error.issues[0]?.message ?? "Datos inválidos")
   }
 
-  const { enabled, slug } = parsed.data
+  const { enabled, slug, homeDelivery, pickup } = parsed.data
 
   if (enabled && !slug) {
     return fail("Necesitás definir un identificador para activar delivery")
+  }
+  if (enabled && !homeDelivery && !pickup) {
+    return fail("Activa entrega a domicilio, retiro en tienda o ambas opciones")
   }
 
   const auth = await requireCurrentAdmin()
@@ -254,6 +259,8 @@ export async function updateDeliveryConfig(
     .update({
       delivery_enabled: enabled,
       delivery_slug: slug ?? null,
+      delivery_home_enabled: homeDelivery,
+      pickup_enabled: pickup,
     })
     .eq("id", restaurantId)
 
