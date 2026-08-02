@@ -172,14 +172,3 @@ export const UpdateProductStatusSchema = z.object({
 })
 
 export type UpdateProductStatusInput = z.infer<typeof UpdateProductStatusSchema>
-
-export const AssignProductCodigoSchema = z.object({
-  productId: z.number().int().positive(),
-  codigo: z
-    .string()
-    .trim()
-    .min(1, "El codigo escaneado es obligatorio")
-    .max(SCAN_CODE_MAX, "El codigo escaneado es demasiado largo"),
-})
-
-export type AssignProductCodigoInput = z.infer<typeof AssignProductCodigoSchema>

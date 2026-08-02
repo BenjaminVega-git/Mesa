@@ -6,7 +6,6 @@ import {
   updateProduct as updateProductService,
   deleteProduct as deleteProductService,
   updateProductStatus as updateProductStatusService,
-  assignProductCodigo as assignProductCodigoService,
   getProductForEdit as getProductForEditService,
   type CreatedProduct,
   type ProductForEdit,
@@ -16,7 +15,6 @@ import type {
   UpdateProductInput,
   DeleteProductInput,
   UpdateProductStatusInput,
-  AssignProductCodigoInput,
 } from "@/lib/validation/product"
 import type { Result } from "@/services/result"
 
@@ -60,18 +58,6 @@ export async function updateProductStatusAction(
   input: UpdateProductStatusInput
 ): Promise<Result<{ id: number }>> {
   const result = await updateProductStatusService(input)
-
-  if (result.ok) {
-    updateTag("menu")
-  }
-
-  return result
-}
-
-export async function assignProductCodigoAction(
-  input: AssignProductCodigoInput
-): Promise<Result<{ id: number; codigo: string }>> {
-  const result = await assignProductCodigoService(input)
 
   if (result.ok) {
     updateTag("menu")

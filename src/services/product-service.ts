@@ -5,12 +5,10 @@ import {
   UpdateProductSchema,
   DeleteProductSchema,
   UpdateProductStatusSchema,
-  AssignProductCodigoSchema,
   type CreateProductInput,
   type UpdateProductInput,
   type DeleteProductInput,
   type UpdateProductStatusInput,
-  type AssignProductCodigoInput,
 } from "@/lib/validation/product"
 import { ok, fail, type Result } from "@/services/result"
 import { deleteImagesBestEffort } from "@/lib/cloudinary/delete-image-server"
@@ -540,44 +538,3 @@ export async function updateProductStatus(input: UpdateProductStatusInput): Prom
   return ok({ id: productId })
 }
 
-
-export async function assignProductCodigo(input: AssignProductCodigoInput): Promise<Result<{ id: number; codigo: string }>> {
-  const validation = AssignProductCodigoSchema.safeParse(input)
-
-  if (!validation.success) {
-    return fail(validation.error.issues[0]?.message ?? "Datos invalidos")
-  }
-
-  const { productId } = validation.data
-  const codigo = validation.data.codigo.trim()
-
-  const restaurantId = await getRestaurantIdForProduct(productId)
-  if (!restaurantId) return fail("Producto no encontrado")
-
-  const guard = await requireAdminForRestaurant(restaurantId)
-  if (!guard.ok) return fail(guard.error)
-  const { supabase } = guard.data
-  const codigoConflict = await ensureCodigosAvailable({
-    supabase,
-    restaurantId,
-    codes: [codigo],
-    excludeProductId: productId,
-    excludeVariantsForProduct: false,
-  })
-  if (codigoConflict) return fail(codigoConflict)
-
-  const { error } = await supabase
-    .from("products")
-    .update({ codigo })
-    .eq("id", productId)
-
-  if (error) {
-    if (error.code === "23505") {
-      return fail("Ese codigo ya esta asociado a otro producto")
-    }
-    return fail("Error al guardar el codigo del producto")
-  }
-
-  revalidateMenu(restaurantId)
-  return ok({ id: productId, codigo })
-}
