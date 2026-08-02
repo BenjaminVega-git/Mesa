@@ -227,10 +227,10 @@ export function ProductDetailSheet({
 
         <div className="flex-1 overflow-y-auto px-5 pb-5 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
           <div className="mt-4 flex items-start justify-between gap-3">
-            <h2 className="font-[family-name:var(--font-grotesk)] text-[24px] font-bold leading-[1.1] tracking-[-0.03em] text-[#fafafa]">
+            <h2 className="[font-family:var(--font-grotesk)] text-[24px] font-bold leading-[1.1] tracking-[-0.03em] text-[#fafafa]">
               {product.product_name}
             </h2>
-            <span className="shrink-0 pt-1 font-[family-name:var(--font-grotesk)] text-[20px] font-extrabold text-[#fafafa]">
+            <span className="shrink-0 pt-1 [font-family:var(--font-grotesk)] text-[20px] font-extrabold text-[#fafafa]">
               {formatPrice(activePrice)}
             </span>
           </div>

@@ -37,7 +37,7 @@ type ReservedScreenProps = {
 
 function ReservedScreen({ restaurantName, restaurantLogo, tableNumber, endsAt }: ReservedScreenProps) {
   return (
-    <main className="min-h-screen bg-black font-[family-name:var(--font-manrope)] text-[#fafafa] sm:py-4">
+    <main className="min-h-screen bg-black [font-family:var(--font-manrope)] text-[#fafafa] sm:py-4">
       <section className="relative mx-auto flex min-h-screen w-full flex-col items-center justify-center overflow-clip bg-[#0a0a0b] px-6 text-center shadow-[0_30px_80px_rgba(0,0,0,0.5)] sm:min-h-[calc(100vh-32px)] sm:max-w-[440px] sm:rounded-[38px] sm:border-[10px] sm:border-[#050506]">
         <div className="flex items-center gap-2.5">
           {restaurantLogo ? (
@@ -50,7 +50,7 @@ function ReservedScreen({ restaurantName, restaurantLogo, tableNumber, endsAt }:
           ) : (
             <span className="text-lg" aria-hidden="true">🍽️</span>
           )}
-          <h1 className="truncate font-[family-name:var(--font-grotesk)] text-[19px] font-extrabold tracking-[-0.02em]">
+          <h1 className="truncate [font-family:var(--font-grotesk)] text-[19px] font-extrabold tracking-[-0.02em]">
             {restaurantName}
           </h1>
         </div>
@@ -59,7 +59,7 @@ function ReservedScreen({ restaurantName, restaurantLogo, tableNumber, endsAt }:
           🔒
         </div>
 
-        <h2 className="mt-6 font-[family-name:var(--font-grotesk)] text-[24px] font-extrabold tracking-[-0.01em]">
+        <h2 className="mt-6 [font-family:var(--font-grotesk)] text-[24px] font-extrabold tracking-[-0.01em]">
           Mesa {tableNumber} reservada
         </h2>
         <p className="mt-2 max-w-[18rem] text-[14px] leading-relaxed text-[#a1a1aa]">
@@ -146,7 +146,7 @@ function ProductCard({ item, isPopular, onOpenDetail }: ProductCardProps) {
       </div>
 
       <div className="flex min-w-0 flex-1 flex-col justify-center py-3.5 pl-1 pr-2">
-        <h3 className="line-clamp-2 font-[family-name:var(--font-grotesk)] text-[16px] font-bold leading-tight tracking-[-0.01em] text-[#fafafa]">
+        <h3 className="line-clamp-2 [font-family:var(--font-grotesk)] text-[16px] font-bold leading-tight tracking-[-0.01em] text-[#fafafa]">
           {item.product_name}
         </h3>
         {item.product_description ? (
@@ -155,7 +155,7 @@ function ProductCard({ item, isPopular, onOpenDetail }: ProductCardProps) {
           </p>
         ) : null}
         <div className="mt-2 flex items-baseline gap-1.5">
-          <span className="font-[family-name:var(--font-grotesk)] text-[17px] font-extrabold text-[#fb923c]">
+          <span className="[font-family:var(--font-grotesk)] text-[17px] font-extrabold text-[#fb923c]">
             {hasVariants
               ? `Desde ${formatPrice(Math.min(...variants.map((variant) => variant.variant_price)))}`
               : formatPrice(item.product_price)}
@@ -529,7 +529,7 @@ export function MenuClient({ qrCode, menu }: MenuClientProps) {
   }
 
   return (
-    <main className="min-h-screen bg-black font-[family-name:var(--font-manrope)] text-[#fafafa] sm:py-4">
+    <main className="min-h-screen bg-black [font-family:var(--font-manrope)] text-[#fafafa] sm:py-4">
       <section className="relative mx-auto flex min-h-screen w-full flex-col overflow-clip bg-[#0a0a0b] pb-28 shadow-[0_30px_80px_rgba(0,0,0,0.5)] sm:min-h-[calc(100vh-32px)] sm:max-w-[440px] sm:rounded-[38px] sm:border-[10px] sm:border-[#050506]">
         {/* ── Cabecera (marca + cuenta) ── */}
         <div className="px-4 pt-5">
@@ -545,7 +545,7 @@ export function MenuClient({ qrCode, menu }: MenuClientProps) {
               ) : (
                 <span className="text-lg" aria-hidden="true">🍽️</span>
               )}
-              <h1 className="truncate font-[family-name:var(--font-grotesk)] text-[21px] font-extrabold tracking-[-0.02em] text-[#fafafa]">
+              <h1 className="truncate [font-family:var(--font-grotesk)] text-[21px] font-extrabold tracking-[-0.02em] text-[#fafafa]">
                 {restaurant?.restaurant_name}
               </h1>
             </div>

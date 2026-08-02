@@ -415,7 +415,7 @@ export function DeliveryMenuClient({
   }
 
   return (
-    <main className="min-h-screen bg-black font-[family-name:var(--font-manrope)] text-[#fafafa] sm:py-4">
+    <main className="min-h-screen bg-black [font-family:var(--font-manrope)] text-[#fafafa] sm:py-4">
       <section className="relative mx-auto min-h-screen w-full overflow-hidden bg-[#0a0a0b] pb-28 shadow-[0_30px_80px_rgba(0,0,0,0.5)] sm:min-h-[calc(100vh-32px)] sm:max-w-[440px] sm:rounded-[38px] sm:border-[10px] sm:border-[#050506]">
       <header className="px-4 pt-5">
         <div className="flex items-center gap-3">
@@ -432,7 +432,7 @@ export function DeliveryMenuClient({
             </div>
           )}
           <div className="min-w-0 flex-1">
-            <h1 className="truncate font-[family-name:var(--font-grotesk)] text-[21px] font-extrabold">{restaurant.restaurant_name}</h1>
+            <h1 className="truncate [font-family:var(--font-grotesk)] text-[21px] font-extrabold">{restaurant.restaurant_name}</h1>
             {restaurant.restaurant_city ? (
               <p className="mt-0.5 flex items-center gap-1 text-xs text-[#a1a1aa]">
                 <MapPin className="h-3.5 w-3.5" /> {serviceLabel} · {restaurant.restaurant_city}
@@ -498,7 +498,7 @@ export function DeliveryMenuClient({
                       >
                         <ProductImage src={product.product_image} alt={product.product_name} hasBackground={!product.image_recortada} fade="right" className="w-[128px] shrink-0" />
                         <div className="flex min-w-0 flex-1 flex-col justify-center py-3.5 pl-1 pr-2">
-                          <h3 className="line-clamp-2 font-[family-name:var(--font-grotesk)] text-[16px] font-bold leading-tight">{product.product_name}</h3>
+                          <h3 className="line-clamp-2 [font-family:var(--font-grotesk)] text-[16px] font-bold leading-tight">{product.product_name}</h3>
                           {product.product_description ? (
                             <p className="mt-1 line-clamp-2 text-[12.5px] leading-snug text-[#a1a1aa]">{product.product_description}</p>
                           ) : null}

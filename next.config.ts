@@ -2,8 +2,31 @@ import { withSentryConfig } from "@sentry/nextjs"
 import type { NextConfig } from "next"
 
 const localSupabaseConnect = process.env.MESA_LOCAL_SUPABASE === "1"
-  ? " http://localhost:54321 http://127.0.0.1:54321 ws://localhost:54321 ws://127.0.0.1:54321"
+  ? buildLocalSupabaseConnect()
   : ""
+
+function buildLocalSupabaseConnect() {
+  const origins = new Set([
+    "http://localhost:54321",
+    "http://127.0.0.1:54321",
+    "ws://localhost:54321",
+    "ws://127.0.0.1:54321",
+  ])
+
+  const configuredUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  if (configuredUrl) {
+    try {
+      const url = new URL(configuredUrl)
+      origins.add(url.origin)
+      if (url.protocol === "http:") origins.add(`ws://${url.host}`)
+      if (url.protocol === "https:") origins.add(`wss://${url.host}`)
+    } catch {
+      // Invalid env values are handled by the Supabase client at runtime.
+    }
+  }
+
+  return ` ${Array.from(origins).join(" ")}`
+}
 
 // CSP conservadora: permite los orígenes que el cliente realmente usa
 // (Supabase REST/realtime, Cloudinary) y mantiene 'unsafe-inline'/'unsafe-eval'
@@ -71,6 +94,16 @@ const nextConfig: NextConfig = {
       {
         source: "/:path*",
         headers: securityHeaders,
+      },
+    ]
+  },
+  async rewrites() {
+    if (process.env.MESA_LOCAL_SUPABASE !== "1") return []
+
+    return [
+      {
+        source: "/supabase/:path*",
+        destination: "http://127.0.0.1:54321/:path*",
       },
     ]
   },

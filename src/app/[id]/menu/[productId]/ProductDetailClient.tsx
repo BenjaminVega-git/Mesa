@@ -132,7 +132,7 @@ export function ProductDetailClient({
   }
 
   return (
-    <main className="min-h-screen bg-black font-[family-name:var(--font-manrope)] text-[#fafafa] sm:py-4">
+    <main className="min-h-screen bg-black [font-family:var(--font-manrope)] text-[#fafafa] sm:py-4">
       <section className="relative mx-auto min-h-screen w-full overflow-hidden bg-[#0f0f10] pb-28 shadow-[0_30px_80px_rgba(0,0,0,0.5)] sm:min-h-[calc(100vh-32px)] sm:max-w-[440px] sm:rounded-[38px] sm:border-[10px] sm:border-[#050506]">
         <div
           className="relative h-[300px] overflow-hidden bg-[#0f0f10]"
@@ -174,7 +174,7 @@ export function ProductDetailClient({
             </span>
           </div>
 
-          <h1 className="mt-4 font-[family-name:var(--font-grotesk)] text-[29px] font-bold leading-[1.05] tracking-[-0.04em] text-[#fafafa]">
+          <h1 className="mt-4 [font-family:var(--font-grotesk)] text-[29px] font-bold leading-[1.05] tracking-[-0.04em] text-[#fafafa]">
             {product.product_name}
           </h1>
 
@@ -247,7 +247,7 @@ export function ProductDetailClient({
               <p className="text-[10px] font-extrabold uppercase tracking-[0.15em] text-[#71717a]">
                 Precio
               </p>
-              <p className="mt-1 font-[family-name:var(--font-grotesk)] text-[28px] font-bold text-[#fb923c]">
+              <p className="mt-1 [font-family:var(--font-grotesk)] text-[28px] font-bold text-[#fb923c]">
                 {formatPrice(activePrice)}
               </p>
             </div>

@@ -17,6 +17,7 @@ const eslintConfig = defineConfig([
     "electron/**",
     "dist/**",
     "resources/**",
+    "supabase/.temp/**",
     "scripts/**",
     "**/*.config.{js,mjs,cjs}",
   ]),

@@ -21,7 +21,7 @@ export default async function GraciasPage({
   const name = menu.restaurant?.restaurant_name ?? "el restaurante"
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[#0a0a0b] font-[family-name:var(--font-manrope)]">
+    <main className="relative min-h-screen overflow-hidden bg-[#0a0a0b] [font-family:var(--font-manrope)]">
       <ClearDinerTokenOnMount tableId={menu.tableId ?? null} />
 
       <section className="relative mx-auto flex min-h-screen max-w-md flex-col items-center justify-center px-6 text-center md:max-w-2xl">

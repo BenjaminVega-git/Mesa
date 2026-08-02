@@ -4,10 +4,15 @@
   "private": true,
   "main": "electron/main.js",
   "scripts": {
-    "dev": "next dev",
+    "dev": "node scripts/dev-supabase.mjs",
+    "dev:local": "node scripts/dev-supabase.mjs local",
+    "dev:remote": "node scripts/dev-supabase.mjs remote",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "users:list": "node scripts/list-supabase-users.mjs",
+    "tables:list": "node scripts/list-supabase-table.mjs",
+    "tables:join": "node scripts/list-supabase-table.mjs",
     "electron": "electron .",
     "electron:dev": "concurrently -k -n NEXT,ELECTRON -c blue,magenta \"npm run dev\" \"wait-on http://localhost:3000 && npm run electron\"",
     "electron:build": "electron-builder",
@@ -31,6 +36,7 @@
     "browser-image-compression": "^2.0.2",
     "capacitor-native-settings": "^8.1.0",
     "cloudinary": "^2.10.0",
+    "electron-updater": "^6.8.1",
     "hashids": "^2.3.0",
     "lucide-react": "^1.17.0",
     "nanoid": "^3.3.12",
@@ -41,8 +47,7 @@
     "recharts": "^3.8.1",
     "resend": "^6.12.3",
     "zod": "^4.4.3",
-    "zustand": "^5.0.13",
-    "electron-updater": "^6.8.1"
+    "zustand": "^5.0.13"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -56,6 +61,7 @@
     "electron-builder": "^26.8.1",
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
+    "supabase": "^2.111.0",
     "tailwindcss": "^4",
     "typescript": "^5",
     "wait-on": "^9.0.10"

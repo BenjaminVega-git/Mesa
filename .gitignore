@@ -16,6 +16,10 @@
 # next.js
 /.next/
 /out/
+.next-dev-local.log
+
+# local Supabase CLI/runtime state
+/.supabase/
 
 # production
 /build/*
