@@ -57,6 +57,7 @@ const nextConfig: NextConfig = {
     "192.168.18.74",  // Laptop de Tomy
     "10.142.155.101",   // Laptop de Benja
     "192.168.56.1",   // Laptop de Amaro
+    "127.0.0.1",  // VPS
   ],
   // Las Server Actions cargan imágenes (importar carta con Gemini, hasta 6 fotos en base64).
   // Default es 1MB, lo subimos para que no rechace silenciosamente.
