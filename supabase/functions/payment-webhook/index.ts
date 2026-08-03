@@ -6,6 +6,15 @@
 //  - Flow: re-consulta getStatus firmada (el POST de Flow no trae firma).
 //  - Transbank: NO usa webhooks (confirma payment-return).
 //
+// Acepta GET y POST. Esto NO es cosmético: Mercado Pago llama esta misma URL
+// con GET tanto (a) al guardar la URL en Webhooks → Configurar notificaciones
+// (ping de validación sin body, MP marca la URL como inválida si no responde
+// 200) como (b) para el IPN clásico de algunos eventos. Rechazar GET con 405
+// —el bug real que traía este archivo— hacía que MP invalidara la
+// configuración del webhook y que ninguna notificación real se procesara
+// nunca (confirmado: cero filas en payment_events pese a intentos de cobro
+// reales), aunque createCharge funcionara perfecto.
+//
 // Hace dos cosas, en orden:
 //  1) Registra el evento crudo (trazabilidad; idempotente por
 //     unique(source, external_id)). SIEMPRE, aunque la conciliación falle.
@@ -13,13 +22,15 @@
 //     &ref=MESA-P{paymentId} → se resuelve el pago, se validan las
 //     credenciales del restaurante (Vault) y se asienta el resultado vía
 //     payment_apply_gateway_result (marca pedidos pagados y libera la mesa).
+//     Un ping de validación (sin ref) simplemente no concilia nada y responde
+//     200 igual — es justo lo que MP necesita ver para aceptar la URL.
 //
 // Responde 200 rápido (MP espera <22 s, Flow <15 s).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { getPaymentAdapter } from "../_shared/payment-adapters.ts";
 
 Deno.serve(async (req: Request) => {
-  if (req.method !== "POST") {
+  if (req.method !== "POST" && req.method !== "GET") {
     return new Response(JSON.stringify({ error: "Método no permitido" }), {
       status: 405,
       headers: { "content-type": "application/json" },
