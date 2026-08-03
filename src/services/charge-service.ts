@@ -13,7 +13,7 @@
 //  · emitBoletaForPayment: emite (o reintenta) la boleta de un pago pagado.
 //  · listPaymentsToday / getStaffPayment / getPaymentReceipt: lecturas staff.
 
-import { requireCurrentStaff } from "@/services/auth-guard"
+import { requireCurrentAdmin, requireCurrentStaff } from "@/services/auth-guard"
 import { getDteAdapter } from "@/lib/dte"
 import { logger } from "@/lib/logger"
 import { ok, fail, type Result } from "@/services/result"
@@ -146,6 +146,33 @@ export async function emitBoletaForPayment(paymentId: number): Promise<Result<Bo
   }
 
   return emitBoletaInternal(supabase, paymentId, Number(pay.amount ?? 0) + Number(pay.tip ?? 0))
+}
+
+/** Anula una venta cobrada: payment -> refunded, pedidos -> Cancelado y boleta -> voided. */
+export async function annulStaffPayment(
+  paymentId: number,
+  reason?: string
+): Promise<Result<{ paymentId: number; cancelledOrders: number }>> {
+  if (!paymentId || paymentId <= 0) return fail("Venta inválida")
+
+  const auth = await requireCurrentAdmin()
+  if (!auth.ok) return fail(auth.error)
+  const { supabase } = auth.data
+
+  const { data, error } = await supabase.rpc("annul_staff_payment", {
+    p_payment_id: paymentId,
+    p_reason: reason?.trim() || null,
+  })
+
+  if (error) return fail(error.message ?? "No se pudo anular la venta")
+
+  const result = data as { ok?: boolean; payment_id?: number; cancelled_orders?: number } | null
+  if (!result?.ok) return fail("No se pudo anular la venta")
+
+  return ok({
+    paymentId: Number(result.payment_id ?? paymentId),
+    cancelledOrders: Number(result.cancelled_orders ?? 0),
+  })
 }
 
 export type GatewayCharge = { paymentId: number; checkoutUrl: string }

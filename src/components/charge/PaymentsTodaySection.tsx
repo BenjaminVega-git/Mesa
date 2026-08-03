@@ -2,11 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react"
 import {
+  annulStaffPayment,
   emitBoletaForPayment,
   listPaymentsToday,
   type PaymentTodayRow,
 } from "@/services/charge-service"
 import { PAYMENT_PROVIDER_LABEL } from "@/lib/payments/types"
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog"
 
 const clp = new Intl.NumberFormat("es-CL", {
   style: "currency",
@@ -20,7 +22,7 @@ const STATUS_STYLE: Record<string, { label: string; cls: string }> = {
   pending: { label: "Pendiente", cls: "bg-amber-50 text-amber-700 ring-amber-200" },
   authorized: { label: "Procesando", cls: "bg-amber-50 text-amber-700 ring-amber-200" },
   failed: { label: "Rechazado", cls: "bg-red-50 text-red-600 ring-red-200" },
-  refunded: { label: "Reembolsado", cls: "bg-stone-100 text-stone-600 ring-stone-200" },
+  refunded: { label: "Anulado", cls: "bg-stone-100 text-stone-600 ring-stone-200" },
 }
 
 const METHOD_STYLE: Record<string, { label: string; cls: string }> = {
@@ -46,6 +48,9 @@ export function PaymentsTodaySection() {
   const [payments, setPayments] = useState<PaymentTodayRow[]>([])
   const [loading, setLoading] = useState(true)
   const [emittingId, setEmittingId] = useState<number | null>(null)
+  const [annullingId, setAnnullingId] = useState<number | null>(null)
+  const [annulTarget, setAnnulTarget] = useState<PaymentTodayRow | null>(null)
+  const [feedback, setFeedback] = useState<{ kind: "ok" | "error"; message: string } | null>(null)
 
   const load = useCallback(async () => {
     const res = await listPaymentsToday()
@@ -69,8 +74,25 @@ export function PaymentsTodaySection() {
 
   async function handleEmit(paymentId: number) {
     setEmittingId(paymentId)
-    await emitBoletaForPayment(paymentId)
+    const res = await emitBoletaForPayment(paymentId)
+    if (!res.ok) setFeedback({ kind: "error", message: res.error })
+    else setFeedback({ kind: "ok", message: "Boleta emitida." })
     setEmittingId(null)
+    await load()
+  }
+
+  async function handleConfirmAnnul() {
+    if (!annulTarget || annullingId != null) return
+    setAnnullingId(annulTarget.id)
+    setFeedback(null)
+    const res = await annulStaffPayment(annulTarget.id, "Anulada desde pagos de hoy")
+    setAnnullingId(null)
+    if (!res.ok) {
+      setFeedback({ kind: "error", message: res.error })
+      return
+    }
+    setAnnulTarget(null)
+    setFeedback({ kind: "ok", message: "Venta anulada." })
     await load()
   }
 
@@ -98,6 +120,18 @@ export function PaymentsTodaySection() {
         </div>
       </div>
 
+      {feedback ? (
+        <p
+          className={`mt-4 rounded-xl px-3 py-2 text-xs font-semibold ${
+            feedback.kind === "ok"
+              ? "border border-emerald-200 bg-emerald-50 text-emerald-700"
+              : "border border-red-200 bg-red-50 text-red-700"
+          }`}
+        >
+          {feedback.message}
+        </p>
+      ) : null}
+
       <div className="mt-5">
         {loading ? (
           <div className="space-y-2">
@@ -110,7 +144,7 @@ export function PaymentsTodaySection() {
           </p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[620px] text-sm">
+            <table className="w-full min-w-[700px] text-sm">
               <thead>
                 <tr className="border-b border-stone-200 text-left text-[11px] font-bold uppercase tracking-wider text-stone-500">
                   <th className="py-2 pr-3">Hora</th>
@@ -119,7 +153,8 @@ export function PaymentsTodaySection() {
                   <th className="py-2 pr-3">Propina</th>
                   <th className="py-2 pr-3">Método</th>
                   <th className="py-2 pr-3">Estado</th>
-                  <th className="py-2">Boleta</th>
+                  <th className="py-2 pr-3">Boleta</th>
+                  <th className="py-2 text-right">Acción</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-stone-100">
@@ -153,7 +188,7 @@ export function PaymentsTodaySection() {
                           {st.label}
                         </span>
                       </td>
-                      <td className="py-2.5">
+                      <td className="py-2.5 pr-3">
                         {p.boleta ? (
                           <a
                             href={`/boleta/${p.id}`}
@@ -176,6 +211,20 @@ export function PaymentsTodaySection() {
                           <span className="text-[11px] text-stone-400">—</span>
                         )}
                       </td>
+                      <td className="py-2.5 text-right">
+                        {p.status === "paid" ? (
+                          <button
+                            type="button"
+                            onClick={() => setAnnulTarget(p)}
+                            disabled={annullingId != null || emittingId != null}
+                            className="rounded-full px-2.5 py-1 text-[11px] font-bold text-red-600 ring-1 ring-red-200 transition hover:bg-red-50 disabled:opacity-50"
+                          >
+                            {annullingId === p.id ? "Anulando…" : "Anular"}
+                          </button>
+                        ) : (
+                          <span className="text-[11px] text-stone-400">—</span>
+                        )}
+                      </td>
                     </tr>
                   )
                 })}
@@ -184,6 +233,17 @@ export function PaymentsTodaySection() {
           </div>
         )}
       </div>
+      <ConfirmDialog
+        open={annulTarget !== null}
+        title="¿Anular esta venta?"
+        description={`Se marcará como anulada, dejará de sumar como pagada y su boleta quedará anulada.${annulTarget ? ` Venta por ${fmt(annulTarget.amount + annulTarget.tip)}${annulTarget.tableNumber ? `, mesa ${annulTarget.tableNumber}` : ""}.` : ""}`}
+        confirmLabel={annullingId != null ? "Anulando..." : "Sí, anular venta"}
+        cancelLabel="No, mantener venta"
+        onConfirm={handleConfirmAnnul}
+        onCancel={() => {
+          if (annullingId == null) setAnnulTarget(null)
+        }}
+      />
     </section>
   )
 }
