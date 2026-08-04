@@ -749,20 +749,48 @@ function LocationSection({ restaurant, onSaved }: OrderHandlingSectionProps) {
 
     setLocating(true)
     setFeedback(null)
-    navigator.geolocation.getCurrentPosition(
+    let bestPosition: GeolocationPosition | null = null
+    let finished = false
+    let watchId: number | null = null
+    const finish = (position: GeolocationPosition | null, error?: GeolocationPositionError) => {
+      if (finished) return
+      finished = true
+      if (watchId != null) navigator.geolocation.clearWatch(watchId)
+      window.clearTimeout(timeoutId)
+
+      if (!position) {
+        setLocating(false)
+        setFeedback({ kind: "error", message: error ? getGeolocationErrorMessage(error) : "No se pudo obtener la ubicación. Revisa el permiso de GPS." })
+        return
+      }
+
+      const accuracy = Number.isFinite(position.coords.accuracy) ? position.coords.accuracy : null
+      setLatitudeOverride(position.coords.latitude)
+      setLongitudeOverride(position.coords.longitude)
+      setAccuracyOverride(accuracy)
+      setEnabledOverride(nextEnabled)
+      setLocating(false)
+      setFeedback({
+        kind: "ok",
+        message: accuracy != null && accuracy <= 50
+          ? "Ubicación GPS precisa capturada. Guarda los cambios para activarla."
+          : "Se guardó la mejor lectura disponible. Para mayor precisión, mantén el móvil dentro del local y vuelve a intentarlo.",
+      })
+    }
+
+    const timeoutId = window.setTimeout(() => finish(bestPosition), 25000)
+    watchId = navigator.geolocation.watchPosition(
       (position) => {
-        setLatitudeOverride(position.coords.latitude)
-        setLongitudeOverride(position.coords.longitude)
-        setAccuracyOverride(Number.isFinite(position.coords.accuracy) ? position.coords.accuracy : null)
-        setEnabledOverride(nextEnabled)
-        setLocating(false)
-        setFeedback({ kind: "ok", message: "Ubicación capturada. Guarda los cambios para activarla." })
+        const accuracy = position.coords.accuracy
+        if (bestPosition == null || (Number.isFinite(accuracy) && accuracy < bestPosition.coords.accuracy)) {
+          bestPosition = position
+        }
+        // On a phone, the browser often starts with a cell-tower estimate and
+        // improves it shortly after enabling high-accuracy GPS.
+        if (Number.isFinite(accuracy) && accuracy <= 50) finish(position)
       },
-      (error) => {
-        setLocating(false)
-        setFeedback({ kind: "error", message: getGeolocationErrorMessage(error) })
-      },
-      { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
+      (error) => finish(bestPosition, error),
+      { enableHighAccuracy: true, timeout: 25000, maximumAge: 0 }
     )
   }
 
@@ -820,6 +848,9 @@ function LocationSection({ restaurant, onSaved }: OrderHandlingSectionProps) {
       <p className="mt-1 text-xs font-medium text-stone-500">
         Valida con GPS que los pedidos por QR se hagan cerca de la mesa. No afecta pedidos online ni delivery.
       </p>
+      <p className="mt-3 rounded-xl border border-orange-100 bg-orange-50 px-3 py-2 text-xs font-medium leading-5 text-orange-800">
+        Para registrar el punto exacto, abre esta pantalla desde un móvil estando dentro del local, activa la ubicación y espera a que el GPS se estabilice.
+      </p>
 
       <div className="mt-5 flex items-center gap-3">
         <button
@@ -861,7 +892,7 @@ function LocationSection({ restaurant, onSaved }: OrderHandlingSectionProps) {
             disabled={locating}
             className="mt-4 rounded-xl border border-stone-200 bg-white px-4 py-2 text-xs font-bold text-stone-700 transition hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {locating ? "Leyendo GPS..." : "Usar GPS actual"}
+            {locating ? "Buscando GPS del móvil..." : "Capturar ubicación desde este móvil"}
           </button>
           {accuracyM != null && accuracyM > 50 && (
             <label className="mt-3 flex items-start gap-2 text-[11px] font-medium leading-4 text-amber-800">

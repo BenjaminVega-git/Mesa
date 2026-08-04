@@ -73,19 +73,45 @@ function getBrowserLocation(): Promise<{ latitude: number; longitude: number; ac
       return
     }
 
-    navigator.geolocation.getCurrentPosition(
+    let bestPosition: GeolocationPosition | null = null
+    let watchId: number | null = null
+    let finished = false
+    const finish = (position: GeolocationPosition | null, error?: GeolocationPositionError) => {
+      if (finished) return
+      finished = true
+      if (watchId != null) navigator.geolocation.clearWatch(watchId)
+      window.clearTimeout(timeoutId)
+
+      if (!position) {
+        reject(new Error(error ? getGeolocationErrorMessage(error) : "No se pudo obtener tu ubicación GPS."))
+        return
+      }
+
+      resolve({
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+        accuracyM: Number.isFinite(position.coords.accuracy) ? position.coords.accuracy : null,
+      })
+    }
+
+    const timeoutId = window.setTimeout(() => finish(bestPosition), 10000)
+    watchId = navigator.geolocation.watchPosition(
       (position) => {
-        resolve({
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-          accuracyM: Number.isFinite(position.coords.accuracy) ? position.coords.accuracy : null,
-        })
+        const accuracy = position.coords.accuracy
+        if (
+          bestPosition == null ||
+          (Number.isFinite(accuracy) && (!Number.isFinite(bestPosition.coords.accuracy) || accuracy < bestPosition.coords.accuracy))
+        ) {
+          bestPosition = position
+        }
+
+        // Do not submit the first coarse cell/IP estimate. Finish early only
+        // once the phone reports a useful reading; otherwise use the best
+        // reading collected during the short observation window.
+        if (Number.isFinite(accuracy) && accuracy <= 50) finish(position)
       },
-      (error) => reject(new Error(getGeolocationErrorMessage(error))),
-      // Cada pedido debe comprobar la posición actual: si reutilizamos una
-      // posición anterior, el cliente puede haberse acercado a la mesa y aun
-      // así el servidor recibe las coordenadas del lugar donde estaba antes.
-      { enableHighAccuracy: true, timeout: 30000, maximumAge: 0 }
+      (error) => finish(bestPosition, error),
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     )
   })
 }

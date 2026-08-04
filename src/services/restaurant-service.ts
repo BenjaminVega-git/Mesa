@@ -279,7 +279,10 @@ const UpdateLocationConfigSchema = z
     enabled: z.boolean(),
     latitude: z.number().min(-90).max(90).nullable(),
     longitude: z.number().min(-180).max(180).nullable(),
-    accuracyM: z.number().finite().min(0).max(10000).nullable(),
+    // Browsers may report a very imprecise fallback location (for example,
+    // from a cell tower). Keep accepting that reading so the UI can explain
+    // it and require an explicit confirmation before saving it.
+    accuracyM: z.number().finite().min(0).max(100000).nullable(),
     radiusM: z.number().int().min(30).max(1000),
   })
   .refine((data) => !data.enabled || (data.latitude != null && data.longitude != null), {
