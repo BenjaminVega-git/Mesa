@@ -1,8 +1,17 @@
 import { createBrowserClient } from "@supabase/ssr"
+import { SUPABASE_AUTH_COOKIE } from "./cookie"
 
 export const supabase = createBrowserClient(
   getBrowserSupabaseUrl(),
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  {
+    cookieOptions: {
+      name: SUPABASE_AUTH_COOKIE,
+      path: "/",
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+    },
+  },
 )
 
 function getBrowserSupabaseUrl() {

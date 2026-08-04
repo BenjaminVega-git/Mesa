@@ -399,7 +399,7 @@ export async function createOrder(input: CreateOrderInput): Promise<Result<Creat
     return fail(validation.error.issues[0]?.message ?? "Datos inválidos")
   }
 
-  const { qrToken, items, dinerToken, couponCode } = validation.data
+  const { qrToken, items, dinerToken, couponCode, customerLocation } = validation.data
 
   const rpcItems = items.map((item) => ({
     product_id: item.productId ?? null,
@@ -428,6 +428,8 @@ export async function createOrder(input: CreateOrderInput): Promise<Result<Creat
     p_qr_token: qrToken,
     p_diner_token: dinerToken ?? null,
     p_coupon_code: couponCode ?? null,
+    p_latitude: customerLocation?.latitude ?? null,
+    p_longitude: customerLocation?.longitude ?? null,
   })
 
   if (error && shouldRetryWithLegacyOrderRpc(error)) {
@@ -436,6 +438,8 @@ export async function createOrder(input: CreateOrderInput): Promise<Result<Creat
       p_items: rpcItems,
       p_diner_token: dinerToken ?? null,
       p_coupon_code: couponCode ?? null,
+      p_latitude: customerLocation?.latitude ?? null,
+      p_longitude: customerLocation?.longitude ?? null,
     })
     data = retry.data
     error = retry.error

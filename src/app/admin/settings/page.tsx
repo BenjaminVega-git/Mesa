@@ -7,6 +7,7 @@ import { useProducts } from "@/hooks/useProducts"
 import { invalidateCache } from "@/hooks/useCache"
 import {
   updateDeliveryConfig,
+  updateLocationConfig,
   updateMenuTemplate,
   updateOrderDestination,
   updateOutputMode,
@@ -697,6 +698,199 @@ function DeliverySection({ restaurant, onSaved }: DeliverySectionProps) {
   )
 }
 
+function getGeolocationErrorMessage(error: GeolocationPositionError) {
+  if (error.code === error.PERMISSION_DENIED) {
+    return "Permiso de ubicación denegado. Actívalo en el navegador y en el sistema."
+  }
+  if (error.code === error.POSITION_UNAVAILABLE) {
+    return "No se pudo calcular la ubicación. Prueba con un teléfono dentro del local."
+  }
+  if (error.code === error.TIMEOUT) {
+    return "El GPS tardó demasiado en responder. Reintenta desde un lugar con mejor señal."
+  }
+  return "No se pudo obtener la ubicación. Revisa el permiso de GPS."
+}
+
+function LocationSection({ restaurant, onSaved }: OrderHandlingSectionProps) {
+  const initialEnabled = restaurant?.location_check_enabled ?? false
+  const initialLatitude = restaurant?.location_latitude ?? null
+  const initialLongitude = restaurant?.location_longitude ?? null
+  const initialRadius = restaurant?.location_radius_m ?? 120
+
+  const [enabledOverride, setEnabledOverride] = useState<boolean | null>(null)
+  const [latitudeOverride, setLatitudeOverride] = useState<number | null | undefined>(undefined)
+  const [longitudeOverride, setLongitudeOverride] = useState<number | null | undefined>(undefined)
+  const [radiusOverride, setRadiusOverride] = useState<number | null>(null)
+  const [locating, setLocating] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [feedback, setFeedback] = useState<{ kind: "ok" | "error"; message: string } | null>(null)
+
+  const enabled = enabledOverride ?? initialEnabled
+  const latitude = latitudeOverride !== undefined ? latitudeOverride : initialLatitude
+  const longitude = longitudeOverride !== undefined ? longitudeOverride : initialLongitude
+  const radiusM = radiusOverride ?? initialRadius
+  const hasLocation = latitude != null && longitude != null
+  const isDirty =
+    enabled !== initialEnabled ||
+    latitude !== initialLatitude ||
+    longitude !== initialLongitude ||
+    radiusM !== initialRadius
+
+  function captureLocation(nextEnabled = enabled) {
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      setFeedback({ kind: "error", message: "Este dispositivo no permite leer GPS desde el navegador" })
+      return
+    }
+
+    setLocating(true)
+    setFeedback(null)
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setLatitudeOverride(position.coords.latitude)
+        setLongitudeOverride(position.coords.longitude)
+        setEnabledOverride(nextEnabled)
+        setLocating(false)
+        setFeedback({ kind: "ok", message: "Ubicación capturada. Guarda los cambios para activarla." })
+      },
+      (error) => {
+        setLocating(false)
+        setFeedback({ kind: "error", message: getGeolocationErrorMessage(error) })
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 }
+    )
+  }
+
+  async function handleToggle() {
+    const next = !enabled
+    setEnabledOverride(next)
+    if (next && !hasLocation) captureLocation(next)
+  }
+
+  async function handleSave() {
+    if (saving || !isDirty) return
+    if (enabled && !hasLocation) {
+      setFeedback({ kind: "error", message: "Captura la ubicación GPS del local antes de activar esta opción" })
+      return
+    }
+
+    setSaving(true)
+    setFeedback(null)
+    try {
+      const result = await updateLocationConfig({
+        enabled,
+        latitude,
+        longitude,
+        radiusM,
+      })
+      if (!result.ok) {
+        setFeedback({ kind: "error", message: result.error })
+        return
+      }
+      onSaved()
+      setEnabledOverride(null)
+      setLatitudeOverride(undefined)
+      setLongitudeOverride(undefined)
+      setRadiusOverride(null)
+      setFeedback({ kind: "ok", message: "Cambios guardados" })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <section className="rounded-3xl border border-stone-200 bg-white p-6 shadow-sm">
+      <h3 className="text-lg font-bold text-stone-900">Activar ubicación</h3>
+      <p className="mt-1 text-xs font-medium text-stone-500">
+        Valida con GPS que los pedidos por QR se hagan cerca de la mesa. No afecta pedidos online ni delivery.
+      </p>
+
+      <div className="mt-5 flex items-center gap-3">
+        <button
+          type="button"
+          onClick={handleToggle}
+          className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer items-center rounded-full transition ${
+            enabled ? "bg-orange-500" : "bg-stone-200"
+          }`}
+          role="switch"
+          aria-checked={enabled}
+        >
+          <span
+            className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition ${
+              enabled ? "translate-x-6" : "translate-x-1"
+            }`}
+          />
+        </button>
+        <span className="text-sm font-semibold text-stone-900">
+          {enabled ? "Validación por ubicación activada" : "Validación por ubicación desactivada"}
+        </span>
+      </div>
+
+      <div className="mt-6 grid max-w-xl gap-4 sm:grid-cols-[1fr_160px]">
+        <div className="rounded-2xl border border-stone-200 bg-stone-50 p-4">
+          <p className="text-xs font-bold uppercase tracking-wider text-stone-500">Ubicación registrada</p>
+          {hasLocation ? (
+            <p className="mt-2 font-mono text-xs text-stone-700">
+              {latitude.toFixed(6)}, {longitude.toFixed(6)}
+            </p>
+          ) : (
+            <p className="mt-2 text-xs font-medium text-stone-500">Sin ubicación GPS guardada.</p>
+          )}
+          <button
+            type="button"
+            onClick={() => captureLocation(true)}
+            disabled={locating}
+            className="mt-4 rounded-xl border border-stone-200 bg-white px-4 py-2 text-xs font-bold text-stone-700 transition hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {locating ? "Leyendo GPS..." : "Usar GPS actual"}
+          </button>
+        </div>
+
+        <label className="block rounded-2xl border border-stone-200 bg-stone-50 p-4 text-xs font-bold uppercase tracking-wider text-stone-500">
+          Radio permitido
+          <input
+            type="number"
+            min={30}
+            max={1000}
+            step={10}
+            value={radiusM}
+            onChange={(event) => setRadiusOverride(Number(event.target.value))}
+            className="mt-3 w-full rounded-xl border border-stone-200 bg-white px-3 py-2.5 text-sm font-semibold normal-case tracking-normal text-stone-900 outline-none focus:border-orange-300 focus:ring-2 focus:ring-orange-100"
+          />
+          <span className="mt-2 block text-[11px] font-medium normal-case leading-4 tracking-normal text-stone-500">
+            Metros. Recomendado: 120.
+          </span>
+        </label>
+      </div>
+
+      {feedback && (
+        <p
+          className={`mt-5 rounded-lg px-3 py-2 text-xs font-medium ${
+            feedback.kind === "ok"
+              ? "border border-emerald-200 bg-emerald-50 text-emerald-700"
+              : "border border-red-200 bg-red-50 text-red-700"
+          }`}
+        >
+          {feedback.message}
+        </p>
+      )}
+
+      <div className="mt-6 flex items-center gap-3">
+        <button
+          type="button"
+          onClick={handleSave}
+          disabled={saving || locating || !isDirty}
+          className="rounded-xl bg-orange-500 px-5 py-3 text-sm font-bold text-white shadow transition hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {saving ? "Guardando..." : "Guardar cambios"}
+        </button>
+        {!isDirty && !saving && (
+          <span className="text-xs font-medium text-stone-400">Sin cambios.</span>
+        )}
+      </div>
+    </section>
+  )
+}
+
 type OrderHandlingSectionProps = {
   restaurant: Restaurant | null
   onSaved: () => void
@@ -1156,6 +1350,14 @@ export default function AdminSettingsPage() {
       />
 
       <DeliverySection
+        restaurant={restaurant ?? null}
+        onSaved={() => {
+          if (restaurant) invalidateCache(`restaurant-${restaurant.id}`)
+          refresh()
+        }}
+      />
+
+      <LocationSection
         restaurant={restaurant ?? null}
         onSaved={() => {
           if (restaurant) invalidateCache(`restaurant-${restaurant.id}`)

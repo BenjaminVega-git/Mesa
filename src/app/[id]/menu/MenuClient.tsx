@@ -827,7 +827,11 @@ export function MenuClient({ qrCode, menu }: MenuClientProps) {
       </section>
 
       {restaurant && tableId ? (
-        <FloatingCartButton tableId={tableId} restaurantId={restaurant.id} />
+        <FloatingCartButton
+          tableId={tableId}
+          restaurantId={restaurant.id}
+          locationCheckEnabled={restaurant.location_check_enabled}
+        />
       ) : null}
 
       {detailProduct ? (

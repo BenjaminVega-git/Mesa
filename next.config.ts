@@ -70,13 +70,14 @@ const securityHeaders = [
   },
   {
     key: "Permissions-Policy",
-    value: "camera=(), microphone=(), geolocation=(), interest-cohort=()",
+    value: "camera=(), microphone=(), geolocation=(self), interest-cohort=()",
   },
 ]
 
 const nextConfig: NextConfig = {
   // Orígenes permitidos para desarrollo (evita errores de CORS en la red local)
   allowedDevOrigins: [
+    "trabajo.tail05fc28.ts.net", // Tailscale
     "192.168.18.74",  // Laptop de Tomy
     "10.142.155.101",   // Laptop de Benja
     "192.168.56.1",   // Laptop de Amaro

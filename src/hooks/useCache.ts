@@ -5,6 +5,7 @@ type CacheOptions = {
   ttl?: number
   enabled?: boolean
   revalidateOnMount?: boolean
+  revalidateOnFocus?: boolean
   initialDelay?: number
   factor?: number
   maxDelay?: number
@@ -93,7 +94,15 @@ export function invalidateCache(keyOrPrefix: string): void {
 export function useCache<T>(
   key: string,
   fetcher: () => Promise<T>,
-  { ttl, enabled = true, revalidateOnMount = false, initialDelay, factor, maxDelay }: CacheOptions = {}
+  {
+    ttl,
+    enabled = true,
+    revalidateOnMount = false,
+    revalidateOnFocus = false,
+    initialDelay,
+    factor,
+    maxDelay,
+  }: CacheOptions = {}
 ): CacheState<T> {
   const [data, setData] = useState<T | null>(null)
   const [isFromCache, setIsFromCache] = useState(false)
@@ -168,7 +177,7 @@ export function useCache<T>(
     if (!enabled) return
 
     function refreshFromCache() {
-      if (!isFromCache) return
+      if (!isFromCache && !revalidateOnFocus) return
 
       fetcher()
         .then((fresh) => {
@@ -208,7 +217,7 @@ export function useCache<T>(
       document.removeEventListener("visibilitychange", refreshWhenVisible)
       unsubscribe()
     }
-  }, [enabled, key, fetcher, isFromCache])
+  }, [enabled, key, fetcher, isFromCache, revalidateOnFocus])
 
   const refresh = useCallback(() => {
     if (!enabled) return

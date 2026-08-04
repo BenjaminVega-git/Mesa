@@ -8,12 +8,14 @@ import { createOrderAction } from "@/app/actions/order-actions"
 import type { CreateOrderItemInput } from "@/lib/validation/order"
 import { getOrCreateDinerToken } from "@/lib/diner-token"
 import { TABLE_ORDER_CREATED_EVENT } from "@/hooks/useTableOrders"
+import { supabase } from "@/lib/supabase"
 
 type UseCreateOrderProps = {
   items: CartItem[]
   tableId: number
   restaurantId: number
   couponCode?: string | null
+  locationCheckEnabled?: boolean
 }
 
 const ORDER_SUBMIT_COOLDOWN_MS = 3000
@@ -46,7 +48,62 @@ function markSubmitAt(tableId: number, timestamp: number) {
   }
 }
 
-export function useCreateOrder({ items, tableId, restaurantId, couponCode }: UseCreateOrderProps) {
+function getGeolocationErrorMessage(error: GeolocationPositionError) {
+  if (error.code === error.PERMISSION_DENIED) {
+    return "Necesitamos tu ubicación para enviar pedidos desde esta mesa. Activa el permiso en el navegador."
+  }
+  if (error.code === error.POSITION_UNAVAILABLE) {
+    return "No se pudo calcular tu ubicación. Acércate a la mesa o pide ayuda a un mesero."
+  }
+  if (error.code === error.TIMEOUT) {
+    return "Tu ubicación tardó demasiado en responder. Intenta enviar el pedido nuevamente."
+  }
+  return "Necesitamos tu ubicación GPS para enviar pedidos desde esta mesa."
+}
+
+function getBrowserLocation(): Promise<{ latitude: number; longitude: number }> {
+  return new Promise((resolve, reject) => {
+    if (typeof window !== "undefined" && !window.isSecureContext) {
+      reject(new Error("El navegador solo permite validar ubicación con HTTPS. Abre el menú desde una URL segura."))
+      return
+    }
+
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      reject(new Error("Este dispositivo no permite validar tu ubicación. Pide ayuda a un mesero."))
+      return
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        resolve({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        })
+      },
+      (error) => reject(new Error(getGeolocationErrorMessage(error))),
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 }
+    )
+  })
+}
+
+async function getCustomerLocationIfRequired(qrCode: string, locationCheckEnabled?: boolean) {
+  if (locationCheckEnabled) {
+    return getBrowserLocation()
+  }
+
+  const { data, error } = await supabase.rpc("qr_order_location_required", {
+    p_qr_token: qrCode,
+  })
+
+  if (error) {
+    return getBrowserLocation()
+  }
+  if (!data) return null
+
+  return getBrowserLocation()
+}
+
+export function useCreateOrder({ items, tableId, restaurantId, couponCode, locationCheckEnabled }: UseCreateOrderProps) {
   const clearCart = useTableCartStore((state) => state.clear)
   const fetchItems = useTableCartStore((state) => state.fetchItems)
   // Credencial pública de la mesa: las RPC ya no aceptan table_id.
@@ -73,10 +130,13 @@ export function useCreateOrder({ items, tableId, restaurantId, couponCode }: Use
       throw new Error("No se pudo identificar la mesa del pedido.")
     }
 
+    const customerLocation = await getCustomerLocationIfRequired(qrCode, locationCheckEnabled)
+
     const result = await createOrderAction({
       qrToken: qrCode,
       dinerToken,
       couponCode: couponCode ?? null,
+      customerLocation,
       items: orderItems,
     })
 

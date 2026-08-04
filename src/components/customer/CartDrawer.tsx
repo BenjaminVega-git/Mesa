@@ -226,7 +226,7 @@ function CartView({
 }
 
 
-export function CartDrawer({ isOpen, onClose, tableId, restaurantId }: CartDrawerProps) {
+export function CartDrawer({ isOpen, onClose, tableId, restaurantId, locationCheckEnabled }: CartDrawerProps) {
   const { items, total } = useTableCart(tableId, restaurantId)
   const hasItems = items.length > 0
   const qrCode = useTableCartStore((s) => s.qrCode)
@@ -244,6 +244,7 @@ export function CartDrawer({ isOpen, onClose, tableId, restaurantId }: CartDrawe
     tableId,
     restaurantId,
     couponCode: selectedCode,
+    locationCheckEnabled,
   })
 
   // Cupones vigentes al abrir el carrito (los filtra el servidor por día/hora).

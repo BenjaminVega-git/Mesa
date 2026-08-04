@@ -274,6 +274,74 @@ export async function updateDeliveryConfig(
   return ok(null)
 }
 
+const UpdateLocationConfigSchema = z
+  .object({
+    enabled: z.boolean(),
+    latitude: z.number().min(-90).max(90).nullable(),
+    longitude: z.number().min(-180).max(180).nullable(),
+    radiusM: z.number().int().min(30).max(1000),
+  })
+  .refine((data) => !data.enabled || (data.latitude != null && data.longitude != null), {
+    message: "Activa el GPS y registra la ubicación del local",
+  })
+
+export type UpdateLocationConfigInput = z.infer<typeof UpdateLocationConfigSchema>
+
+export async function updateLocationConfig(
+  input: UpdateLocationConfigInput
+): Promise<Result<null>> {
+  const parsed = UpdateLocationConfigSchema.safeParse(input)
+  if (!parsed.success) {
+    return fail(parsed.error.issues[0]?.message ?? "Datos inválidos")
+  }
+
+  const auth = await requireCurrentAdmin()
+  if (!auth.ok) return auth
+
+  const { supabase, restaurantId } = auth.data
+  const { enabled, latitude, longitude, radiusM } = parsed.data
+
+  const { data, error } = await supabase
+    .from("restaurants")
+    .update({
+      location_check_enabled: enabled,
+      location_latitude: enabled ? latitude : null,
+      location_longitude: enabled ? longitude : null,
+      location_radius_m: radiusM,
+    })
+    .eq("id", restaurantId)
+    .select("id")
+    .maybeSingle()
+
+  if (error) {
+    console.error("updateLocationConfig failed", {
+      code: error.code,
+      message: error.message,
+      details: error.details,
+    })
+
+    if (error.code === "PGRST204" || error.message.includes("schema cache")) {
+      return fail("No se pudo guardar la ubicación: falta aplicar la migración de ubicación en esta base")
+    }
+    if (error.code === "42501") {
+      return fail("No se pudo guardar la ubicación: el usuario no tiene permiso para actualizar este local")
+    }
+    if (error.code === "23514") {
+      return fail("No se pudo guardar la ubicación: revisa que el radio esté entre 30 y 1000 metros")
+    }
+
+    return fail("No se pudo guardar la ubicación")
+  }
+
+  if (!data) {
+    return fail("No se pudo guardar la ubicación: no se encontró el local de este usuario")
+  }
+
+  revalidateTag("menu", "max")
+  revalidatePath("/[id]/menu", "page")
+  return ok(null)
+}
+
 const UpdateRestaurantCitySchema = z.object({
   city: z.string().trim().max(80, "Máximo 80 caracteres").nullable(),
 })
