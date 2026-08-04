@@ -430,6 +430,7 @@ export async function createOrder(input: CreateOrderInput): Promise<Result<Creat
     p_coupon_code: couponCode ?? null,
     p_latitude: customerLocation?.latitude ?? null,
     p_longitude: customerLocation?.longitude ?? null,
+    p_accuracy_m: customerLocation?.accuracyM ?? null,
   })
 
   if (error && shouldRetryWithLegacyOrderRpc(error)) {
@@ -440,6 +441,7 @@ export async function createOrder(input: CreateOrderInput): Promise<Result<Creat
       p_coupon_code: couponCode ?? null,
       p_latitude: customerLocation?.latitude ?? null,
       p_longitude: customerLocation?.longitude ?? null,
+      p_accuracy_m: customerLocation?.accuracyM ?? null,
     })
     data = retry.data
     error = retry.error

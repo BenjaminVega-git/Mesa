@@ -61,7 +61,7 @@ function getGeolocationErrorMessage(error: GeolocationPositionError) {
   return "Necesitamos tu ubicación GPS para enviar pedidos desde esta mesa."
 }
 
-function getBrowserLocation(): Promise<{ latitude: number; longitude: number }> {
+function getBrowserLocation(): Promise<{ latitude: number; longitude: number; accuracyM: number | null }> {
   return new Promise((resolve, reject) => {
     if (typeof window !== "undefined" && !window.isSecureContext) {
       reject(new Error("El navegador solo permite validar ubicación con HTTPS. Abre el menú desde una URL segura."))
@@ -78,6 +78,7 @@ function getBrowserLocation(): Promise<{ latitude: number; longitude: number }> 
         resolve({
           latitude: position.coords.latitude,
           longitude: position.coords.longitude,
+          accuracyM: Number.isFinite(position.coords.accuracy) ? position.coords.accuracy : null,
         })
       },
       (error) => reject(new Error(getGeolocationErrorMessage(error))),
