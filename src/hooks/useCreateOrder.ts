@@ -56,7 +56,7 @@ function getGeolocationErrorMessage(error: GeolocationPositionError) {
     return "No se pudo calcular tu ubicación. Acércate a la mesa o pide ayuda a un mesero."
   }
   if (error.code === error.TIMEOUT) {
-    return "Tu ubicación tardó demasiado en responder. Intenta enviar el pedido nuevamente."
+    return "Tu ubicación tardó demasiado en responder. Mantén el GPS activo y espera unos segundos antes de reintentar."
   }
   return "Necesitamos tu ubicación GPS para enviar pedidos desde esta mesa."
 }
@@ -81,7 +81,10 @@ function getBrowserLocation(): Promise<{ latitude: number; longitude: number }> 
         })
       },
       (error) => reject(new Error(getGeolocationErrorMessage(error))),
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 }
+      // Cada pedido debe comprobar la posición actual: si reutilizamos una
+      // posición anterior, el cliente puede haberse acercado a la mesa y aun
+      // así el servidor recibe las coordenadas del lugar donde estaba antes.
+      { enableHighAccuracy: true, timeout: 30000, maximumAge: 0 }
     )
   })
 }
