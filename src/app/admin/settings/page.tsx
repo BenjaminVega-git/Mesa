@@ -844,12 +844,20 @@ function LocationSection({ restaurant, onSaved }: OrderHandlingSectionProps) {
 
   return (
     <section className="rounded-3xl border border-stone-200 bg-white p-6 shadow-sm">
-      <h3 className="text-lg font-bold text-stone-900">Activar ubicación</h3>
+      <div className="flex flex-wrap items-center gap-2">
+        <h3 className="text-lg font-bold text-stone-900">Activar ubicación</h3>
+        <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-700">
+          Beta
+        </span>
+      </div>
       <p className="mt-1 text-xs font-medium text-stone-500">
         Valida con GPS que los pedidos por QR se hagan cerca de la mesa. No afecta pedidos online ni delivery.
       </p>
       <p className="mt-3 rounded-xl border border-orange-100 bg-orange-50 px-3 py-2 text-xs font-medium leading-5 text-orange-800">
         Para registrar el punto exacto, abre esta pantalla desde un móvil estando dentro del local, activa la ubicación y espera a que el GPS se estabilice.
+      </p>
+      <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold leading-5 text-amber-900">
+        Esta función está en beta. Una señal Wi‑Fi débil o un GPS defectuoso puede alterar la ubicación y la distancia calculada, provocando resultados incorrectos. Si notas algo extraño, desactívala temporalmente y revisa la ubicación registrada.
       </p>
 
       <div className="mt-5 flex items-center gap-3">
