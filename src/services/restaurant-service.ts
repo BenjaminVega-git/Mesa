@@ -279,6 +279,7 @@ const UpdateLocationConfigSchema = z
     enabled: z.boolean(),
     latitude: z.number().min(-90).max(90).nullable(),
     longitude: z.number().min(-180).max(180).nullable(),
+    accuracyM: z.number().finite().min(0).max(10000).nullable(),
     radiusM: z.number().int().min(30).max(1000),
   })
   .refine((data) => !data.enabled || (data.latitude != null && data.longitude != null), {
@@ -299,7 +300,7 @@ export async function updateLocationConfig(
   if (!auth.ok) return auth
 
   const { supabase, restaurantId } = auth.data
-  const { enabled, latitude, longitude, radiusM } = parsed.data
+  const { enabled, latitude, longitude, accuracyM, radiusM } = parsed.data
 
   const { data, error } = await supabase
     .from("restaurants")
@@ -307,6 +308,7 @@ export async function updateLocationConfig(
       location_check_enabled: enabled,
       location_latitude: enabled ? latitude : null,
       location_longitude: enabled ? longitude : null,
+      location_accuracy_m: enabled ? accuracyM : null,
       location_radius_m: radiusM,
     })
     .eq("id", restaurantId)

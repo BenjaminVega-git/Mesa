@@ -715,12 +715,15 @@ function LocationSection({ restaurant, onSaved }: OrderHandlingSectionProps) {
   const initialEnabled = restaurant?.location_check_enabled ?? false
   const initialLatitude = restaurant?.location_latitude ?? null
   const initialLongitude = restaurant?.location_longitude ?? null
+  const initialAccuracyM = restaurant?.location_accuracy_m ?? null
   const initialRadius = restaurant?.location_radius_m ?? 120
 
   const [enabledOverride, setEnabledOverride] = useState<boolean | null>(null)
   const [latitudeOverride, setLatitudeOverride] = useState<number | null | undefined>(undefined)
   const [longitudeOverride, setLongitudeOverride] = useState<number | null | undefined>(undefined)
+  const [accuracyOverride, setAccuracyOverride] = useState<number | null | undefined>(undefined)
   const [radiusOverride, setRadiusOverride] = useState<number | null>(null)
+  const [allowLowAccuracy, setAllowLowAccuracy] = useState(false)
   const [locating, setLocating] = useState(false)
   const [saving, setSaving] = useState(false)
   const [feedback, setFeedback] = useState<{ kind: "ok" | "error"; message: string } | null>(null)
@@ -728,12 +731,14 @@ function LocationSection({ restaurant, onSaved }: OrderHandlingSectionProps) {
   const enabled = enabledOverride ?? initialEnabled
   const latitude = latitudeOverride !== undefined ? latitudeOverride : initialLatitude
   const longitude = longitudeOverride !== undefined ? longitudeOverride : initialLongitude
+  const accuracyM = accuracyOverride !== undefined ? accuracyOverride : initialAccuracyM
   const radiusM = radiusOverride ?? initialRadius
   const hasLocation = latitude != null && longitude != null
   const isDirty =
     enabled !== initialEnabled ||
     latitude !== initialLatitude ||
     longitude !== initialLongitude ||
+    accuracyM !== initialAccuracyM ||
     radiusM !== initialRadius
 
   function captureLocation(nextEnabled = enabled) {
@@ -748,6 +753,7 @@ function LocationSection({ restaurant, onSaved }: OrderHandlingSectionProps) {
       (position) => {
         setLatitudeOverride(position.coords.latitude)
         setLongitudeOverride(position.coords.longitude)
+        setAccuracyOverride(Number.isFinite(position.coords.accuracy) ? position.coords.accuracy : null)
         setEnabledOverride(nextEnabled)
         setLocating(false)
         setFeedback({ kind: "ok", message: "Ubicación capturada. Guarda los cambios para activarla." })
@@ -756,7 +762,7 @@ function LocationSection({ restaurant, onSaved }: OrderHandlingSectionProps) {
         setLocating(false)
         setFeedback({ kind: "error", message: getGeolocationErrorMessage(error) })
       },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 }
+      { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
     )
   }
 
@@ -772,6 +778,14 @@ function LocationSection({ restaurant, onSaved }: OrderHandlingSectionProps) {
       setFeedback({ kind: "error", message: "Captura la ubicación GPS del local antes de activar esta opción" })
       return
     }
+    if (enabled && accuracyM == null) {
+      setFeedback({ kind: "error", message: "Vuelve a capturar la ubicación con el botón Usar GPS actual antes de activarla" })
+      return
+    }
+    if (enabled && accuracyM != null && accuracyM > 50 && !allowLowAccuracy) {
+      setFeedback({ kind: "error", message: "La precisión GPS es baja. Captura el punto desde el interior del local o confirma que quieres guardar esta ubicación igualmente." })
+      return
+    }
 
     setSaving(true)
     setFeedback(null)
@@ -780,6 +794,7 @@ function LocationSection({ restaurant, onSaved }: OrderHandlingSectionProps) {
         enabled,
         latitude,
         longitude,
+        accuracyM,
         radiusM,
       })
       if (!result.ok) {
@@ -790,7 +805,9 @@ function LocationSection({ restaurant, onSaved }: OrderHandlingSectionProps) {
       setEnabledOverride(null)
       setLatitudeOverride(undefined)
       setLongitudeOverride(undefined)
+      setAccuracyOverride(undefined)
       setRadiusOverride(null)
+      setAllowLowAccuracy(false)
       setFeedback({ kind: "ok", message: "Cambios guardados" })
     } finally {
       setSaving(false)
@@ -829,9 +846,12 @@ function LocationSection({ restaurant, onSaved }: OrderHandlingSectionProps) {
         <div className="rounded-2xl border border-stone-200 bg-stone-50 p-4">
           <p className="text-xs font-bold uppercase tracking-wider text-stone-500">Ubicación registrada</p>
           {hasLocation ? (
-            <p className="mt-2 font-mono text-xs text-stone-700">
-              {latitude.toFixed(6)}, {longitude.toFixed(6)}
-            </p>
+            <>
+              <p className="mt-2 font-mono text-xs text-stone-700">{latitude.toFixed(6)}, {longitude.toFixed(6)}</p>
+              <p className={`mt-2 text-xs font-semibold ${accuracyM != null && accuracyM <= 50 ? "text-emerald-700" : "text-amber-700"}`}>
+                {accuracyM != null ? `Precisión estimada: ±${Math.round(accuracyM)} m` : "Precisión no registrada: vuelve a capturar el GPS"}
+              </p>
+            </>
           ) : (
             <p className="mt-2 text-xs font-medium text-stone-500">Sin ubicación GPS guardada.</p>
           )}
@@ -843,6 +863,12 @@ function LocationSection({ restaurant, onSaved }: OrderHandlingSectionProps) {
           >
             {locating ? "Leyendo GPS..." : "Usar GPS actual"}
           </button>
+          {accuracyM != null && accuracyM > 50 && (
+            <label className="mt-3 flex items-start gap-2 text-[11px] font-medium leading-4 text-amber-800">
+              <input type="checkbox" checked={allowLowAccuracy} onChange={(event) => setAllowLowAccuracy(event.target.checked)} className="mt-0.5 accent-orange-500" />
+              Confirmo que la ubicación fue capturada dentro del local y acepto este margen.
+            </label>
+          )}
         </div>
 
         <label className="block rounded-2xl border border-stone-200 bg-stone-50 p-4 text-xs font-bold uppercase tracking-wider text-stone-500">

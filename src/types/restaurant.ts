@@ -36,5 +36,6 @@ export type Restaurant = PublicRestaurant & {
   location_check_enabled: boolean
   location_latitude: number | null
   location_longitude: number | null
+  location_accuracy_m?: number | null
   location_radius_m: number
 }
