@@ -1,6 +1,6 @@
 "use client"
 
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { QRCodeSVG } from "qrcode.react"
 import { useRestaurant } from "@/hooks/useRestaurant"
 import { useCategories } from "@/hooks/useCategories"
@@ -17,6 +17,7 @@ import {
   updateRestaurantLogo,
   updateRestaurantName,
 } from "@/services/restaurant-service"
+import { getPaymentAccount } from "@/services/payments-service"
 import { LogoUploader } from "@/components/admin/LogoUploader"
 import { PaymentGatewaySection } from "@/components/admin/PaymentGatewaySection"
 import { MENU_TEMPLATES, getTemplateDesign } from "@/lib/menu/templates"
@@ -472,10 +473,26 @@ function DeliverySection({ restaurant, onSaved }: DeliverySectionProps) {
   const [pickupOverride, setPickupOverride] = useState<boolean | null>(null)
   const [onlinePaymentOverride, setOnlinePaymentOverride] = useState<boolean | null>(null)
   const [payAtStoreOverride, setPayAtStoreOverride] = useState<boolean | null>(null)
+  const [onlinePaymentAvailable, setOnlinePaymentAvailable] = useState(false)
+  const [loadingPaymentAccount, setLoadingPaymentAccount] = useState(true)
   const [saving, setSaving] = useState(false)
   const [feedback, setFeedback] = useState<{ kind: "ok" | "error"; message: string } | null>(null)
   const [copied, setCopied] = useState(false)
   const qrRef = useRef<SVGSVGElement>(null)
+
+  useEffect(() => {
+    let mounted = true
+    getPaymentAccount().then((result) => {
+      if (!mounted) return
+      setOnlinePaymentAvailable(
+        result.ok && result.data.status === "connected" && result.data.active !== false,
+      )
+      setLoadingPaymentAccount(false)
+    })
+    return () => {
+      mounted = false
+    }
+  }, [])
 
   const baseUrl =
     process.env.NEXT_PUBLIC_APP_URL ??
@@ -514,11 +531,12 @@ function DeliverySection({ restaurant, onSaved }: DeliverySectionProps) {
   const pickup = pickupOverride ?? initialPickup
   const onlinePayment = onlinePaymentOverride ?? initialOnlinePayment
   const payAtStore = payAtStoreOverride ?? initialPayAtStore
+  const configuredOnlinePayment = onlinePayment && onlinePaymentAvailable
   const isDirty =
     enabled !== initialEnabled ||
     homeDelivery !== initialHomeDelivery ||
     pickup !== initialPickup ||
-    onlinePayment !== initialOnlinePayment ||
+    configuredOnlinePayment !== initialOnlinePayment ||
     payAtStore !== initialPayAtStore ||
     (slugOverride !== null && slugOverride.trim() !== initialSlug.trim())
 
@@ -532,7 +550,7 @@ function DeliverySection({ restaurant, onSaved }: DeliverySectionProps) {
         slug: slug.trim() || null,
         homeDelivery,
         pickup,
-        onlinePayment,
+        onlinePayment: configuredOnlinePayment,
         payAtStore,
       })
       if (!result.ok) {
@@ -624,16 +642,21 @@ function DeliverySection({ restaurant, onSaved }: DeliverySectionProps) {
               Formas de pago para el cliente
             </legend>
             <div className="mt-3 grid gap-2 sm:grid-cols-2">
-              <label className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 ${onlinePayment ? "border-orange-300 bg-orange-50" : "border-stone-200 bg-white"}`}>
+              <label className={`flex items-start gap-3 rounded-xl border p-3 ${!onlinePaymentAvailable || loadingPaymentAccount ? "cursor-not-allowed border-stone-200 bg-stone-100 opacity-60" : configuredOnlinePayment ? "cursor-pointer border-orange-300 bg-orange-50" : "cursor-pointer border-stone-200 bg-white"}`}>
                 <input
                   type="checkbox"
-                  checked={onlinePayment}
+                  checked={configuredOnlinePayment}
+                  disabled={loadingPaymentAccount || !onlinePaymentAvailable}
                   onChange={(event) => setOnlinePaymentOverride(event.target.checked)}
                   className="mt-0.5 h-4 w-4 accent-orange-500"
                 />
                 <span>
                   <span className="block text-sm font-bold text-stone-900">Pago anticipado</span>
-                  <span className="mt-0.5 block text-[11px] leading-4 text-stone-500">El cliente paga online antes de enviar el pedido.</span>
+                  <span className="mt-0.5 block text-[11px] leading-4 text-stone-500">
+                    {!loadingPaymentAccount && !onlinePaymentAvailable
+                      ? "Conecta y activa los cobros en línea para habilitarlo."
+                      : "El cliente paga online antes de enviar el pedido."}
+                  </span>
                 </span>
               </label>
               <label className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 ${payAtStore ? "border-orange-300 bg-orange-50" : "border-stone-200 bg-white"}`}>
