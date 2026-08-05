@@ -368,6 +368,21 @@ export async function getPaymentReceipt(paymentId: number): Promise<Result<Payme
 
   const d = data.doc as Record<string, unknown>
   const e = (data.emisor ?? {}) as Record<string, unknown>
+  // Algunas instalaciones todavía tienen el RPC anterior, que no usa el
+  // nombre configurado del restaurante cuando razon_social está vacío. Como
+  // esta página se genera para el staff autenticado, podemos resolverlo aquí
+  // sin depender de que la migración ya esté aplicada en Supabase.
+  const { data: restaurant } = await supabase
+    .from("restaurants")
+    .select("restaurant_name")
+    .eq("id", auth.data.restaurantId)
+    .maybeSingle()
+  const razonSocial =
+    typeof e.razon_social === "string" && e.razon_social.trim()
+      ? e.razon_social.trim()
+      : typeof restaurant?.restaurant_name === "string" && restaurant.restaurant_name.trim()
+        ? restaurant.restaurant_name.trim()
+        : "Restaurante sin nombre"
   const rawItems = Array.isArray(data.items) ? (data.items as Record<string, unknown>[]) : []
   const items: PaymentReceiptItem[] = rawItems.map((it) => ({
     name: (it.name as string) || "Producto",
@@ -400,7 +415,7 @@ export async function getPaymentReceipt(paymentId: number): Promise<Result<Payme
     },
     emisor: {
       rut: (e.rut as string) ?? "",
-      razonSocial: (e.razon_social as string) ?? "",
+      razonSocial,
       giro: (e.giro as string) ?? "",
       direccion: (e.direccion as string) ?? "",
       comuna: (e.comuna as string) ?? "",

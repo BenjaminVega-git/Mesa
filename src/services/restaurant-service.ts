@@ -216,6 +216,8 @@ const UpdateDeliveryConfigSchema = z.object({
   enabled: z.boolean(),
   homeDelivery: z.boolean(),
   pickup: z.boolean(),
+  onlinePayment: z.boolean(),
+  payAtStore: z.boolean(),
   slug: z
     .string()
     .trim()
@@ -240,13 +242,16 @@ export async function updateDeliveryConfig(
     return fail(parsed.error.issues[0]?.message ?? "Datos inválidos")
   }
 
-  const { enabled, slug, homeDelivery, pickup } = parsed.data
+  const { enabled, slug, homeDelivery, pickup, onlinePayment, payAtStore } = parsed.data
 
   if (enabled && !slug) {
     return fail("Necesitás definir un identificador para activar delivery")
   }
   if (enabled && !homeDelivery && !pickup) {
     return fail("Activa entrega a domicilio, retiro en tienda o ambas opciones")
+  }
+  if (enabled && !onlinePayment && !payAtStore) {
+    return fail("Activa pago anticipado, pago en el local o ambas opciones")
   }
 
   const auth = await requireCurrentAdmin()
@@ -261,6 +266,8 @@ export async function updateDeliveryConfig(
       delivery_slug: slug ?? null,
       delivery_home_enabled: homeDelivery,
       pickup_enabled: pickup,
+      delivery_online_payment_enabled: onlinePayment,
+      delivery_pay_at_store_enabled: payAtStore,
     })
     .eq("id", restaurantId)
 

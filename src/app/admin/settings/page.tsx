@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useRef, useState } from "react"
+import { QRCodeSVG } from "qrcode.react"
 import { useRestaurant } from "@/hooks/useRestaurant"
 import { useCategories } from "@/hooks/useCategories"
 import { useProducts } from "@/hooks/useProducts"
@@ -462,14 +463,19 @@ function DeliverySection({ restaurant, onSaved }: DeliverySectionProps) {
   const initialSlug = restaurant?.delivery_slug ?? ""
   const initialHomeDelivery = restaurant?.delivery_home_enabled ?? true
   const initialPickup = restaurant?.pickup_enabled ?? false
+  const initialOnlinePayment = restaurant?.delivery_online_payment_enabled ?? true
+  const initialPayAtStore = restaurant?.delivery_pay_at_store_enabled ?? true
 
   const [enabledOverride, setEnabledOverride] = useState<boolean | null>(null)
   const [slugOverride, setSlugOverride] = useState<string | null>(null)
   const [homeDeliveryOverride, setHomeDeliveryOverride] = useState<boolean | null>(null)
   const [pickupOverride, setPickupOverride] = useState<boolean | null>(null)
+  const [onlinePaymentOverride, setOnlinePaymentOverride] = useState<boolean | null>(null)
+  const [payAtStoreOverride, setPayAtStoreOverride] = useState<boolean | null>(null)
   const [saving, setSaving] = useState(false)
   const [feedback, setFeedback] = useState<{ kind: "ok" | "error"; message: string } | null>(null)
   const [copied, setCopied] = useState(false)
+  const qrRef = useRef<SVGSVGElement>(null)
 
   const baseUrl =
     process.env.NEXT_PUBLIC_APP_URL ??
@@ -487,14 +493,33 @@ function DeliverySection({ restaurant, onSaved }: DeliverySectionProps) {
     }
   }
 
+  function handleDownloadQr() {
+    if (!publicUrl || !qrRef.current || typeof window === "undefined") return
+    const svg = qrRef.current.cloneNode(true) as SVGSVGElement
+    svg.setAttribute("xmlns", "http://www.w3.org/2000/svg")
+    const blob = new Blob([new XMLSerializer().serializeToString(svg)], { type: "image/svg+xml" })
+    const objectUrl = URL.createObjectURL(blob)
+    const anchor = document.createElement("a")
+    anchor.href = objectUrl
+    anchor.download = `${initialSlug || "delivery"}-qr.svg`
+    document.body.appendChild(anchor)
+    anchor.click()
+    anchor.remove()
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 1000)
+  }
+
   const enabled = enabledOverride ?? initialEnabled
   const slug = slugOverride ?? initialSlug
   const homeDelivery = homeDeliveryOverride ?? initialHomeDelivery
   const pickup = pickupOverride ?? initialPickup
+  const onlinePayment = onlinePaymentOverride ?? initialOnlinePayment
+  const payAtStore = payAtStoreOverride ?? initialPayAtStore
   const isDirty =
     enabled !== initialEnabled ||
     homeDelivery !== initialHomeDelivery ||
     pickup !== initialPickup ||
+    onlinePayment !== initialOnlinePayment ||
+    payAtStore !== initialPayAtStore ||
     (slugOverride !== null && slugOverride.trim() !== initialSlug.trim())
 
   async function handleSave() {
@@ -507,6 +532,8 @@ function DeliverySection({ restaurant, onSaved }: DeliverySectionProps) {
         slug: slug.trim() || null,
         homeDelivery,
         pickup,
+        onlinePayment,
+        payAtStore,
       })
       if (!result.ok) {
         setFeedback({ kind: "error", message: result.error })
@@ -517,6 +544,8 @@ function DeliverySection({ restaurant, onSaved }: DeliverySectionProps) {
       setSlugOverride(null)
       setHomeDeliveryOverride(null)
       setPickupOverride(null)
+      setOnlinePaymentOverride(null)
+      setPayAtStoreOverride(null)
       setFeedback({ kind: "ok", message: "Cambios guardados" })
     } finally {
       setSaving(false)
@@ -585,6 +614,38 @@ function DeliverySection({ restaurant, onSaved }: DeliverySectionProps) {
                 <span>
                   <span className="block text-sm font-bold text-stone-900">Retiro en tienda</span>
                   <span className="mt-0.5 block text-[11px] leading-4 text-stone-500">No solicita ubicación al cliente.</span>
+                </span>
+              </label>
+            </div>
+          </fieldset>
+
+          <fieldset className="mb-6">
+            <legend className="text-xs font-bold uppercase tracking-wider text-stone-500">
+              Formas de pago para el cliente
+            </legend>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              <label className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 ${onlinePayment ? "border-orange-300 bg-orange-50" : "border-stone-200 bg-white"}`}>
+                <input
+                  type="checkbox"
+                  checked={onlinePayment}
+                  onChange={(event) => setOnlinePaymentOverride(event.target.checked)}
+                  className="mt-0.5 h-4 w-4 accent-orange-500"
+                />
+                <span>
+                  <span className="block text-sm font-bold text-stone-900">Pago anticipado</span>
+                  <span className="mt-0.5 block text-[11px] leading-4 text-stone-500">El cliente paga online antes de enviar el pedido.</span>
+                </span>
+              </label>
+              <label className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 ${payAtStore ? "border-orange-300 bg-orange-50" : "border-stone-200 bg-white"}`}>
+                <input
+                  type="checkbox"
+                  checked={payAtStore}
+                  onChange={(event) => setPayAtStoreOverride(event.target.checked)}
+                  className="mt-0.5 h-4 w-4 accent-orange-500"
+                />
+                <span>
+                  <span className="block text-sm font-bold text-stone-900">Pago al llegar al local</span>
+                  <span className="mt-0.5 block text-[11px] leading-4 text-stone-500">El cliente paga al retirar o recibir el pedido.</span>
                 </span>
               </label>
             </div>
@@ -659,6 +720,24 @@ function DeliverySection({ restaurant, onSaved }: DeliverySectionProps) {
                     </>
                   )}
                 </button>
+              </div>
+              <div className="mt-4 flex flex-col items-center gap-4 rounded-2xl border border-stone-200 bg-stone-50 p-4 sm:flex-row sm:items-center">
+                <div className="shrink-0 rounded-xl bg-white p-3 shadow-sm">
+                  <QRCodeSVG ref={qrRef} value={publicUrl} size={176} level="H" marginSize={2} />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-stone-900">QR del delivery</p>
+                  <p className="mt-1 text-xs leading-5 text-stone-500">
+                    Al escanearlo abrirá exactamente el mismo enlace público de arriba.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleDownloadQr}
+                    className="mt-3 rounded-xl bg-stone-900 px-3 py-2 text-xs font-bold text-white transition hover:bg-stone-800"
+                  >
+                    Descargar QR
+                  </button>
+                </div>
               </div>
             </div>
           )}
