@@ -756,6 +756,7 @@ export function MenuClient({ qrCode, menu }: MenuClientProps) {
                   <button
                     key={cat.id}
                     type="button"
+                    translate="no"
                     onClick={() => setActiveCat(cat.id)}
                     className={`shrink-0 rounded-full px-4 py-2 text-[13px] font-semibold transition ${
                       active

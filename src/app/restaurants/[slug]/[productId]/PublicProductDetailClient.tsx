@@ -180,7 +180,7 @@ export function PublicProductDetailClient({ restaurant, product }: Props) {
 
         <div className="mt-6 px-1">
           {product.category_name && (
-            <p className="text-xs font-bold text-orange-200/80">{product.category_name}</p>
+            <p translate="no" className="text-xs font-bold text-orange-200/80">{product.category_name}</p>
           )}
 
           <h1 className="mt-2 text-4xl font-black tracking-tight text-white">{activeTitle}</h1>
