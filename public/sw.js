@@ -2,9 +2,11 @@ const CACHE_VERSION = "mesa-offline-v42"
 const PAGE_CACHE = `${CACHE_VERSION}-pages`
 const ASSET_CACHE = `${CACHE_VERSION}-assets`
 const IMAGE_CACHE = `${CACHE_VERSION}-images`
-// Shell de la PWA del mesero: prelo en install para que abra al instante,
+// Shell de la PWA del mesero: preload en install para que abra al instante,
 // incluso offline. Si agregás más rutas críticas del mesero, sumalas acá.
-const APP_SHELL_URLS = ["/", "/waiter/login", "/waiter/control", "/waiter/busy"]
+// "/" (la landing) NO va acá: el registro ahora usa scope:"/waiter", así que
+// este SW nunca vuelve a recibir fetch de la home — cachearla quedaba muerto.
+const APP_SHELL_URLS = ["/waiter/login", "/waiter/control", "/waiter/busy"]
 
 self.addEventListener("install", (event) => {
   event.waitUntil(

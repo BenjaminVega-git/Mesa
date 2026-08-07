@@ -20,7 +20,14 @@ export function ServiceWorkerRegister() {
     // móvil no puede hard-reload, así que jamás debe quedar atrapado con assets
     // cacheados. En dev tampoco se registra nada.
     if (isProd && pathname.startsWith("/waiter")) {
-      navigator.serviceWorker.register("/sw.js").catch(() => undefined)
+      // Sin scope explícito, el scope por defecto de un SW en "/sw.js" es "/"
+      // (la raíz) — es decir, sin esto, este mismo SW quedaba habilitado para
+      // interceptar CUALQUIER navegación del sitio, landing incluida, pese a
+      // que el comentario de arriba dice exactamente lo contrario. Con
+      // networkFirst rara vez se notaba (casi siempre hay red), pero ante
+      // cualquier falla de red le tocaba de vuelta el shell cacheado de "/"
+      // en vez de contenido fresco.
+      navigator.serviceWorker.register("/sw.js", { scope: "/waiter" }).catch(() => undefined)
       return
     }
 
