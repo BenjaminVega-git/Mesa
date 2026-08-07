@@ -22,11 +22,8 @@ jobs:
       - name: Instalar dependencias
         run: npm ci
 
-      - name: Lint
-        run: npm run lint
-
-      - name: Build
-        run: npm run build
+      - name: Validar lint y build
+        run: npm run deploy:verify
         env:
           # Variables que el build necesita para generar páginas (conectar a
           # Supabase/Upstash en build time). Los valores reales viven en los
@@ -36,6 +33,20 @@ jobs:
           NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME: ${{ secrets.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME }}
           UPSTASH_REDIS_REST_URL: ${{ secrets.UPSTASH_REDIS_REST_URL }}
           UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN }}
+
+      - name: Smoke test del servidor generado
+        run: |
+          npm run start > /tmp/mesa-next.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill $SERVER_PID' EXIT
+          for attempt in {1..30}; do
+            if curl --fail --silent --show-error http://127.0.0.1:3000/api/health; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/mesa-next.log
+          exit 1
 
       # Audit informativo: NO bloquea el build (vulnerabilidades de deps suelen
       # ser de terceros y no siempre accionables), pero deja el reporte visible

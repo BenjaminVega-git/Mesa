@@ -13,7 +13,7 @@
 //  · emitBoletaForPayment: emite (o reintenta) la boleta de un pago pagado.
 //  · listPaymentsToday / getStaffPayment / getPaymentReceipt: lecturas staff.
 
-import { requireCurrentStaff } from "@/services/auth-guard"
+import { requireCurrentAdmin, requireCurrentStaff } from "@/services/auth-guard"
 import { getDteAdapter } from "@/lib/dte"
 import { logger } from "@/lib/logger"
 import { ok, fail, type Result } from "@/services/result"
@@ -40,6 +40,9 @@ export type ChargeScope = {
    *  (en vez de la mesa completa, un comensal o un pedido puntual). */
   orderIds?: number[] | null
 }
+
+export type PresentialPaymentMethod = "cash" | "card" | "transfer" | "mixed"
+export type PaymentPart = { method: "cash" | "card" | "transfer"; amount: number }
 
 /** Emite la boleta de un pago y la registra ligada a él (helper interno). */
 async function emitBoletaInternal(
@@ -95,7 +98,8 @@ async function emitBoletaInternal(
 /** Cobro presencial (efectivo o tarjeta) + boleta automática. */
 export async function registerStaffPayment(
   scope: ChargeScope,
-  method: "cash" | "card"
+  method: PresentialPaymentMethod,
+  parts?: PaymentPart[]
 ): Promise<Result<StaffChargeResult>> {
   const auth = await requireCurrentStaff()
   if (!auth.ok) return fail(auth.error)
@@ -108,6 +112,9 @@ export async function registerStaffPayment(
     p_diner_slot: scope.dinerSlot ?? null,
     p_order_id: scope.orderId ?? null,
     p_order_ids: scope.orderIds ?? null,
+    p_cash_amount: parts?.find((p) => p.method === "cash")?.amount ?? null,
+    p_card_amount: parts?.find((p) => p.method === "card")?.amount ?? null,
+    p_transfer_amount: parts?.find((p) => p.method === "transfer")?.amount ?? null,
   })
   if (error) return fail(error.message ?? "No se pudo registrar el cobro")
 
@@ -146,6 +153,33 @@ export async function emitBoletaForPayment(paymentId: number): Promise<Result<Bo
   }
 
   return emitBoletaInternal(supabase, paymentId, Number(pay.amount ?? 0) + Number(pay.tip ?? 0))
+}
+
+/** Anula una venta cobrada: payment -> refunded, pedidos -> Cancelado y boleta -> voided. */
+export async function annulStaffPayment(
+  paymentId: number,
+  reason?: string
+): Promise<Result<{ paymentId: number; cancelledOrders: number }>> {
+  if (!paymentId || paymentId <= 0) return fail("Venta inválida")
+
+  const auth = await requireCurrentAdmin()
+  if (!auth.ok) return fail(auth.error)
+  const { supabase } = auth.data
+
+  const { data, error } = await supabase.rpc("annul_staff_payment", {
+    p_payment_id: paymentId,
+    p_reason: reason?.trim() || null,
+  })
+
+  if (error) return fail(error.message ?? "No se pudo anular la venta")
+
+  const result = data as { ok?: boolean; payment_id?: number; cancelled_orders?: number } | null
+  if (!result?.ok) return fail("No se pudo anular la venta")
+
+  return ok({
+    paymentId: Number(result.payment_id ?? paymentId),
+    cancelledOrders: Number(result.cancelled_orders ?? 0),
+  })
 }
 
 export type GatewayCharge = { paymentId: number; checkoutUrl: string }
@@ -202,6 +236,7 @@ export type StaffPayment = {
   provider: string | null
   amount: number
   tip: number
+  parts: PaymentPart[]
   tableNumber: number | null
   paidAt: string | null
   boleta: BoletaInfo | null
@@ -232,6 +267,9 @@ export async function getStaffPayment(paymentId: number): Promise<Result<StaffPa
     provider: data.provider ?? null,
     amount: Number(data.amount ?? 0),
     tip: Number(data.tip ?? 0),
+    parts: Array.isArray(data.parts)
+      ? data.parts.map((p: { method: string; amount: number }) => ({ method: p.method as PaymentPart["method"], amount: Number(p.amount ?? 0) }))
+      : [],
     tableNumber: data.table_number != null ? Number(data.table_number) : null,
     paidAt: data.paid_at ?? null,
     boleta: mapBoleta(data.boleta ?? null),
@@ -254,6 +292,7 @@ export async function listPaymentsToday(): Promise<Result<PaymentTodayRow[]>> {
     table_number: number | null
     amount: number
     tip: number
+    parts?: { method: string; amount: number }[]
     status: string
     method: string
     provider: string | null
@@ -269,7 +308,10 @@ export async function listPaymentsToday(): Promise<Result<PaymentTodayRow[]>> {
       method: String(r.method),
       provider: r.provider ?? null,
       amount: Number(r.amount ?? 0),
-      tip: Number(r.tip ?? 0),
+    tip: Number(r.tip ?? 0),
+      parts: Array.isArray(r.parts)
+        ? r.parts.map((p: { method: string; amount: number }) => ({ method: p.method as PaymentPart["method"], amount: Number(p.amount ?? 0) }))
+        : [],
       tableNumber: r.table_number != null ? Number(r.table_number) : null,
       createdAt: r.created_at,
       paidAt: r.paid_at ?? null,
@@ -341,6 +383,21 @@ export async function getPaymentReceipt(paymentId: number): Promise<Result<Payme
 
   const d = data.doc as Record<string, unknown>
   const e = (data.emisor ?? {}) as Record<string, unknown>
+  // Algunas instalaciones todavía tienen el RPC anterior, que no usa el
+  // nombre configurado del restaurante cuando razon_social está vacío. Como
+  // esta página se genera para el staff autenticado, podemos resolverlo aquí
+  // sin depender de que la migración ya esté aplicada en Supabase.
+  const { data: restaurant } = await supabase
+    .from("restaurants")
+    .select("restaurant_name")
+    .eq("id", auth.data.restaurantId)
+    .maybeSingle()
+  const razonSocial =
+    typeof e.razon_social === "string" && e.razon_social.trim()
+      ? e.razon_social.trim()
+      : typeof restaurant?.restaurant_name === "string" && restaurant.restaurant_name.trim()
+        ? restaurant.restaurant_name.trim()
+        : "Restaurante sin nombre"
   const rawItems = Array.isArray(data.items) ? (data.items as Record<string, unknown>[]) : []
   const items: PaymentReceiptItem[] = rawItems.map((it) => ({
     name: (it.name as string) || "Producto",
@@ -373,7 +430,7 @@ export async function getPaymentReceipt(paymentId: number): Promise<Result<Payme
     },
     emisor: {
       rut: (e.rut as string) ?? "",
-      razonSocial: (e.razon_social as string) ?? "",
+      razonSocial,
       giro: (e.giro as string) ?? "",
       direccion: (e.direccion as string) ?? "",
       comuna: (e.comuna as string) ?? "",

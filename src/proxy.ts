@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@supabase/ssr"
-import { getSessionClaims } from "@/lib/supabase/claims"
+import { SUPABASE_AUTH_COOKIE } from "@/lib/supabase/cookie"
 
 // Cache por cookie del chequeo A-2 (must_change_password). TTL corto: recorta el
 // RPC del hot path sin abrir una ventana de seguridad relevante (ver abajo).
@@ -8,7 +8,7 @@ const MUST_CHANGE_OK_COOKIE = "mc_ok"
 const MUST_CHANGE_OK_TTL_SECONDS = 120
 
 export async function proxy(req: NextRequest) {
-  // Respuesta inicial mutable: si Supabase rota el JWT durante getClaims(),
+  // Respuesta inicial mutable: si Supabase rota el JWT durante getUser(),
   // los cookies actualizados se setean acá vía setAll y propagan al navegador.
   let response = NextResponse.next({ request: req })
 
@@ -16,6 +16,12 @@ export async function proxy(req: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      cookieOptions: {
+        name: SUPABASE_AUTH_COOKIE,
+        path: "/",
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+      },
       cookies: {
         getAll: () => req.cookies.getAll(),
         setAll: (cookiesToSet) => {
@@ -35,15 +41,11 @@ export async function proxy(req: NextRequest) {
   // AdminGuard (cliente) y en cada Server Action que llama el panel. Hacerlo
   // acá agregaba una query a `users` extra por navegación que es propensa a
   // race conditions con el refresh del JWT y patea al usuario a /login sin
-  // motivo. Si el JWT verifica, confiamos.
-  //
-  // getClaims verifica el JWT LOCALMENTE contra la JWKS cacheada (ES256): no
-  // hace ida y vuelta a Auth en cada navegación, solo pega a la red cuando el
-  // token expiró y toca refrescarlo (ahí rota las cookies vía setAll). Antes
-  // usábamos getUser(), que SIEMPRE golpeaba /auth/v1/user: un round-trip a
-  // São Paulo por request protegido.
-  const claims = await getSessionClaims(supabase)
-  const userId = claims?.userId ?? null
+  // motivo. Si auth.getUser() acepta el JWT, confiamos.
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  const userId = user?.id ?? null
   const path = req.nextUrl.pathname
 
   // Las rutas de admin/cocina exigen sesión; las de mesero manejan su propio

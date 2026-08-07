@@ -33,7 +33,11 @@ const nextEnv = {
         NEXT_PUBLIC_SUPABASE_URL: localSupabase.url,
         NEXT_PUBLIC_SUPABASE_ANON_KEY: localSupabase.anonKey,
       }
-    : envFile),
+    : {
+        ...envFile,
+        MESA_LOCAL_SUPABASE: "0",
+        NEXT_PUBLIC_MESA_SUPABASE_PROXY: "0",
+      }),
 }
 
 console.log(

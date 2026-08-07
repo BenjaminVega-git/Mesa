@@ -67,6 +67,7 @@ export type PaymentHistoryRow = {
   provider: string | null
   amount: number
   tip: number
+  parts: { method: "cash" | "card" | "transfer"; amount: number }[]
   tableNumber: number | null
   createdAt: string
   paidAt: string | null
@@ -86,6 +87,7 @@ export async function listPaymentsHistory(limit = 100): Promise<Result<PaymentHi
     table_number: number | null
     amount: number
     tip: number
+    parts?: { method: string; amount: number }[]
     status: string
     method: string
     provider: string | null
@@ -102,6 +104,9 @@ export async function listPaymentsHistory(limit = 100): Promise<Result<PaymentHi
       provider: r.provider ?? null,
       amount: Number(r.amount ?? 0),
       tip: Number(r.tip ?? 0),
+      parts: Array.isArray(r.parts)
+        ? r.parts.map((part) => ({ method: part.method as "cash" | "card" | "transfer", amount: Number(part.amount ?? 0) }))
+        : [],
       tableNumber: r.table_number != null ? Number(r.table_number) : null,
       createdAt: r.created_at,
       paidAt: r.paid_at ?? null,

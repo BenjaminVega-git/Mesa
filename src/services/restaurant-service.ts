@@ -216,6 +216,8 @@ const UpdateDeliveryConfigSchema = z.object({
   enabled: z.boolean(),
   homeDelivery: z.boolean(),
   pickup: z.boolean(),
+  onlinePayment: z.boolean(),
+  payAtStore: z.boolean(),
   slug: z
     .string()
     .trim()
@@ -240,13 +242,16 @@ export async function updateDeliveryConfig(
     return fail(parsed.error.issues[0]?.message ?? "Datos inválidos")
   }
 
-  const { enabled, slug, homeDelivery, pickup } = parsed.data
+  const { enabled, slug, homeDelivery, pickup, onlinePayment, payAtStore } = parsed.data
 
   if (enabled && !slug) {
     return fail("Necesitás definir un identificador para activar delivery")
   }
   if (enabled && !homeDelivery && !pickup) {
     return fail("Activa entrega a domicilio, retiro en tienda o ambas opciones")
+  }
+  if (enabled && !onlinePayment && !payAtStore) {
+    return fail("Activa pago anticipado, pago en el local o ambas opciones")
   }
 
   const auth = await requireCurrentAdmin()
@@ -261,6 +266,8 @@ export async function updateDeliveryConfig(
       delivery_slug: slug ?? null,
       delivery_home_enabled: homeDelivery,
       pickup_enabled: pickup,
+      delivery_online_payment_enabled: onlinePayment,
+      delivery_pay_at_store_enabled: payAtStore,
     })
     .eq("id", restaurantId)
 
@@ -271,6 +278,79 @@ export async function updateDeliveryConfig(
     return fail("No se pudo guardar los cambios")
   }
 
+  return ok(null)
+}
+
+const UpdateLocationConfigSchema = z
+  .object({
+    enabled: z.boolean(),
+    latitude: z.number().min(-90).max(90).nullable(),
+    longitude: z.number().min(-180).max(180).nullable(),
+    // Browsers may report a very imprecise fallback location (for example,
+    // from a cell tower). Keep accepting that reading so the UI can explain
+    // it and require an explicit confirmation before saving it.
+    accuracyM: z.number().finite().min(0).max(100000).nullable(),
+    radiusM: z.number().int().min(30).max(1000),
+  })
+  .refine((data) => !data.enabled || (data.latitude != null && data.longitude != null), {
+    message: "Activa el GPS y registra la ubicación del local",
+  })
+
+export type UpdateLocationConfigInput = z.infer<typeof UpdateLocationConfigSchema>
+
+export async function updateLocationConfig(
+  input: UpdateLocationConfigInput
+): Promise<Result<null>> {
+  const parsed = UpdateLocationConfigSchema.safeParse(input)
+  if (!parsed.success) {
+    return fail(parsed.error.issues[0]?.message ?? "Datos inválidos")
+  }
+
+  const auth = await requireCurrentAdmin()
+  if (!auth.ok) return auth
+
+  const { supabase, restaurantId } = auth.data
+  const { enabled, latitude, longitude, accuracyM, radiusM } = parsed.data
+
+  const { data, error } = await supabase
+    .from("restaurants")
+    .update({
+      location_check_enabled: enabled,
+      location_latitude: enabled ? latitude : null,
+      location_longitude: enabled ? longitude : null,
+      location_accuracy_m: enabled ? accuracyM : null,
+      location_radius_m: radiusM,
+    })
+    .eq("id", restaurantId)
+    .select("id")
+    .maybeSingle()
+
+  if (error) {
+    console.error("updateLocationConfig failed", {
+      code: error.code,
+      message: error.message,
+      details: error.details,
+    })
+
+    if (error.code === "PGRST204" || error.message.includes("schema cache")) {
+      return fail("No se pudo guardar la ubicación: falta aplicar la migración de ubicación en esta base")
+    }
+    if (error.code === "42501") {
+      return fail("No se pudo guardar la ubicación: el usuario no tiene permiso para actualizar este local")
+    }
+    if (error.code === "23514") {
+      return fail("No se pudo guardar la ubicación: revisa que el radio esté entre 30 y 1000 metros")
+    }
+
+    return fail("No se pudo guardar la ubicación")
+  }
+
+  if (!data) {
+    return fail("No se pudo guardar la ubicación: no se encontró el local de este usuario")
+  }
+
+  revalidateTag("menu", "max")
+  revalidatePath("/[id]/menu", "page")
   return ok(null)
 }
 

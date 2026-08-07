@@ -27,9 +27,18 @@ async function fetchMenuData(qrCode: string): Promise<MenuData> {
   if (error || !data) throw new Error("QR no válido")
 
   const menu = data as unknown as PublicMenuRpcResult
+  const { data: locationRequired } = await supabase.rpc("qr_order_location_required", {
+    p_qr_token: qrCode,
+  })
+  const restaurant = menu.restaurant
+    ? {
+        ...menu.restaurant,
+        location_check_enabled: Boolean(locationRequired),
+      }
+    : null
 
   return {
-    restaurant: menu.restaurant ?? null,
+    restaurant,
     products: menu.products ?? [],
     categories: menu.categories ?? [],
     promotions: menu.promotions ?? [],

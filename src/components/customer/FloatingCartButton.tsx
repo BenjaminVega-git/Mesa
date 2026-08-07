@@ -8,9 +8,10 @@ import { getCartTargetId } from "@/lib/customer/fly-to-cart"
 type FloatingCartButtonProps = {
   tableId: number
   restaurantId: number
+  locationCheckEnabled?: boolean
 }
 
-export function FloatingCartButton({ tableId, restaurantId }: FloatingCartButtonProps) {
+export function FloatingCartButton({ tableId, restaurantId, locationCheckEnabled }: FloatingCartButtonProps) {
   const [isCartOpen, setIsCartOpen] = useState(false)
   const { items, total } = useTableCart(tableId, restaurantId)
 
@@ -45,6 +46,7 @@ export function FloatingCartButton({ tableId, restaurantId }: FloatingCartButton
         onClose={() => setIsCartOpen(false)}
         tableId={tableId}
         restaurantId={restaurantId}
+        locationCheckEnabled={locationCheckEnabled}
       />
     </>
   )

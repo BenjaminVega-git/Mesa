@@ -17,6 +17,7 @@ export type PublicRestaurant = {
   restaurant_name: string
   restaurant_logo: string | null
   menu_template: MenuTemplate
+  location_check_enabled?: boolean
 }
 
 export type Restaurant = PublicRestaurant & {
@@ -28,8 +29,15 @@ export type Restaurant = PublicRestaurant & {
   delivery_slug: string | null
   delivery_home_enabled: boolean
   pickup_enabled: boolean
+  delivery_online_payment_enabled: boolean
+  delivery_pay_at_store_enabled: boolean
   reservation_contact_type: ReservationContactType
   reservation_whatsapp: string | null
   reservation_duration_minutes: number
   stock_menu_mode: StockMenuMode
+  location_check_enabled: boolean
+  location_latitude: number | null
+  location_longitude: number | null
+  location_accuracy_m?: number | null
+  location_radius_m: number
 }

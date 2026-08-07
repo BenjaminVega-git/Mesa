@@ -75,7 +75,7 @@ export function DocumentActions({ doc, emisor, officialPdfHref, items }: Props) 
     setThermalError(null)
     try {
       const receiptInput: ReceiptInput = {
-        restaurantName: emisor.razonSocial || "Restaurante",
+        restaurantName: emisor.razonSocial || "Nombre del restaurante",
         restaurantRut: emisor.rut,
         docLabel: FRIENDLY_LABEL[doc.docType] ?? "Comprobante de pago",
         folio: doc.folio,

@@ -3,4 +3,5 @@ export type CartDrawerProps = {
   onClose: () => void
   tableId: number
   restaurantId: number
+  locationCheckEnabled?: boolean
 }

@@ -14,6 +14,7 @@ import {
 import {
   isWebBluetoothAvailable,
   connectBluetoothPrinter,
+  getKnownPrinter,
   sendTicket,
   printerLabel,
   onPrinterDisconnected,
@@ -52,6 +53,7 @@ type LogEntry = {
   kind: "ok" | "error"
   message: string
   at: Date
+  ticketInput?: TicketInput
 }
 
 function ticketItemName(item: FetchedOrder["order_items"][number]) {
@@ -84,6 +86,7 @@ export default function PrinterPage() {
   const [electronDevice, setElectronDevice] = useState<string>(() => getStoredElectronPrinter())
   const restaurantRef = useRef(restaurant)
   const printerRef = useRef<ConnectedPrinter | null>(null)
+  const reconnectingPrinter = useRef(false)
   const printedOrderIds = useRef<Set<number>>(new Set())
   // Un mismo pedido dispara más de un evento realtime casi al mismo tiempo:
   // create_public_order_qr/staff_create_order hacen INSERT (con el status ya
@@ -109,6 +112,71 @@ export default function PrinterPage() {
   useEffect(() => {
     ticketWidthRef.current = ticketWidth
   }, [ticketWidth])
+
+  function watchPrinter(result: ConnectedPrinter) {
+    printerRef.current = result
+    setPrinter(result)
+    onPrinterDisconnected(result, () => {
+      // El navegador puede desconectar GATT después de varios minutos sin
+      // tráfico. La autorización de Web Bluetooth sigue vigente, por lo que
+      // podemos reconectar sin volver a abrir el selector.
+      if (printerRef.current?.printer.device !== result.printer.device) return
+      printerRef.current = null
+      setPrinter(null)
+      void reconnectKnownPrinter(500)
+    })
+  }
+
+  async function reconnectKnownPrinter(delayMs = 0): Promise<ConnectedPrinter | null> {
+    if (delayMs > 0) await new Promise<void>((resolve) => setTimeout(resolve, delayMs))
+    if (reconnectingPrinter.current) return printerRef.current
+
+    reconnectingPrinter.current = true
+    try {
+      const result = await getKnownPrinter()
+      if (result) watchPrinter(result)
+      return result
+    } catch (err) {
+      logger.warn("silent printer reconnect failed", { error: String(err) })
+      return null
+    } finally {
+      reconnectingPrinter.current = false
+    }
+  }
+
+  async function getReadyPrinter(): Promise<ConnectedPrinter | null> {
+    const current = printerRef.current
+    if (current?.printer.device.gatt?.connected) return current
+    if (current) {
+      printerRef.current = null
+      setPrinter(null)
+    }
+    return reconnectKnownPrinter()
+  }
+
+  async function sendBluetoothTicket(data: Uint8Array): Promise<void> {
+    const current = await getReadyPrinter()
+    if (!current) throw new Error("Impresora no conectada")
+
+    try {
+      await sendTicket(current, data)
+    } catch (err) {
+      // Si GATT murió justo al comenzar el envío, recuperamos la conexión y
+      // reintentamos una sola vez. Los errores con la conexión aún viva no se
+      // repiten para evitar duplicar un ticket que sí pudo haber salido.
+      if (current.printer.device.gatt?.connected) throw err
+      const recovered = await reconnectKnownPrinter()
+      if (!recovered) throw err
+      await sendTicket(recovered, data)
+    }
+  }
+
+  // Recupera automáticamente una impresora autorizada al abrir o recargar la
+  // pantalla, sin exigir que el usuario la empareje otra vez.
+  useEffect(() => {
+    if (!restaurant?.id || restaurant.output_mode !== "printer" || !isWebBluetoothAvailable()) return
+    void reconnectKnownPrinter()
+  }, [restaurant?.id, restaurant?.output_mode])
 
   function handleTicketWidthChange(width: number) {
     setTicketWidth(width)
@@ -153,6 +221,7 @@ export default function PrinterPage() {
 
   const [testing, setTesting] = useState(false)
   const [previewText, setPreviewText] = useState<string | null>(null)
+  const [manualPrintingOrderIds, setManualPrintingOrderIds] = useState<Set<number>>(new Set())
 
   function buildSampleTicket() {
     const current = restaurantRef.current
@@ -182,17 +251,59 @@ export default function PrinterPage() {
     return "dialog"
   }, [])
 
+  async function handleManualPrint(entry: LogEntry) {
+    if (!entry.ticketInput || manualPrintingOrderIds.has(entry.orderId)) return
+
+    const currentPrinter = await getReadyPrinter()
+    if (!currentPrinter && !osPrintEnabledRef.current) {
+      setEntries((prev) => prev.map((item) => item.id === entry.id
+        ? { ...item, kind: "error", message: "Impresora no conectada. Conectala e intenta de nuevo." }
+        : item
+      ))
+      return
+    }
+
+    setManualPrintingOrderIds((prev) => new Set(prev).add(entry.orderId))
+    try {
+      if (currentPrinter) {
+        await sendBluetoothTicket(buildOrderTicket(entry.ticketInput, ticketWidthRef.current))
+        setEntries((prev) => prev.map((item) => item.id === entry.id
+          ? { ...item, kind: "ok", message: "Ticket reimpreso manualmente" }
+          : item
+        ))
+      } else {
+        const mode = await printViaSystemDriver(entry.ticketInput)
+        setEntries((prev) => prev.map((item) => item.id === entry.id
+          ? { ...item, kind: "ok", message: mode === "raw" ? "Ticket RAW reimpreso manualmente" : "Diálogo de impresión abierto" }
+          : item
+        ))
+      }
+    } catch (err) {
+      logger.error("manual ticket print failed", { error: String(err), orderId: entry.orderId })
+      setEntries((prev) => prev.map((item) => item.id === entry.id
+        ? { ...item, kind: "error", message: err instanceof Error ? err.message : "No se pudo imprimir el ticket" }
+        : item
+      ))
+    } finally {
+      setManualPrintingOrderIds((prev) => {
+        const next = new Set(prev)
+        next.delete(entry.orderId)
+        return next
+      })
+    }
+  }
+
   async function handleTestPrint() {
     if (testing) return
     const current = restaurantRef.current
-    const currentPrinter = printerRef.current
+    const currentPrinter = await getReadyPrinter()
     if (!current || (!currentPrinter && !osPrintEnabled)) return
 
     setTesting(true)
     try {
       if (currentPrinter) {
         const ticket = buildOrderTicket(buildSampleTicket(), ticketWidth)
-        await sendTicket(currentPrinter, ticket)
+        await sendBluetoothTicket(ticket)
         appendEntry({ orderId: 9999, kind: "ok", message: "Ticket de prueba enviado" })
       } else {
         const mode = await printViaSystemDriver(buildSampleTicket())
@@ -220,8 +331,7 @@ export default function PrinterPage() {
     setPairError(null)
     try {
       const result = await connectBluetoothPrinter(restaurantRef.current?.printer_bluetooth_name ?? null)
-      setPrinter(result)
-      onPrinterDisconnected(result, () => setPrinter(null))
+      watchPrinter(result)
       // Excluyente con la vía del sistema — solo un método activo a la vez.
       if (osPrintEnabled) {
         setOsPrintEnabled(false)
@@ -247,6 +357,7 @@ export default function PrinterPage() {
     if (printedOrderIds.current.has(orderId) || processingOrderIds.current.has(orderId)) return
     processingOrderIds.current.add(orderId)
 
+    let ticketInput: TicketInput | undefined
     try {
       const { data, error } = await supabase
         .from("orders")
@@ -265,7 +376,7 @@ export default function PrinterPage() {
 
       if (data.status_id !== EN_PREPARACION_STATUS_ID) return
 
-      const ticketInput = {
+      ticketInput = {
         restaurantName: current.restaurant_name ?? "Restaurante",
         tableNumber: data.tables?.table_number === 0 ? "Recepción" : data.tables?.table_number ?? data.table_id,
         destinationLabel: data.order_type === "delivery"
@@ -280,27 +391,27 @@ export default function PrinterPage() {
           quantity: item.product_quantity,
           name: ticketItemName(item),
         })),
-      }
+      } satisfies TicketInput
 
       // Actualizar preview con el ticket real (independiente de si imprime o no).
       setPreviewText(formatTicketAsText(ticketInput))
 
-      const currentPrinter = printerRef.current
+      const currentPrinter = await getReadyPrinter()
       if (!currentPrinter && !osPrintEnabledRef.current) {
-        appendEntry({ orderId, kind: "error", message: "Impresora no conectada (ver vista previa)" })
+        appendEntry({ orderId, kind: "error", message: "Impresora no conectada (ver vista previa)", ticketInput })
         return
       }
 
       if (currentPrinter) {
         const ticket = buildOrderTicket(ticketInput, ticketWidthRef.current)
-        await sendTicket(currentPrinter, ticket)
-        appendEntry({ orderId, kind: "ok", message: "Ticket impreso" })
+        await sendBluetoothTicket(ticket)
+        appendEntry({ orderId, kind: "ok", message: "Ticket impreso", ticketInput })
       } else {
         const mode = await printViaSystemDriver(ticketInput)
         if (mode === "raw") {
-          appendEntry({ orderId, kind: "ok", message: "Ticket RAW enviado en silencio" })
+          appendEntry({ orderId, kind: "ok", message: "Ticket RAW enviado en silencio", ticketInput })
         } else {
-          appendEntry({ orderId, kind: "ok", message: "Diálogo de impresión del sistema abierto" })
+          appendEntry({ orderId, kind: "ok", message: "Diálogo de impresión del sistema abierto", ticketInput })
         }
       }
 
@@ -313,6 +424,7 @@ export default function PrinterPage() {
         orderId,
         kind: "error",
         message: err instanceof Error ? err.message : "Error inesperado",
+        ticketInput,
       })
     } finally {
       processingOrderIds.current.delete(orderId)
@@ -581,9 +693,21 @@ export default function PrinterPage() {
                       {entry.message}
                     </p>
                   </div>
-                  <time className="shrink-0 text-[11px] font-mono text-stone-500">
-                    {entry.at.toLocaleTimeString("es-CL")}
-                  </time>
+                  <div className="ml-3 flex shrink-0 items-center gap-3">
+                    {entry.ticketInput && (
+                      <button
+                        type="button"
+                        onClick={() => handleManualPrint(entry)}
+                        disabled={manualPrintingOrderIds.has(entry.orderId)}
+                        className="rounded-lg border border-stone-300 bg-white px-3 py-1.5 text-xs font-bold text-stone-800 shadow-sm transition hover:border-orange-300 hover:text-orange-700 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {manualPrintingOrderIds.has(entry.orderId) ? "Imprimiendo…" : "Imprimir"}
+                      </button>
+                    )}
+                    <time className="text-[11px] font-mono text-stone-500">
+                      {entry.at.toLocaleTimeString("es-CL")}
+                    </time>
+                  </div>
                 </li>
               ))}
             </ul>

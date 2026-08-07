@@ -1,9 +1,12 @@
 "use client"
 
 import Link from "next/link"
+import { Eye, EyeOff } from "lucide-react"
+import { useState } from "react"
 import { useLogin } from "@/hooks/useLogin"
 
 export default function LoginPage() {
+  const [showPassword, setShowPassword] = useState(false)
   const {
     email,
     setEmail,
@@ -77,6 +80,7 @@ export default function LoginPage() {
                 </label>
 
                 <input
+                  name="email"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -98,13 +102,25 @@ export default function LoginPage() {
                   </Link>
                 </div>
 
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 text-stone-950 outline-none transition placeholder:text-stone-400 focus:border-orange-300 focus:bg-white focus:ring-4 focus:ring-orange-100"
-                />
+                <div className="relative">
+                  <input
+                    name="password"
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 pr-11 text-stone-950 outline-none transition placeholder:text-stone-400 focus:border-orange-300 focus:bg-white focus:ring-4 focus:ring-orange-100"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((visible) => !visible)}
+                    aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                    title={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                    className="absolute inset-y-0 right-3 flex items-center justify-center text-stone-400 transition hover:text-stone-700"
+                  >
+                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  </button>
+                </div>
               </div>
 
               {error && (

@@ -140,6 +140,18 @@ export function buildReceiptHtml(input: ReceiptInput): string {
 export const OS_PRINT_STORAGE_KEY = "mesa-printer-os-fallback"
 const ELECTRON_PRINTER_STORAGE_KEY = "mesa-printer-electron-device"
 
+// Las impresoras térmicas USB y el spooler de Windows no siempre toleran dos
+// documentos RAW abiertos al mismo tiempo. Además, después de varios minutos
+// en reposo, el primer OpenPrinter/WritePrinter puede fallar aunque el driver
+// siga apareciendo como conectado. Mantener una cola única, dejar que el
+// spooler libere cada trabajo y reintentar solo cuando Windows devuelve error
+// evita que el usuario tenga que despertar la impresora con "Probar impresión".
+let rawPrintQueue: Promise<void> = Promise.resolve()
+
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
 /** true solo dentro de la app de escritorio (nunca en un navegador normal). */
 export function isElectronPrintAvailable(): boolean {
   return typeof window !== "undefined" && Boolean(window.electronAPI?.isElectron)
@@ -170,6 +182,40 @@ export function setStoredElectronPrinter(deviceName: string): void {
   }
 }
 
+async function printRawWithRecovery(deviceName: string, bytes: number[]): Promise<void> {
+  const print = async () => {
+    const result = await window.electronAPI!.printRaw(deviceName, bytes)
+    if (!result.success) throw new Error(result.errorType || "La impresora USB no respondió")
+  }
+
+  // Un fallo de apertura después de inactividad suele resolverse cuando el
+  // spooler vuelve a despertar el puerto USB. Nunca repetimos después de un
+  // éxito: así no duplicamos un ticket que Windows ya aceptó.
+  const retryDelays = [0, 1200, 2500, 5000]
+  let lastError: unknown
+  for (const delayMs of retryDelays) {
+    if (delayMs > 0) await wait(delayMs)
+    try {
+      await print()
+      // Separar trabajos consecutivos evita que una impresora lenta reciba el
+      // siguiente documento mientras todavía está cerrando el anterior.
+      await wait(150)
+      return
+    } catch (err) {
+      lastError = err
+    }
+  }
+
+  throw new Error(`La impresora USB no respondió después de ${retryDelays.length} intentos: ${lastError instanceof Error ? lastError.message : String(lastError)}`)
+}
+
+function enqueueRawPrint(deviceName: string, bytes: number[]): Promise<void> {
+  const job = rawPrintQueue.then(() => printRawWithRecovery(deviceName, bytes))
+  // Un fallo no debe bloquear los siguientes pedidos de la cola.
+  rawPrintQueue = job.catch(() => undefined)
+  return job
+}
+
 export async function printTicketViaRawDriver(input: TicketInput): Promise<boolean> {
   const electronDevice = getStoredElectronPrinter()
   if (!isElectronPrintAvailable() || !electronDevice || !window.electronAPI?.printRaw) {
@@ -177,10 +223,7 @@ export async function printTicketViaRawDriver(input: TicketInput): Promise<boole
   }
 
   const ticket = buildOrderTicket(input)
-  const result = await window.electronAPI.printRaw(electronDevice, Array.from(ticket))
-  if (!result.success) {
-    throw new Error(result.errorType || "La app de escritorio no pudo imprimir RAW")
-  }
+  await enqueueRawPrint(electronDevice, Array.from(ticket))
   return true
 }
 
@@ -191,10 +234,7 @@ export async function printReceiptViaRawDriver(input: ReceiptInput): Promise<boo
   }
 
   const ticket = buildReceiptTicket(input)
-  const result = await window.electronAPI.printRaw(electronDevice, Array.from(ticket))
-  if (!result.success) {
-    throw new Error(result.errorType || "La app de escritorio no pudo imprimir RAW")
-  }
+  await enqueueRawPrint(electronDevice, Array.from(ticket))
   return true
 }
 

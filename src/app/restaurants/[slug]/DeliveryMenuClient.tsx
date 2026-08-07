@@ -140,7 +140,7 @@ export function DeliveryMenuClient({
 }: {
   data: DeliveryMenuData
   paymentProvider: string | null
-  deliveryOptions: { home_delivery?: boolean; pickup?: boolean }
+  deliveryOptions: { home_delivery?: boolean; pickup?: boolean; online_payment?: boolean; pay_at_store?: boolean }
 }) {
   const { restaurant, categories, products } = data
   const storageKey = `mesa-delivery-cart:${restaurant.delivery_slug}`
@@ -159,7 +159,7 @@ export function DeliveryMenuClient({
       : "Delivery"
   const [completed, setCompleted] = useState<{ id: number; total: number; fulfillmentType: FulfillmentType; phone: string } | null>(null)
   const [fulfillmentType, setFulfillmentType] = useState<FulfillmentType>(defaultFulfillment)
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(paymentProvider ? "online" : "pay_at_store")
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(deliveryOptions.online_payment && paymentProvider ? "online" : "pay_at_store")
   const [searchQuery, setSearchQuery] = useState("")
   const [activeCategory, setActiveCategory] = useState<number | "all">("all")
   const [hydrated, setHydrated] = useState(false)
@@ -467,6 +467,7 @@ export function DeliveryMenuClient({
             <button
               key={category.id}
               type="button"
+              translate="no"
               onClick={() => setActiveCategory(category.id)}
               className={`shrink-0 rounded-full px-4 py-2 text-[13px] font-semibold ${activeCategory === category.id ? "bg-[#fb923c] text-[#1a1a1a]" : "border border-[#27272a] bg-[#18181b] text-[#d4d4d8]"}`}
             >
@@ -872,7 +873,7 @@ function CheckoutDialog({
   paymentProvider: string | null
   paymentMethod: PaymentMethod
   fulfillmentType: FulfillmentType
-  deliveryOptions: { home_delivery?: boolean; pickup?: boolean }
+  deliveryOptions: { home_delivery?: boolean; pickup?: boolean; online_payment?: boolean; pay_at_store?: boolean }
   onFulfillmentTypeChange: (type: FulfillmentType) => void
   onPaymentMethodChange: (method: PaymentMethod) => void
   onChange: (form: DeliveryForm) => void
@@ -927,21 +928,21 @@ function CheckoutDialog({
     <fieldset className="mt-5">
       <legend className="text-xs font-black uppercase text-stone-500">Forma de pago</legend>
       <div className="mt-2 grid gap-2">
-        {paymentProvider ? (
+        {paymentProvider && deliveryOptions.online_payment ? (
           <label className={`flex cursor-pointer items-center gap-3 rounded-md border p-3 ${paymentMethod === "online" ? "border-orange-400 bg-orange-50" : "border-stone-200"}`}>
             <input type="radio" name="delivery-payment" checked={paymentMethod === "online"} onChange={() => onPaymentMethodChange("online")} />
             <CreditCard className="h-5 w-5 text-orange-600" />
             <span className="min-w-0"><b className="block text-sm">Pagar online</b><span className="block text-xs text-stone-500">Con {PAYMENT_PROVIDER_LABEL[paymentProvider] ?? paymentProvider}</span></span>
           </label>
         ) : null}
-        <label className={`flex cursor-pointer items-center gap-3 rounded-md border p-3 ${paymentMethod === "pay_at_store" ? "border-orange-400 bg-orange-50" : "border-stone-200"}`}>
+        {deliveryOptions.pay_at_store ? <label className={`flex cursor-pointer items-center gap-3 rounded-md border p-3 ${paymentMethod === "pay_at_store" ? "border-orange-400 bg-orange-50" : "border-stone-200"}`}>
           <input type="radio" name="delivery-payment" checked={paymentMethod === "pay_at_store"} onChange={() => onPaymentMethodChange("pay_at_store")} />
           <Store className="h-5 w-5 text-orange-600" />
           <span>
             <b className="block text-sm">{fulfillmentType === "pickup" ? "Pagar al retirar" : "Pagar al recibir"}</b>
             <span className="block text-xs text-stone-500">El pedido se confirma ahora y pagas después</span>
           </span>
-        </label>
+        </label> : null}
       </div>
     </fieldset>
     {paymentMethod === "online" && paymentProvider === "flow" ? <div className="mt-4"><InputField icon={<User />} label="Email para el comprobante" value={form.email} onChange={field("email")} maxLength={120} type="email" /></div> : null}

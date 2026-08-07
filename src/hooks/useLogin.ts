@@ -17,11 +17,24 @@ export function useLogin() {
   async function login(e: React.FormEvent) {
     e.preventDefault()
 
+    const form = e.currentTarget as HTMLFormElement
+    const formData = new FormData(form)
+    const submittedEmail = String(formData.get("email") ?? email).trim()
+    const submittedPassword = String(formData.get("password") ?? password)
+
+    if (!submittedEmail || !submittedPassword) {
+      setError("Introduce tu correo y contraseña.")
+      return
+    }
+
     try {
       setLoading(true)
       setError("")
 
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+      const { data, error } = await withTimeout(
+        supabase.auth.signInWithPassword({ email: submittedEmail, password: submittedPassword }),
+        "La autenticación tardó demasiado. Revisa la conexión con Supabase local.",
+      )
 
       if (error) throw error
       if (!data.user) {
@@ -38,7 +51,10 @@ export function useLogin() {
       // por culpa de eso, reintentamos hasta 3 veces con backoff corto antes
       // de rendirnos. Nunca hacemos signOut automático: si el perfil no se
       // puede leer, mostramos error y dejamos al usuario decidir.
-      const profileRoleId = await fetchProfileRoleIdWithRetry(data.user.id)
+      const profileRoleId = await withTimeout(
+        fetchProfileRoleIdWithRetry(data.user.id),
+        "La sesión se creó, pero no se pudo verificar el perfil local.",
+      )
       if (profileRoleId == null) {
         setError("No se pudo verificar tu cuenta. Reintentá en unos segundos.")
         return
@@ -92,4 +108,17 @@ async function fetchProfileRoleIdWithRetry(authUserId: string): Promise<number |
     await new Promise((resolve) => setTimeout(resolve, 200 * (attempt + 1)))
   }
   return null
+}
+
+async function withTimeout<T>(promise: Promise<T>, message: string, timeoutMs = 10000): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined
+  const timeout = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => reject(new Error(message)), timeoutMs)
+  })
+
+  try {
+    return await Promise.race([promise, timeout])
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId)
+  }
 }

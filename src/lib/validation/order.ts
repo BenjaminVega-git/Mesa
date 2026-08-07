@@ -56,6 +56,14 @@ export const CreateOrderSchema = z.object({
   qrToken: z.string().min(32).max(64),
   dinerToken: z.string().min(8).max(128).nullable().optional(),
   couponCode: z.string().trim().max(40).nullable().optional(),
+  customerLocation: z
+    .object({
+      latitude: z.number().min(-90).max(90),
+      longitude: z.number().min(-180).max(180),
+      accuracyM: z.number().min(0).max(10000).nullable().optional(),
+    })
+    .nullable()
+    .optional(),
   items: z
     .array(CreateOrderItemSchema)
     .min(1, "Debe haber al menos un item en el pedido")

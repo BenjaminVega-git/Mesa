@@ -138,7 +138,7 @@ export function DocumentView({
           ) : null}
           <div>
             <p className="text-base font-extrabold tracking-tight text-stone-900">
-              {emisor.razonSocial || "Restaurante"}
+              {emisor.razonSocial || "Nombre del restaurante"}
             </p>
             <div className="mt-1 space-y-0.5">
               <Field

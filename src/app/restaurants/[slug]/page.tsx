@@ -22,9 +22,11 @@ export default async function DeliveryRestaurantPage({ params }: { params: Param
     <DeliveryMenuClient
       data={data as unknown as DeliveryMenuData}
       paymentProvider={typeof paymentProvider === "string" ? paymentProvider : null}
-      deliveryOptions={(deliveryOptions as { home_delivery?: boolean; pickup?: boolean } | null) ?? {
+      deliveryOptions={(deliveryOptions as { home_delivery?: boolean; pickup?: boolean; online_payment?: boolean; pay_at_store?: boolean } | null) ?? {
         home_delivery: true,
         pickup: false,
+        online_payment: false,
+        pay_at_store: true,
       }}
     />
   )

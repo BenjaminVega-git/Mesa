@@ -1,12 +1,14 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
+import { QRCodeSVG } from "qrcode.react"
 import { useRestaurant } from "@/hooks/useRestaurant"
 import { useCategories } from "@/hooks/useCategories"
 import { useProducts } from "@/hooks/useProducts"
 import { invalidateCache } from "@/hooks/useCache"
 import {
   updateDeliveryConfig,
+  updateLocationConfig,
   updateMenuTemplate,
   updateOrderDestination,
   updateOutputMode,
@@ -15,6 +17,7 @@ import {
   updateRestaurantLogo,
   updateRestaurantName,
 } from "@/services/restaurant-service"
+import { getPaymentAccount } from "@/services/payments-service"
 import { LogoUploader } from "@/components/admin/LogoUploader"
 import { PaymentGatewaySection } from "@/components/admin/PaymentGatewaySection"
 import { MENU_TEMPLATES, getTemplateDesign } from "@/lib/menu/templates"
@@ -461,14 +464,35 @@ function DeliverySection({ restaurant, onSaved }: DeliverySectionProps) {
   const initialSlug = restaurant?.delivery_slug ?? ""
   const initialHomeDelivery = restaurant?.delivery_home_enabled ?? true
   const initialPickup = restaurant?.pickup_enabled ?? false
+  const initialOnlinePayment = restaurant?.delivery_online_payment_enabled ?? true
+  const initialPayAtStore = restaurant?.delivery_pay_at_store_enabled ?? true
 
   const [enabledOverride, setEnabledOverride] = useState<boolean | null>(null)
   const [slugOverride, setSlugOverride] = useState<string | null>(null)
   const [homeDeliveryOverride, setHomeDeliveryOverride] = useState<boolean | null>(null)
   const [pickupOverride, setPickupOverride] = useState<boolean | null>(null)
+  const [onlinePaymentOverride, setOnlinePaymentOverride] = useState<boolean | null>(null)
+  const [payAtStoreOverride, setPayAtStoreOverride] = useState<boolean | null>(null)
+  const [onlinePaymentAvailable, setOnlinePaymentAvailable] = useState(false)
+  const [loadingPaymentAccount, setLoadingPaymentAccount] = useState(true)
   const [saving, setSaving] = useState(false)
   const [feedback, setFeedback] = useState<{ kind: "ok" | "error"; message: string } | null>(null)
   const [copied, setCopied] = useState(false)
+  const qrRef = useRef<SVGSVGElement>(null)
+
+  useEffect(() => {
+    let mounted = true
+    getPaymentAccount().then((result) => {
+      if (!mounted) return
+      setOnlinePaymentAvailable(
+        result.ok && result.data.status === "connected" && result.data.active !== false,
+      )
+      setLoadingPaymentAccount(false)
+    })
+    return () => {
+      mounted = false
+    }
+  }, [])
 
   const baseUrl =
     process.env.NEXT_PUBLIC_APP_URL ??
@@ -486,14 +510,34 @@ function DeliverySection({ restaurant, onSaved }: DeliverySectionProps) {
     }
   }
 
+  function handleDownloadQr() {
+    if (!publicUrl || !qrRef.current || typeof window === "undefined") return
+    const svg = qrRef.current.cloneNode(true) as SVGSVGElement
+    svg.setAttribute("xmlns", "http://www.w3.org/2000/svg")
+    const blob = new Blob([new XMLSerializer().serializeToString(svg)], { type: "image/svg+xml" })
+    const objectUrl = URL.createObjectURL(blob)
+    const anchor = document.createElement("a")
+    anchor.href = objectUrl
+    anchor.download = `${initialSlug || "delivery"}-qr.svg`
+    document.body.appendChild(anchor)
+    anchor.click()
+    anchor.remove()
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 1000)
+  }
+
   const enabled = enabledOverride ?? initialEnabled
   const slug = slugOverride ?? initialSlug
   const homeDelivery = homeDeliveryOverride ?? initialHomeDelivery
   const pickup = pickupOverride ?? initialPickup
+  const onlinePayment = onlinePaymentOverride ?? initialOnlinePayment
+  const payAtStore = payAtStoreOverride ?? initialPayAtStore
+  const configuredOnlinePayment = onlinePayment && onlinePaymentAvailable
   const isDirty =
     enabled !== initialEnabled ||
     homeDelivery !== initialHomeDelivery ||
     pickup !== initialPickup ||
+    configuredOnlinePayment !== initialOnlinePayment ||
+    payAtStore !== initialPayAtStore ||
     (slugOverride !== null && slugOverride.trim() !== initialSlug.trim())
 
   async function handleSave() {
@@ -506,6 +550,8 @@ function DeliverySection({ restaurant, onSaved }: DeliverySectionProps) {
         slug: slug.trim() || null,
         homeDelivery,
         pickup,
+        onlinePayment: configuredOnlinePayment,
+        payAtStore,
       })
       if (!result.ok) {
         setFeedback({ kind: "error", message: result.error })
@@ -516,6 +562,8 @@ function DeliverySection({ restaurant, onSaved }: DeliverySectionProps) {
       setSlugOverride(null)
       setHomeDeliveryOverride(null)
       setPickupOverride(null)
+      setOnlinePaymentOverride(null)
+      setPayAtStoreOverride(null)
       setFeedback({ kind: "ok", message: "Cambios guardados" })
     } finally {
       setSaving(false)
@@ -584,6 +632,43 @@ function DeliverySection({ restaurant, onSaved }: DeliverySectionProps) {
                 <span>
                   <span className="block text-sm font-bold text-stone-900">Retiro en tienda</span>
                   <span className="mt-0.5 block text-[11px] leading-4 text-stone-500">No solicita ubicación al cliente.</span>
+                </span>
+              </label>
+            </div>
+          </fieldset>
+
+          <fieldset className="mb-6">
+            <legend className="text-xs font-bold uppercase tracking-wider text-stone-500">
+              Formas de pago para el cliente
+            </legend>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              <label className={`flex items-start gap-3 rounded-xl border p-3 ${!onlinePaymentAvailable || loadingPaymentAccount ? "cursor-not-allowed border-stone-200 bg-stone-100 opacity-60" : configuredOnlinePayment ? "cursor-pointer border-orange-300 bg-orange-50" : "cursor-pointer border-stone-200 bg-white"}`}>
+                <input
+                  type="checkbox"
+                  checked={configuredOnlinePayment}
+                  disabled={loadingPaymentAccount || !onlinePaymentAvailable}
+                  onChange={(event) => setOnlinePaymentOverride(event.target.checked)}
+                  className="mt-0.5 h-4 w-4 accent-orange-500"
+                />
+                <span>
+                  <span className="block text-sm font-bold text-stone-900">Pago anticipado</span>
+                  <span className="mt-0.5 block text-[11px] leading-4 text-stone-500">
+                    {!loadingPaymentAccount && !onlinePaymentAvailable
+                      ? "Conecta y activa los cobros en línea para habilitarlo."
+                      : "El cliente paga online antes de enviar el pedido."}
+                  </span>
+                </span>
+              </label>
+              <label className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 ${payAtStore ? "border-orange-300 bg-orange-50" : "border-stone-200 bg-white"}`}>
+                <input
+                  type="checkbox"
+                  checked={payAtStore}
+                  onChange={(event) => setPayAtStoreOverride(event.target.checked)}
+                  className="mt-0.5 h-4 w-4 accent-orange-500"
+                />
+                <span>
+                  <span className="block text-sm font-bold text-stone-900">Pago al llegar al local</span>
+                  <span className="mt-0.5 block text-[11px] leading-4 text-stone-500">El cliente paga al retirar o recibir el pedido.</span>
                 </span>
               </label>
             </div>
@@ -659,6 +744,24 @@ function DeliverySection({ restaurant, onSaved }: DeliverySectionProps) {
                   )}
                 </button>
               </div>
+              <div className="mt-4 flex flex-col items-center gap-4 rounded-2xl border border-stone-200 bg-stone-50 p-4 sm:flex-row sm:items-center">
+                <div className="shrink-0 rounded-xl bg-white p-3 shadow-sm">
+                  <QRCodeSVG ref={qrRef} value={publicUrl} size={176} level="H" marginSize={2} />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-stone-900">QR del delivery</p>
+                  <p className="mt-1 text-xs leading-5 text-stone-500">
+                    Al escanearlo abrirá exactamente el mismo enlace público de arriba.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleDownloadQr}
+                    className="mt-3 rounded-xl bg-stone-900 px-3 py-2 text-xs font-bold text-white transition hover:bg-stone-800"
+                  >
+                    Descargar QR
+                  </button>
+                </div>
+              </div>
             </div>
           )}
 
@@ -685,6 +788,264 @@ function DeliverySection({ restaurant, onSaved }: DeliverySectionProps) {
           type="button"
           onClick={handleSave}
           disabled={saving || !isDirty}
+          className="rounded-xl bg-orange-500 px-5 py-3 text-sm font-bold text-white shadow transition hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {saving ? "Guardando..." : "Guardar cambios"}
+        </button>
+        {!isDirty && !saving && (
+          <span className="text-xs font-medium text-stone-400">Sin cambios.</span>
+        )}
+      </div>
+    </section>
+  )
+}
+
+function getGeolocationErrorMessage(error: GeolocationPositionError) {
+  if (error.code === error.PERMISSION_DENIED) {
+    return "Permiso de ubicación denegado. Actívalo en el navegador y en el sistema."
+  }
+  if (error.code === error.POSITION_UNAVAILABLE) {
+    return "No se pudo calcular la ubicación. Prueba con un teléfono dentro del local."
+  }
+  if (error.code === error.TIMEOUT) {
+    return "El GPS tardó demasiado en responder. Reintenta desde un lugar con mejor señal."
+  }
+  return "No se pudo obtener la ubicación. Revisa el permiso de GPS."
+}
+
+function LocationSection({ restaurant, onSaved }: OrderHandlingSectionProps) {
+  const initialEnabled = restaurant?.location_check_enabled ?? false
+  const initialLatitude = restaurant?.location_latitude ?? null
+  const initialLongitude = restaurant?.location_longitude ?? null
+  const initialAccuracyM = restaurant?.location_accuracy_m ?? null
+  const initialRadius = restaurant?.location_radius_m ?? 120
+
+  const [enabledOverride, setEnabledOverride] = useState<boolean | null>(null)
+  const [latitudeOverride, setLatitudeOverride] = useState<number | null | undefined>(undefined)
+  const [longitudeOverride, setLongitudeOverride] = useState<number | null | undefined>(undefined)
+  const [accuracyOverride, setAccuracyOverride] = useState<number | null | undefined>(undefined)
+  const [radiusOverride, setRadiusOverride] = useState<number | null>(null)
+  const [allowLowAccuracy, setAllowLowAccuracy] = useState(false)
+  const [locating, setLocating] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [feedback, setFeedback] = useState<{ kind: "ok" | "error"; message: string } | null>(null)
+
+  const enabled = enabledOverride ?? initialEnabled
+  const latitude = latitudeOverride !== undefined ? latitudeOverride : initialLatitude
+  const longitude = longitudeOverride !== undefined ? longitudeOverride : initialLongitude
+  const accuracyM = accuracyOverride !== undefined ? accuracyOverride : initialAccuracyM
+  const radiusM = radiusOverride ?? initialRadius
+  const hasLocation = latitude != null && longitude != null
+  const isDirty =
+    enabled !== initialEnabled ||
+    latitude !== initialLatitude ||
+    longitude !== initialLongitude ||
+    accuracyM !== initialAccuracyM ||
+    radiusM !== initialRadius
+
+  function captureLocation(nextEnabled = enabled) {
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      setFeedback({ kind: "error", message: "Este dispositivo no permite leer GPS desde el navegador" })
+      return
+    }
+
+    setLocating(true)
+    setFeedback(null)
+    let bestPosition: GeolocationPosition | null = null
+    let finished = false
+    let watchId: number | null = null
+    const finish = (position: GeolocationPosition | null, error?: GeolocationPositionError) => {
+      if (finished) return
+      finished = true
+      if (watchId != null) navigator.geolocation.clearWatch(watchId)
+      window.clearTimeout(timeoutId)
+
+      if (!position) {
+        setLocating(false)
+        setFeedback({ kind: "error", message: error ? getGeolocationErrorMessage(error) : "No se pudo obtener la ubicación. Revisa el permiso de GPS." })
+        return
+      }
+
+      const accuracy = Number.isFinite(position.coords.accuracy) ? position.coords.accuracy : null
+      setLatitudeOverride(position.coords.latitude)
+      setLongitudeOverride(position.coords.longitude)
+      setAccuracyOverride(accuracy)
+      setEnabledOverride(nextEnabled)
+      setLocating(false)
+      setFeedback({
+        kind: "ok",
+        message: accuracy != null && accuracy <= 50
+          ? "Ubicación GPS precisa capturada. Guarda los cambios para activarla."
+          : "Se guardó la mejor lectura disponible. Para mayor precisión, mantén el móvil dentro del local y vuelve a intentarlo.",
+      })
+    }
+
+    const timeoutId = window.setTimeout(() => finish(bestPosition), 25000)
+    watchId = navigator.geolocation.watchPosition(
+      (position) => {
+        const accuracy = position.coords.accuracy
+        if (bestPosition == null || (Number.isFinite(accuracy) && accuracy < bestPosition.coords.accuracy)) {
+          bestPosition = position
+        }
+        // On a phone, the browser often starts with a cell-tower estimate and
+        // improves it shortly after enabling high-accuracy GPS.
+        if (Number.isFinite(accuracy) && accuracy <= 50) finish(position)
+      },
+      (error) => finish(bestPosition, error),
+      { enableHighAccuracy: true, timeout: 25000, maximumAge: 0 }
+    )
+  }
+
+  async function handleToggle() {
+    const next = !enabled
+    setEnabledOverride(next)
+    if (next && !hasLocation) captureLocation(next)
+  }
+
+  async function handleSave() {
+    if (saving || !isDirty) return
+    if (enabled && !hasLocation) {
+      setFeedback({ kind: "error", message: "Captura la ubicación GPS del local antes de activar esta opción" })
+      return
+    }
+    if (enabled && accuracyM == null) {
+      setFeedback({ kind: "error", message: "Vuelve a capturar la ubicación con el botón Usar GPS actual antes de activarla" })
+      return
+    }
+    if (enabled && accuracyM != null && accuracyM > 50 && !allowLowAccuracy) {
+      setFeedback({ kind: "error", message: "La precisión GPS es baja. Captura el punto desde el interior del local o confirma que quieres guardar esta ubicación igualmente." })
+      return
+    }
+
+    setSaving(true)
+    setFeedback(null)
+    try {
+      const result = await updateLocationConfig({
+        enabled,
+        latitude,
+        longitude,
+        accuracyM,
+        radiusM,
+      })
+      if (!result.ok) {
+        setFeedback({ kind: "error", message: result.error })
+        return
+      }
+      onSaved()
+      setEnabledOverride(null)
+      setLatitudeOverride(undefined)
+      setLongitudeOverride(undefined)
+      setAccuracyOverride(undefined)
+      setRadiusOverride(null)
+      setAllowLowAccuracy(false)
+      setFeedback({ kind: "ok", message: "Cambios guardados" })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <section className="rounded-3xl border border-stone-200 bg-white p-6 shadow-sm">
+      <div className="flex flex-wrap items-center gap-2">
+        <h3 className="text-lg font-bold text-stone-900">Activar ubicación</h3>
+        <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-700">
+          Beta
+        </span>
+      </div>
+      <p className="mt-1 text-xs font-medium text-stone-500">
+        Valida con GPS que los pedidos por QR se hagan cerca de la mesa. No afecta pedidos online ni delivery.
+      </p>
+      <p className="mt-3 rounded-xl border border-orange-100 bg-orange-50 px-3 py-2 text-xs font-medium leading-5 text-orange-800">
+        Para registrar el punto exacto, abre esta pantalla desde un móvil estando dentro del local, activa la ubicación y espera a que el GPS se estabilice.
+      </p>
+      <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold leading-5 text-amber-900">
+        Esta función está en beta. Una señal Wi‑Fi débil o un GPS defectuoso puede alterar la ubicación y la distancia calculada, provocando resultados incorrectos. Si notas algo extraño, desactívala temporalmente y revisa la ubicación registrada.
+      </p>
+
+      <div className="mt-5 flex items-center gap-3">
+        <button
+          type="button"
+          onClick={handleToggle}
+          className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer items-center rounded-full transition ${
+            enabled ? "bg-orange-500" : "bg-stone-200"
+          }`}
+          role="switch"
+          aria-checked={enabled}
+        >
+          <span
+            className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition ${
+              enabled ? "translate-x-6" : "translate-x-1"
+            }`}
+          />
+        </button>
+        <span className="text-sm font-semibold text-stone-900">
+          {enabled ? "Validación por ubicación activada" : "Validación por ubicación desactivada"}
+        </span>
+      </div>
+
+      <div className="mt-6 grid max-w-xl gap-4 sm:grid-cols-[1fr_160px]">
+        <div className="rounded-2xl border border-stone-200 bg-stone-50 p-4">
+          <p className="text-xs font-bold uppercase tracking-wider text-stone-500">Ubicación registrada</p>
+          {hasLocation ? (
+            <>
+              <p className="mt-2 font-mono text-xs text-stone-700">{latitude.toFixed(6)}, {longitude.toFixed(6)}</p>
+              <p className={`mt-2 text-xs font-semibold ${accuracyM != null && accuracyM <= 50 ? "text-emerald-700" : "text-amber-700"}`}>
+                {accuracyM != null ? `Precisión estimada: ±${Math.round(accuracyM)} m` : "Precisión no registrada: vuelve a capturar el GPS"}
+              </p>
+            </>
+          ) : (
+            <p className="mt-2 text-xs font-medium text-stone-500">Sin ubicación GPS guardada.</p>
+          )}
+          <button
+            type="button"
+            onClick={() => captureLocation(true)}
+            disabled={locating}
+            className="mt-4 rounded-xl border border-stone-200 bg-white px-4 py-2 text-xs font-bold text-stone-700 transition hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {locating ? "Buscando GPS del móvil..." : "Capturar ubicación desde este móvil"}
+          </button>
+          {accuracyM != null && accuracyM > 50 && (
+            <label className="mt-3 flex items-start gap-2 text-[11px] font-medium leading-4 text-amber-800">
+              <input type="checkbox" checked={allowLowAccuracy} onChange={(event) => setAllowLowAccuracy(event.target.checked)} className="mt-0.5 accent-orange-500" />
+              Confirmo que la ubicación fue capturada dentro del local y acepto este margen.
+            </label>
+          )}
+        </div>
+
+        <label className="block rounded-2xl border border-stone-200 bg-stone-50 p-4 text-xs font-bold uppercase tracking-wider text-stone-500">
+          Radio permitido
+          <input
+            type="number"
+            min={30}
+            max={1000}
+            step={10}
+            value={radiusM}
+            onChange={(event) => setRadiusOverride(Number(event.target.value))}
+            className="mt-3 w-full rounded-xl border border-stone-200 bg-white px-3 py-2.5 text-sm font-semibold normal-case tracking-normal text-stone-900 outline-none focus:border-orange-300 focus:ring-2 focus:ring-orange-100"
+          />
+          <span className="mt-2 block text-[11px] font-medium normal-case leading-4 tracking-normal text-stone-500">
+            Metros. Recomendado: 120.
+          </span>
+        </label>
+      </div>
+
+      {feedback && (
+        <p
+          className={`mt-5 rounded-lg px-3 py-2 text-xs font-medium ${
+            feedback.kind === "ok"
+              ? "border border-emerald-200 bg-emerald-50 text-emerald-700"
+              : "border border-red-200 bg-red-50 text-red-700"
+          }`}
+        >
+          {feedback.message}
+        </p>
+      )}
+
+      <div className="mt-6 flex items-center gap-3">
+        <button
+          type="button"
+          onClick={handleSave}
+          disabled={saving || locating || !isDirty}
           className="rounded-xl bg-orange-500 px-5 py-3 text-sm font-bold text-white shadow transition hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {saving ? "Guardando..." : "Guardar cambios"}
@@ -1156,6 +1517,14 @@ export default function AdminSettingsPage() {
       />
 
       <DeliverySection
+        restaurant={restaurant ?? null}
+        onSaved={() => {
+          if (restaurant) invalidateCache(`restaurant-${restaurant.id}`)
+          refresh()
+        }}
+      />
+
+      <LocationSection
         restaurant={restaurant ?? null}
         onSaved={() => {
           if (restaurant) invalidateCache(`restaurant-${restaurant.id}`)

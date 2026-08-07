@@ -8,6 +8,7 @@ import {
   type PaymentHistoryRow,
 } from "@/services/accounting-service"
 import { PAYMENT_PROVIDER_LABEL } from "@/lib/payments/types"
+import { PaymentMethodBadge } from "@/components/charge/PaymentMethodBadge"
 
 const clp = new Intl.NumberFormat("es-CL", {
   style: "currency",
@@ -42,8 +43,6 @@ const STATUS_LABEL: Record<string, string> = {
   failed: "Rechazado",
   refunded: "Reembolsado",
 }
-const METHOD_LABEL: Record<string, string> = { cash: "💵 Efectivo", card: "💳 Tarjeta", online: "📱 En línea" }
-
 /**
  * CONTABILIDAD del mesero: historial de solo lectura — pedidos tomados y
  * todas las boletas emitidas por el sistema. La apertura/cierre de caja se
@@ -177,8 +176,7 @@ export default function ContabilidadPage() {
                         <td className="py-2.5 pr-3 font-semibold">{p.tableNumber ?? "—"}</td>
                         <td className="py-2.5 pr-3 font-bold tabular-nums">{fmt(p.amount + p.tip)}</td>
                         <td className="py-2.5 pr-3">
-                          {METHOD_LABEL[p.method] ?? p.method}
-                          {providerLabel && <span className="ml-1 text-[10px] text-stone-400">{providerLabel}</span>}
+                          <PaymentMethodBadge method={p.method} parts={p.parts} providerLabel={providerLabel} />
                         </td>
                         <td className="py-2.5 pr-3">
                           <span
