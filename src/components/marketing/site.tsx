@@ -120,6 +120,16 @@ export function Eyebrow({ num, tag }: { num: string; tag: string }) {
   return <div className="eyebrow reveal"><span className="num">{num}</span><span className="tag">{tag}</span></div>
 }
 
+/** Marcador de sección de la home: número gigante en contorno + tag mono. */
+export function SectionMark({ num, tag }: { num: string; tag: string }) {
+  return (
+    <div className="section-mark reveal">
+      <span className="sm-num">{num}</span>
+      <span className="sm-tag">{tag}</span>
+    </div>
+  )
+}
+
 export function Feature({ title, text }: { title: string; text: string }) {
   return <li><Tick /><div><strong>{title}</strong><p>{text}</p></div></li>
 }
@@ -428,6 +438,42 @@ export function Counter({ to, prefix = "", suffix = "", decimals = 0 }: { to: nu
     return () => { io.disconnect(); cancelAnimationFrame(raf) }
   }, [to])
   return <span ref={ref}>{prefix}{decimals > 0 ? val.toFixed(decimals) : Math.round(val)}{suffix}</span>
+}
+
+/* ---------- Spotlight de testimonios (una cita a la vez, auto-rotando) ---------- */
+export type TestimonialItem = { av: string; name: string; place: string; text: string }
+
+export function TestimonialSpotlight({ items }: { items: TestimonialItem[] }) {
+  const [idx, setIdx] = useState(0)
+
+  useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return
+    const id = setInterval(() => setIdx((i) => (i + 1) % items.length), 5500)
+    return () => clearInterval(id)
+  }, [items.length])
+
+  const t = items[idx]
+  return (
+    <div className="quote-spotlight">
+      <span className="qs-mark" aria-hidden="true">&ldquo;</span>
+      <p className="qs-text" key={idx}>{t.text}</p>
+      <div className="qs-who">
+        <span className="av">{t.av}</span>
+        <div><strong>{t.name}</strong><span>{t.place}</span></div>
+      </div>
+      <div className="qs-dots">
+        {items.map((it, i) => (
+          <button
+            key={it.name}
+            type="button"
+            className={i === idx ? "on" : ""}
+            onClick={() => setIdx(i)}
+            aria-label={`Ver testimonio de ${it.name}`}
+          />
+        ))}
+      </div>
+    </div>
+  )
 }
 
 /* ---------- Nav data ---------- */

@@ -305,7 +305,9 @@
 .mesa-site .faq details[open] summary .pm{transform:rotate(45deg);background:var(--orange);color:#fff;border-color:var(--orange);}
 .mesa-site .faq .ans{padding:0 0 24px;font-size:15px;color:var(--ink-2);line-height:1.65;max-width:70ch;}
 
-.mesa-site .cta-band{position:relative;overflow:hidden;background:var(--ink);color:#fff;border-radius:26px;padding:clamp(40px,7vw,72px);text-align:center;}
+/* #0B0B0D en vez de var(--ink): mismo negro que el hero/footer nuevos —
+   antes quedaban dos grises oscuros distintos justo uno encima del otro. */
+.mesa-site .cta-band{position:relative;overflow:hidden;background:#0B0B0D;color:#fff;border-radius:26px;padding:clamp(40px,7vw,72px);text-align:center;}
 .mesa-site .cta-band .halo{position:absolute;inset:0;background:radial-gradient(80% 120% at 50% -20%,rgba(245,135,31,0.35),transparent 60%);}
 .mesa-site .cta-band > *{position:relative;z-index:1;}
 .mesa-site .cta-band h2{color:#fff;}
@@ -599,6 +601,121 @@
   .mesa-site .bento{grid-template-columns:1fr;}
   .mesa-site .bento-card,.mesa-site .bento-card.big{grid-column:span 1;grid-row:span 1;height:auto;min-height:168px;}
   .mesa-site .stats-strip .grid{grid-template-columns:repeat(2,1fr);}
+}
+
+/* ============================================================
+   Rediseño v3 — cada sección de la home con un lenguaje nuevo:
+   bloques oscuros/claros agrupados (no alternando uno a uno),
+   marcador de sección con número gigante en contorno, spec-cards,
+   timeline conectado, spotlight de testimonios, comparación en
+   tarjetas y footer oscuro. Todo esto es EXCLUSIVO de la home
+   (clases nuevas) salvo el footer, que se restyleó directo porque
+   un footer oscuro de cierre combina con el nuevo hero en
+   cualquier página, sin romper nada de lo demás.
+   ============================================================ */
+
+/* Bloque oscuro reusable — cualquier sección que lo use hereda la paleta. */
+.mesa-site .dark-block{background:#0B0B0D;color:#F5F1EA;}
+/* El color claro del bloque se hereda por defecto en TODO lo de adentro —
+   la tarjeta blanca del demo de Manuel no tenía su propio reset (a
+   diferencia de .ticket, pensado desde el inicio para vivir en el hero
+   oscuro) y quedaba con texto casi invisible sobre fondo blanco. */
+.mesa-site .dark-block .manuel-demo{color:var(--ink);}
+.mesa-site .dark-block h1,.mesa-site .dark-block h2,.mesa-site .dark-block h3,.mesa-site .dark-block h4,.mesa-site .dark-block strong{color:#F5F1EA;}
+.mesa-site .dark-block .lead{color:#B8B2A6;}
+.mesa-site .dark-block .muted{color:#8f897c;}
+.mesa-site .dark-block .feature-list p{color:#8f897c;}
+.mesa-site .dark-block .manuel-badge{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.14);}
+.mesa-site .dark-block .video-intro-copy .kicker{color:#8f897c;}
+
+/* Marcador de sección: número gigante en contorno (solo trazo, sin relleno)
+   + tag monoespaciado — reemplaza la píldora chica de siempre en esta
+   página. El h2 sigue justo debajo. */
+.mesa-site .section-mark{margin-bottom:10px;}
+.mesa-site .section-mark .sm-num{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:clamp(3.2rem,7.5vw,6rem);font-weight:700;line-height:.85;letter-spacing:-0.02em;color:transparent;-webkit-text-stroke:1.5px var(--line);display:block;}
+.mesa-site .dark-block .section-mark .sm-num{-webkit-text-stroke:1.5px rgba(255,255,255,.18);}
+.mesa-site .section-mark .sm-tag{display:inline-flex;align-items:center;gap:8px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--orange-dk);margin-top:4px;}
+.mesa-site .dark-block .section-mark .sm-tag{color:#FFB35C;}
+
+/* Spec-card: tarjeta tipo "hoja de datos" — bordes rectos, tag monoespaciado
+   en la esquina, sin el círculo de ícono naranja de siempre. */
+.mesa-site .spec-card{position:relative;background:#fff;border:1px solid var(--line);border-radius:10px;padding:28px;transition:border-color .4s var(--ease),transform .4s var(--ease);}
+.mesa-site .spec-card:hover{border-color:var(--orange);transform:translateY(-3px);}
+.mesa-site .spec-card .sc-tag{position:absolute;top:20px;right:20px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10.5px;color:var(--muted);border:1px solid var(--line);border-radius:5px;padding:2px 7px;}
+.mesa-site .spec-card .val{font-size:clamp(2rem,3.6vw,2.8rem);font-weight:700;letter-spacing:-0.03em;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;}
+.mesa-site .spec-card .lab{margin-top:10px;font-size:14.5px;font-weight:700;}
+.mesa-site .spec-card p{margin-top:6px;font-size:13.5px;color:var(--muted);line-height:1.55;}
+
+/* Timeline conectado para "Cómo funciona" — línea punteada detrás de los
+   nodos numerados, en vez de tarjetas sueltas en grilla. */
+.mesa-site .rail{position:relative;display:grid;grid-template-columns:repeat(5,1fr);gap:20px;margin-top:56px;}
+.mesa-site .rail::before{content:"";position:absolute;top:23px;left:0;right:0;height:2px;background-image:repeating-linear-gradient(90deg,var(--line) 0 8px,transparent 8px 16px);}
+.mesa-site .rail-step{position:relative;}
+.mesa-site .rail-step .rn{position:relative;z-index:1;display:grid;place-items:center;width:46px;height:46px;border-radius:99px;background:var(--bg-2);border:2px solid var(--ink);font-weight:700;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;margin-bottom:22px;transition:background .3s,color .3s;}
+.mesa-site .rail-step:hover .rn{background:var(--orange);border-color:var(--orange);color:#fff;}
+.mesa-site .rail-step h4{margin-bottom:6px;}
+.mesa-site .rail-step p{font-size:13.5px;color:var(--muted);line-height:1.5;}
+
+/* Spotlight de testimonios: una cita grande a la vez, rotando sola, en vez
+   de grilla de 3 tarjetas. */
+.mesa-site .quote-spotlight{position:relative;max-width:760px;margin:0 auto;text-align:center;}
+.mesa-site .quote-spotlight .qs-mark{font-family:Georgia,"Times New Roman",serif;font-size:4.5rem;color:rgba(245,135,31,.45);line-height:.6;display:block;margin-bottom:4px;}
+.mesa-site .quote-spotlight .qs-text{font-size:clamp(1.15rem,2.4vw,1.6rem);line-height:1.5;font-weight:500;letter-spacing:-0.01em;min-height:2.4em;animation:mesaBubbleIn .5s var(--ease-soft);}
+.mesa-site .quote-spotlight .qs-who{margin-top:30px;display:flex;align-items:center;justify-content:center;gap:12px;}
+.mesa-site .quote-spotlight .qs-who .av{width:40px;height:40px;border-radius:99px;background:rgba(245,135,31,.16);color:#FFB35C;display:grid;place-items:center;font-weight:700;font-size:13px;}
+.mesa-site .quote-spotlight .qs-who strong{display:block;font-size:14px;}
+.mesa-site .quote-spotlight .qs-who span{color:#8f897c;font-size:12.5px;}
+.mesa-site .quote-spotlight .qs-dots{margin-top:32px;display:flex;justify-content:center;gap:8px;}
+.mesa-site .quote-spotlight .qs-dots button{width:8px;height:8px;border-radius:99px;background:rgba(255,255,255,.18);border:none;padding:0;cursor:pointer;transition:background .3s,width .3s;}
+.mesa-site .quote-spotlight .qs-dots button.on{background:var(--orange);width:24px;}
+
+/* Comparación en tarjetas verticales en vez de tabla. */
+.mesa-site .cmp-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-top:52px;}
+.mesa-site .cmp-card{border:1px solid var(--line);border-radius:14px;padding:28px;background:#fff;}
+.mesa-site .cmp-card.featured{border-color:var(--orange);box-shadow:0 0 0 1px var(--orange),var(--shadow-md);}
+.mesa-site .cmp-card .cc-head{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:6px;}
+.mesa-site .cmp-card .cc-head.on{color:var(--orange-dk);}
+.mesa-site .cmp-card h4{margin-bottom:20px;}
+.mesa-site .cmp-card ul{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:13px;}
+.mesa-site .cmp-card li{display:flex;gap:10px;font-size:13.5px;align-items:flex-start;line-height:1.4;}
+.mesa-site .cmp-card li .m{flex:0 0 auto;width:18px;height:18px;border-radius:99px;display:grid;place-items:center;font-size:10px;margin-top:1px;}
+.mesa-site .cmp-card li.yes .m{background:var(--orange-soft);color:var(--orange-dk);}
+.mesa-site .cmp-card li.no{color:#B0AAA0;}
+.mesa-site .cmp-card li.no .m{background:#F3F1ED;color:#B0AAA0;}
+
+/* FAQ v2: índice monoespaciado a la izquierda en vez de solo el signo +. */
+.mesa-site .faq-v2{margin-top:52px;border-top:1px solid var(--ink);}
+.mesa-site .faq-v2 details{border-bottom:1px solid var(--line);padding:24px 0;}
+.mesa-site .faq-v2 summary{list-style:none;cursor:pointer;display:flex;gap:18px;align-items:baseline;}
+.mesa-site .faq-v2 summary::-webkit-details-marker{display:none;}
+.mesa-site .faq-v2 .fq-idx{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;color:var(--muted);flex:0 0 auto;width:26px;}
+.mesa-site .faq-v2 summary .fq-q{flex:1;font-size:clamp(1rem,1.6vw,1.15rem);font-weight:600;}
+.mesa-site .faq-v2 summary .pm{flex:0 0 auto;width:26px;height:26px;border-radius:99px;border:1px solid var(--line);display:grid;place-items:center;transition:transform .35s var(--ease),background .35s;}
+.mesa-site .faq-v2 details[open] summary .pm{transform:rotate(45deg);background:var(--orange);border-color:var(--orange);color:#fff;}
+.mesa-site .faq-v2 .fq-a{margin-top:14px;padding-left:44px;font-size:14.5px;color:var(--muted);max-width:65ch;line-height:1.65;}
+
+/* Footer oscuro — cierre coherente con el hero, en TODAS las páginas (antes
+   era blanco); no cambia estructura, solo paleta. */
+.mesa-site .footer{background:#0B0B0D;border-top:1px solid rgba(255,255,255,.08);color:#B8B2A6;}
+.mesa-site .footer .brand .name{color:#F5F1EA;}
+.mesa-site .footer .brand .mark{background:rgba(255,255,255,.1);}
+.mesa-site .foot-brand p{color:#8f897c;}
+.mesa-site .foot-col h5{color:#F5F1EA;}
+.mesa-site .foot-col a{color:#8f897c;}
+.mesa-site .foot-col a:hover{color:var(--orange);}
+.mesa-site .foot-bottom{border-top-color:rgba(255,255,255,.08);color:#6b665c;}
+.mesa-site .foot-social a{border-color:rgba(255,255,255,.14);color:#8f897c;}
+.mesa-site .foot-social a:hover{border-color:var(--orange);color:var(--orange);}
+
+@media (max-width:1024px){
+  .mesa-site .cmp-cards{grid-template-columns:1fr;}
+}
+@media (max-width:880px){
+  .mesa-site .rail{grid-template-columns:1fr;gap:30px;}
+  .mesa-site .rail::before{display:none;}
+}
+@media (max-width:560px){
+  .mesa-site .quote-spotlight .qs-text{font-size:1.1rem;}
 }
 
 @media (prefers-reduced-motion:reduce){

@@ -1,4 +1,4 @@
-import { Btn, Ico, Eyebrow, Feature, CornerArrow, DashShot, Counter, CtaBand, Marquee, ManuelDemo, TicketRail } from "@/components/marketing/site"
+import { Btn, Ico, SectionMark, Feature, DashShot, Counter, CtaBand, Marquee, ManuelDemo, TicketRail, TestimonialSpotlight } from "@/components/marketing/site"
 import { ManuelAvatar } from "@/components/admin/assistant/ManuelAvatar"
 
 export const metadata = {
@@ -28,19 +28,20 @@ const steps = [
   ["El equipo recibe", "La orden llega al instante a cocina."],
   ["Entregado", "El platillo llega a la mesa correcta."],
 ]
-const metrics: { ico: string; to?: number; prefix?: string; suffix?: string; decimals?: number; text?: string; lab: string; p: string }[] = [
-  { ico: "zap", to: 35, suffix: "%", lab: "Más eficiencia en el servicio", p: "Tu equipo atiende más mesas por turno con menos esfuerzo." },
-  { ico: "check", to: 90, prefix: "↓", suffix: "%", lab: "Menos errores en pedidos", p: "Los pedidos digitales eliminan las confusiones de la comanda verbal." },
-  { ico: "clock", to: 40, prefix: "↓", suffix: "%", lab: "Menos tiempo de espera", p: "Del escaneo al pedido en segundos, sin esperar al mesero." },
-  { ico: "star", to: 4.8, decimals: 1, suffix: "/5", lab: "Experiencia del cliente", p: "Una interfaz limpia y moderna que mejora la percepción de tu negocio." },
-  { ico: "panel", text: "1 panel", lab: "Administración centralizada", p: "Categorías, productos, mesas, pedidos y meseros en un solo lugar." },
-  { ico: "trend", to: 100, suffix: "%", lab: "Escalable a tu ritmo", p: "Desde una cafetería hasta una cadena de restaurantes." },
+const metrics: { to?: number; prefix?: string; suffix?: string; decimals?: number; text?: string; lab: string; p: string }[] = [
+  { to: 35, suffix: "%", lab: "Más eficiencia en el servicio", p: "Tu equipo atiende más mesas por turno con menos esfuerzo." },
+  { to: 90, prefix: "↓", suffix: "%", lab: "Menos errores en pedidos", p: "Los pedidos digitales eliminan las confusiones de la comanda verbal." },
+  { to: 40, prefix: "↓", suffix: "%", lab: "Menos tiempo de espera", p: "Del escaneo al pedido en segundos, sin esperar al mesero." },
+  { to: 4.8, decimals: 1, suffix: "/5", lab: "Experiencia del cliente", p: "Una interfaz limpia y moderna que mejora la percepción de tu negocio." },
+  { text: "1 panel", lab: "Administración centralizada", p: "Categorías, productos, mesas, pedidos y meseros en un solo lugar." },
+  { to: 100, suffix: "%", lab: "Escalable a tu ritmo", p: "Desde una cafetería hasta una cadena de restaurantes." },
 ]
 const testimonials = [
-  ["JM", "Javiera M.", "Café de barrio · Providencia", "Pasamos de comandas en papel a tener todo en pantalla. Los errores prácticamente desaparecieron y los meseros se mueven más rápido."],
-  ["RC", "Rodrigo C.", "Parrilla · Concepción", "La instalación fue en minutos y sin instalar nada. Mis clientes piden desde el QR y la cocina recibe al toque."],
-  ["VP", "Valentina P.", "Restaurante · Viña del Mar", "Tener todo el menú actualizado al instante nos cambió la vida. Subir un plato nuevo toma segundos."],
+  { av: "JM", name: "Javiera M.", place: "Café de barrio · Providencia", text: "Pasamos de comandas en papel a tener todo en pantalla. Los errores prácticamente desaparecieron y los meseros se mueven más rápido." },
+  { av: "RC", name: "Rodrigo C.", place: "Parrilla · Concepción", text: "La instalación fue en minutos y sin instalar nada. Mis clientes piden desde el QR y la cocina recibe al toque." },
+  { av: "VP", name: "Valentina P.", place: "Restaurante · Viña del Mar", text: "Tener todo el menú actualizado al instante nos cambió la vida. Subir un plato nuevo toma segundos." },
 ]
+const cmpCols = ["MESA", "Menú físico", "Software tradicional"] as const
 const cmpRows: [string, boolean, boolean, boolean][] = [
   ["Menú siempre actualizado", true, false, true],
   ["Pide sin descargar apps", true, false, false],
@@ -60,6 +61,7 @@ const faqs = [
 export default function Home() {
   return (
     <>
+      {/* ---- Bloque de apertura oscuro: hero + stats + video, un solo tramo ---- */}
       <section className="hero-pro">
         <div className="hero-pro-bg" aria-hidden="true">
           <div className="sheen" /><div className="grain" /><div className="fade" />
@@ -91,7 +93,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="video-intro bg-white" aria-labelledby="video-intro-title">
+      <section className="video-intro dark-block" aria-labelledby="video-intro-title">
         <div className="wrap">
           <div className="video-intro-copy reveal">
             <p className="kicker muted">MESA en acción</p>
@@ -112,6 +114,7 @@ export default function Home() {
         </div>
       </section>
 
+      {/* ---- Bloque claro: la historia del producto ---- */}
       <section className="section bg-white" style={{ paddingBlock: "clamp(40px,6vw,64px)" }}>
         <div className="wrap center">
           <p className="muted reveal" style={{ fontSize: 13.5, marginBottom: 26 }}>Pensado para todo tipo de negocio gastronómico en Chile</p>
@@ -123,7 +126,7 @@ export default function Home() {
 
       <section className="section bg-white" id="solucion">
         <div className="wrap">
-          <Eyebrow num="1" tag="Conoce MESA" />
+          <SectionMark num="01" tag="Conoce MESA" />
           <h2 className="reveal maxw-h2">Una sola plataforma para operar todo tu restaurante.</h2>
           <div className="split mt-l">
             <div className="copy reveal">
@@ -142,11 +145,15 @@ export default function Home() {
 
       <section className="section bg-soft">
         <div className="wrap">
-          <Eyebrow num="2" tag="Cómo funciona" />
+          <SectionMark num="02" tag="Cómo funciona" />
           <h2 className="reveal maxw-h2">Del escaneo a la mesa, en cinco pasos.</h2>
-          <div className="grid g-5 mt-l">
+          <div className="rail">
             {steps.map(([t, p], i) => (
-              <div key={t} className="step reveal"><span className="n">{i + 1}</span><h4>{t}</h4><p>{p}</p></div>
+              <div key={t} className="rail-step reveal">
+                <span className="rn">{i + 1}</span>
+                <h4>{t}</h4>
+                <p>{p}</p>
+              </div>
             ))}
           </div>
         </div>
@@ -154,7 +161,7 @@ export default function Home() {
 
       <section className="section bg-white" id="modulos">
         <div className="wrap">
-          <Eyebrow num="3" tag="Módulos principales" />
+          <SectionMark num="03" tag="Módulos principales" />
           <h2 className="reveal maxw-h2">Todo lo que tu local necesita, integrado.</h2>
           <div className="bento mt-l stagger">
             <div className="bento-card big reveal">
@@ -174,10 +181,11 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="section bg-soft manuel-section" id="manuel">
+      {/* ---- Interludio oscuro: el diferenciador de IA ---- */}
+      <section className="section dark-block manuel-section" id="manuel">
         <div className="halo" />
         <div className="wrap">
-          <Eyebrow num="4" tag="Tu asistente de IA" />
+          <SectionMark num="04" tag="Tu asistente de IA" />
           <div className="manuel-split mt-l">
             <div className="reveal">
               <span className="manuel-badge"><ManuelAvatar size={22} /><span>Se llama Manuel</span></span>
@@ -194,61 +202,74 @@ export default function Home() {
         </div>
       </section>
 
+      {/* ---- Bloque claro: prueba social y decisión ---- */}
       <section className="section bg-white" id="beneficios">
         <div className="wrap">
-          <Eyebrow num="5" tag="Beneficios para tu negocio" />
+          <SectionMark num="05" tag="Beneficios para tu negocio" />
           <h2 className="reveal" style={{ maxWidth: "16ch" }}>Resultados que <span className="accent">se notan</span> desde el primer servicio.</h2>
           <div className="grid g-3 mt-l stagger">
-            {metrics.map((m) => (
-              <div key={m.lab} className="card card-rel metric reveal"><CornerArrow /><div className="c-ico"><Ico n={m.ico} /></div>
+            {metrics.map((m, i) => (
+              <div key={m.lab} className="spec-card reveal">
+                <span className="sc-tag">{String(i + 1).padStart(2, "0")}</span>
                 <div className="val">{m.text ? m.text : <Counter to={m.to ?? 0} prefix={m.prefix} suffix={m.suffix} decimals={m.decimals} />}</div>
-                <div className="lab">{m.lab}</div><p>{m.p}</p>
+                <div className="lab">{m.lab}</div>
+                <p>{m.p}</p>
               </div>
             ))}
           </div>
-          <p className="center lead mt-l mx-auto" style={{ maxWidth: "40ch", fontWeight: 500, color: "var(--ink)" }}>MESA transforma la manera en que tu restaurante opera día a día.</p>
         </div>
       </section>
 
-      <section className="section bg-soft">
+      <section className="section dark-block">
         <div className="wrap">
-          <Eyebrow num="6" tag="Testimonios" />
-          <h2 className="reveal maxw-h2">A los equipos les encanta trabajar con MESA.</h2>
-          <div className="grid g-3 mt-l stagger">
-            {testimonials.map(([av, name, place, text]) => (
-              <div key={name} className="quote reveal"><span className="stars">★★★★★</span><p className="text">{text}</p><div className="who"><span className="av">{av}</span><div><strong>{name}</strong><span>{place}</span></div></div></div>
-            ))}
+          <SectionMark num="06" tag="Testimonios" />
+          <h2 className="reveal center maxw mx-auto" style={{ marginBottom: 8 }}>A los equipos les encanta trabajar con MESA.</h2>
+          <div className="mt-l reveal">
+            <TestimonialSpotlight items={testimonials} />
           </div>
         </div>
       </section>
 
       <section className="section bg-white">
         <div className="wrap">
-          <Eyebrow num="7" tag="Por qué MESA" />
+          <SectionMark num="07" tag="Por qué MESA" />
           <h2 className="reveal maxw-h2">Lo esencial, sin la complejidad de siempre.</h2>
-          <div className="cmp-scroll mt-l reveal">
-            <table className="cmp">
-              <thead><tr><th>Lo que importa</th><th className="center mesa">MESA</th><th className="center">Menú físico</th><th className="center">Software tradicional</th></tr></thead>
-              <tbody>
-                {cmpRows.map((r) => (
-                  <tr key={r[0]}>
-                    <td>{r[0]}</td>
-                    {[r[1], r[2], r[3]].map((v, i) => <td key={i} className="center">{v ? <span className="yes">✓</span> : <span className="no">✕</span>}</td>)}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="cmp-cards reveal">
+            {cmpCols.map((col, ci) => (
+              <div key={col} className={`cmp-card${ci === 0 ? " featured" : ""}`}>
+                <div className={`cc-head${ci === 0 ? " on" : ""}`}>{ci === 0 ? "Recomendado" : "Alternativa"}</div>
+                <h4>{col}</h4>
+                <ul>
+                  {cmpRows.map((r) => {
+                    const ok = r[ci + 1] as boolean
+                    return (
+                      <li key={r[0]} className={ok ? "yes" : "no"}>
+                        <span className="m">{ok ? "✓" : "✕"}</span>
+                        <span>{r[0]}</span>
+                      </li>
+                    )
+                  })}
+                </ul>
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
       <section className="section bg-soft">
         <div className="wrap">
-          <Eyebrow num="8" tag="Preguntas frecuentes" />
+          <SectionMark num="08" tag="Preguntas frecuentes" />
           <h2 className="reveal maxw-h2">Resolvemos tus dudas antes de empezar.</h2>
-          <div className="faq mt-l reveal">
+          <div className="faq-v2 reveal">
             {faqs.map(([q, a], i) => (
-              <details key={q} open={i === 0}><summary>{q}<span className="pm">+</span></summary><div className="ans">{a}</div></details>
+              <details key={q} open={i === 0}>
+                <summary>
+                  <span className="fq-idx">{String(i + 1).padStart(2, "0")}</span>
+                  <span className="fq-q">{q}</span>
+                  <span className="pm">+</span>
+                </summary>
+                <div className="fq-a">{a}</div>
+              </details>
             ))}
           </div>
         </div>
