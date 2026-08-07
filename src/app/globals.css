@@ -20,6 +20,16 @@ html, body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Alcanza con recortarlo en <html>: si se pone overflow-x:hidden en AMBOS
+   (como estaba antes), el navegador sube overflow-y de los dos a "auto" (regla
+   del spec: si un eje no es "visible", el otro eje "visible" pasa a "auto") —
+   con html Y body convertidos en contenedores de scroll a la vez, cualquier
+   position:sticky de la app (como el nav del sitio de marketing) deja de
+   anclarse contra el viewport real y se desplaza con la página como si fuera
+   position:static. */
+html {
   overflow-x: hidden;
 }
 

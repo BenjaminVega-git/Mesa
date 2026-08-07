@@ -416,7 +416,102 @@
   .mesa-site .video-intro-copy .kicker{padding-top:0;}
   .mesa-site .video-frame{border-radius:12px;}
 }
+/* ============================================================
+   Rediseño 2026: barra de progreso, nav con estado de scroll,
+   glow interactivo del hero, chips flotantes, marquee de logos,
+   mockups "vivos", teaser de Manuel y stagger de entrada.
+   ============================================================ */
+
+/* Barra de progreso de scroll — hilo fino arriba de todo, ancho = %scroll. */
+.mesa-site .scroll-progress{position:fixed;top:0;left:0;height:3px;background:linear-gradient(90deg,var(--orange),#FFB35C);z-index:100;width:0%;transition:width .1s linear;}
+
+/* Nav: al hacer scroll se vuelve más compacto y con más profundidad. */
+.mesa-site .nav-shell{transition:padding .35s var(--ease);}
+.mesa-site .nav{transition:box-shadow .35s var(--ease),padding .35s var(--ease);}
+.mesa-site .nav-shell.scrolled{padding-top:6px;padding-bottom:6px;}
+.mesa-site .nav-shell.scrolled .nav{box-shadow:var(--shadow-lg);}
+
+/* Mega-menú: entrada escalonada de cada link. */
+.mesa-site .drop-inner a{opacity:0;transform:translateY(6px);transition:opacity .35s var(--ease),transform .35s var(--ease),background .25s;}
+.mesa-site .has-drop:hover .drop-inner a{opacity:1;transform:none;}
+.mesa-site .drop-inner a:nth-child(1){transition-delay:.02s;} .mesa-site .drop-inner a:nth-child(2){transition-delay:.06s;}
+.mesa-site .drop-inner a:nth-child(3){transition-delay:.1s;} .mesa-site .drop-inner a:nth-child(4){transition-delay:.14s;}
+.mesa-site .drop-inner a:nth-child(5){transition-delay:.18s;} .mesa-site .drop-inner a:nth-child(6){transition-delay:.22s;}
+.mesa-site .drop-inner a:nth-child(7){transition-delay:.26s;} .mesa-site .drop-inner a:nth-child(8){transition-delay:.3s;}
+
+/* Glow del hero que sigue el cursor (además del degradado fijo de HeroFx). */
+.mesa-site .hero{--mx:72%;--my:-10%;}
+.mesa-site .hero-glow{position:absolute;inset:0;z-index:0;pointer-events:none;opacity:0;transition:opacity .6s var(--ease);background:radial-gradient(420px 420px at var(--mx) var(--my),rgba(245,135,31,0.30),rgba(245,135,31,0) 70%);}
+.mesa-site .hero-glow.on{opacity:1;}
+
+/* Chips flotantes del hero: entran con fade+slide y luego flotan suave. */
+.mesa-site .hero-chip{position:absolute;z-index:2;display:inline-flex;align-items:center;gap:8px;background:#fff;border-radius:14px;padding:10px 14px;box-shadow:var(--shadow-lg);font-size:12.5px;font-weight:600;color:var(--ink);opacity:0;white-space:nowrap;animation:mesaChipIn .8s var(--ease-soft) forwards,mesaChipFloat 6s ease-in-out 1s infinite;}
+.mesa-site .hero-chip .hc-dot{width:8px;height:8px;border-radius:99px;background:#22C55E;flex:0 0 auto;box-shadow:0 0 0 3px rgba(34,197,94,.18);}
+.mesa-site .hero-chip.o .hc-dot{background:var(--orange);box-shadow:0 0 0 3px rgba(245,135,31,.18);}
+.mesa-site .hero-chip.c1{top:14%;left:2%;animation-delay:.5s,1.3s;}
+.mesa-site .hero-chip.c2{top:2%;right:6%;animation-delay:.9s,1.7s;}
+.mesa-site .hero-chip.c3{bottom:30%;right:0;animation-delay:1.3s,2.1s;}
+@keyframes mesaChipIn{from{opacity:0;transform:translateY(14px) scale(.94);}to{opacity:1;transform:translateY(0) scale(1);}}
+@keyframes mesaChipFloat{0%,100%{transform:translateY(0);}50%{transform:translateY(-10px);}}
+@media (max-width:1100px){.mesa-site .hero-chip{display:none;}}
+
+/* Marquee infinito (logos, y reutilizable). */
+.mesa-site .marquee{overflow:hidden;-webkit-mask-image:linear-gradient(90deg,transparent,#000 10%,#000 90%,transparent);mask-image:linear-gradient(90deg,transparent,#000 10%,#000 90%,transparent);}
+.mesa-site .marquee-track{display:flex;align-items:center;gap:14px;width:max-content;animation:mesaMarquee 26s linear infinite;}
+.mesa-site .marquee:hover .marquee-track{animation-play-state:paused;}
+@keyframes mesaMarquee{from{transform:translateX(0);}to{transform:translateX(-50%);}}
+
+/* Mockups "vivos": pulso LIVE + fila nueva que entra deslizando. */
+.mesa-site .dash .d-top .d-live{display:inline-flex;align-items:center;gap:6px;margin-left:auto;font-size:9.5px;font-weight:700;letter-spacing:.05em;color:#6fcf97;}
+.mesa-site .dash .d-top .d-live .p{position:relative;width:6px;height:6px;}
+.mesa-site .dash .d-top .d-live .p span{position:absolute;inset:0;border-radius:99px;background:#6fcf97;}
+.mesa-site .dash .d-top .d-live .p .ping{animation:mesaPing 1.4s var(--ease) infinite;}
+/* Las filas solo animan su entrada cuando el mockup se revela por scroll
+   (dentro de .reveal.in) — si el efecto corriera al montar la página, ya
+   habría terminado (invisible, con opacity:0 del wrapper) mucho antes de que
+   el usuario llegue a verlo. */
+.mesa-site .reveal .d-li{opacity:0;}
+.mesa-site .reveal.in .d-li{animation:mesaRowIn .5s var(--ease-soft) both;}
+@keyframes mesaRowIn{from{opacity:0;transform:translateY(-6px);}to{opacity:1;transform:none;}}
+.mesa-site .dash .d-kpi b{transition:opacity .25s;}
+
+/* Tarjetas: entrada escalonada dentro de una misma grilla. */
+.mesa-site .grid.stagger > *:nth-child(1){transition-delay:0s;} .mesa-site .grid.stagger > *:nth-child(2){transition-delay:.08s;}
+.mesa-site .grid.stagger > *:nth-child(3){transition-delay:.16s;} .mesa-site .grid.stagger > *:nth-child(4){transition-delay:.24s;}
+.mesa-site .grid.stagger > *:nth-child(5){transition-delay:.32s;} .mesa-site .grid.stagger > *:nth-child(6){transition-delay:.4s;}
+.mesa-site .quote{transition:transform .5s var(--ease),box-shadow .5s var(--ease),border-color .5s var(--ease);}
+.mesa-site .quote:hover{transform:translateY(-4px);box-shadow:var(--shadow-md);border-color:var(--orange);}
+
+/* ---- Sección Manuel: demo de chat animado ---- */
+.mesa-site .manuel-section{position:relative;overflow:hidden;}
+.mesa-site .manuel-section .halo{position:absolute;inset:0;z-index:0;background:radial-gradient(90% 100% at 15% 10%,rgba(245,135,31,0.14),rgba(245,135,31,0) 60%);}
+.mesa-site .manuel-split{position:relative;z-index:1;display:grid;grid-template-columns:1fr 1fr;gap:clamp(28px,5vw,72px);align-items:center;}
+.mesa-site .manuel-badge{display:inline-flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--line);border-radius:999px;padding:6px 14px 6px 6px;box-shadow:var(--shadow-sm);margin-bottom:22px;}
+.mesa-site .manuel-badge span{font-size:12.5px;font-weight:600;}
+.mesa-site .manuel-demo{position:relative;background:#fff;border:1px solid var(--line);border-radius:22px;box-shadow:var(--shadow-lg);padding:22px;min-height:280px;display:flex;flex-direction:column;gap:12px;}
+.mesa-site .manuel-demo-top{display:flex;align-items:center;gap:10px;padding-bottom:14px;border-bottom:1px solid var(--line);margin-bottom:4px;}
+.mesa-site .manuel-demo-top b{font-size:13.5px;}
+.mesa-site .manuel-demo-top span{font-size:11.5px;color:var(--muted);}
+.mesa-site .manuel-demo-top .live{margin-left:auto;}
+.mesa-site .manuel-msgs{flex:1;display:flex;flex-direction:column;gap:10px;justify-content:flex-end;}
+.mesa-site .m-bubble{max-width:82%;padding:11px 15px;border-radius:16px;font-size:13.5px;line-height:1.5;opacity:0;transform:translateY(8px);animation:mesaBubbleIn .45s var(--ease-soft) forwards;}
+.mesa-site .m-bubble.user{align-self:flex-end;background:var(--bg-2);color:var(--ink);border-radius:16px 16px 4px 16px;}
+.mesa-site .m-bubble.bot{align-self:flex-start;background:var(--orange-soft);color:var(--ink);border-radius:16px 16px 16px 4px;display:flex;gap:10px;align-items:flex-start;}
+.mesa-site .m-bubble.bot .av{flex:0 0 auto;margin-top:1px;}
+.mesa-site .m-bubble b{font-weight:700;}
+@keyframes mesaBubbleIn{to{opacity:1;transform:none;}}
+.mesa-site .m-typing{align-self:flex-start;display:flex;gap:5px;background:var(--orange-soft);border-radius:16px 16px 16px 4px;padding:13px 16px;}
+.mesa-site .m-typing span{width:6px;height:6px;border-radius:99px;background:var(--orange);opacity:.5;animation:mesaTypingDot 1s ease-in-out infinite;}
+.mesa-site .m-typing span:nth-child(2){animation-delay:.15s;} .mesa-site .m-typing span:nth-child(3){animation-delay:.3s;}
+@keyframes mesaTypingDot{0%,100%{opacity:.35;transform:translateY(0);}50%{opacity:1;transform:translateY(-3px);}}
+.mesa-site .manuel-feats{display:flex;flex-direction:column;gap:16px;margin-top:26px;}
+
+@media (max-width:880px){
+  .mesa-site .manuel-split{grid-template-columns:1fr;}
+}
+
 @media (prefers-reduced-motion:reduce){
   .mesa-site *{animation:none!important;transition-duration:.01ms!important;}
   .mesa-site .reveal{opacity:1;transform:none;}
+  .mesa-site .hero-chip,.mesa-site .m-bubble,.mesa-site .d-li{opacity:1!important;transform:none!important;}
 }

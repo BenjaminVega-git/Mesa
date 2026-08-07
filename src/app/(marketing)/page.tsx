@@ -1,4 +1,5 @@
-import { Btn, Mark, Ico, Eyebrow, Feature, CornerArrow, DashShot, Counter, CtaBand, HeroFx } from "@/components/marketing/site"
+import { Btn, Mark, Ico, Eyebrow, Feature, CornerArrow, DashShot, Counter, CtaBand, HeroFx, Marquee, ManuelDemo } from "@/components/marketing/site"
+import { ManuelAvatar } from "@/components/admin/assistant/ManuelAvatar"
 
 export const metadata = {
   title: "MESA — Software para restaurantes: menús QR y pedidos en tiempo real",
@@ -54,6 +55,9 @@ export default function Home() {
     <>
       <section className="hero">
         <HeroFx />
+        <span className="hero-chip c1"><span className="hc-dot" />Pedido #142 · Mesa 7 pagado</span>
+        <span className="hero-chip c2 o"><span className="hc-dot" />+18% en ventas esta semana</span>
+        <span className="hero-chip c3"><span className="hc-dot" />Mesa 3 · nuevo pedido</span>
         <div className="hero-inner">
           <p className="kicker muted">MESA · Tomando nuevos restaurantes 2026</p>
           <h1>Digitaliza la experiencia de tu restaurante: menús QR, pedidos en <span className="accent">tiempo real</span>.</h1>
@@ -89,8 +93,8 @@ export default function Home() {
       <section className="section bg-white" style={{ paddingBlock: "clamp(40px,6vw,64px)" }}>
         <div className="wrap center">
           <p className="muted reveal" style={{ fontSize: 13.5, marginBottom: 26 }}>Pensado para todo tipo de negocio gastronómico en Chile</p>
-          <div className="logos reveal">
-            {["Restaurantes", "Cafeterías", "Bares", "Comida rápida", "Panaderías", "Food trucks"].map((l) => <span key={l} className="logo">{l}</span>)}
+          <div className="reveal">
+            <Marquee items={["Restaurantes", "Cafeterías", "Bares", "Comida rápida", "Panaderías", "Food trucks"]} />
           </div>
         </div>
       </section>
@@ -130,7 +134,7 @@ export default function Home() {
         <div className="wrap">
           <Eyebrow num="3" tag="Módulos principales" />
           <h2 className="reveal maxw-h2">Todo lo que tu local necesita, integrado.</h2>
-          <div className="grid g-3 mt-l">
+          <div className="grid g-3 mt-l stagger">
             {modules.map(([ico, t, p]) => (
               <div key={t} className="card card-rel reveal"><CornerArrow /><div className="c-ico"><Ico n={ico} /></div><h3>{t}</h3><p>{p}</p></div>
             ))}
@@ -138,11 +142,31 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="section bg-soft" id="beneficios">
+      <section className="section bg-soft manuel-section" id="manuel">
+        <div className="halo" />
         <div className="wrap">
-          <Eyebrow num="4" tag="Beneficios para tu negocio" />
+          <Eyebrow num="4" tag="Tu asistente de IA" />
+          <div className="manuel-split mt-l">
+            <div className="reveal">
+              <span className="manuel-badge"><ManuelAvatar size={22} /><span>Se llama Manuel</span></span>
+              <h2 style={{ maxWidth: "18ch" }}>La única plataforma con un asistente que <span className="accent">ejecuta</span>, no solo responde.</h2>
+              <p className="lead mt-m">Manuel vive dentro de tu panel: le hablas como a un encargado de confianza y él consulta tus datos reales, crea productos y cupones, y te avisa qué necesita atención — todo en segundos, en español chileno.</p>
+              <ul className="feature-list manuel-feats">
+                <Feature title="Entiende lenguaje natural" text="Sin menús ni formularios: le escribes lo que necesitas." />
+                <Feature title="Ejecuta acciones reales" text="Crea categorías, productos, cupones y promociones por ti." />
+                <Feature title="Conoce tu negocio" text="Ventas, márgenes, inventario y horas peak, siempre al día." />
+              </ul>
+            </div>
+            <div className="reveal"><ManuelDemo /></div>
+          </div>
+        </div>
+      </section>
+
+      <section className="section bg-white" id="beneficios">
+        <div className="wrap">
+          <Eyebrow num="5" tag="Beneficios para tu negocio" />
           <h2 className="reveal" style={{ maxWidth: "16ch" }}>Resultados que <span className="accent">se notan</span> desde el primer servicio.</h2>
-          <div className="grid g-3 mt-l">
+          <div className="grid g-3 mt-l stagger">
             {metrics.map((m) => (
               <div key={m.lab} className="card card-rel metric reveal"><CornerArrow /><div className="c-ico"><Ico n={m.ico} /></div>
                 <div className="val">{m.text ? m.text : <Counter to={m.to ?? 0} prefix={m.prefix} suffix={m.suffix} decimals={m.decimals} />}</div>
@@ -154,11 +178,11 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="section bg-white">
+      <section className="section bg-soft">
         <div className="wrap">
-          <Eyebrow num="5" tag="Testimonios" />
+          <Eyebrow num="6" tag="Testimonios" />
           <h2 className="reveal maxw-h2">A los equipos les encanta trabajar con MESA.</h2>
-          <div className="grid g-3 mt-l">
+          <div className="grid g-3 mt-l stagger">
             {testimonials.map(([av, name, place, text]) => (
               <div key={name} className="quote reveal"><span className="stars">★★★★★</span><p className="text">{text}</p><div className="who"><span className="av">{av}</span><div><strong>{name}</strong><span>{place}</span></div></div></div>
             ))}
@@ -166,9 +190,9 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="section bg-soft">
+      <section className="section bg-white">
         <div className="wrap">
-          <Eyebrow num="6" tag="Por qué MESA" />
+          <Eyebrow num="7" tag="Por qué MESA" />
           <h2 className="reveal maxw-h2">Lo esencial, sin la complejidad de siempre.</h2>
           <div className="cmp-scroll mt-l reveal">
             <table className="cmp">
@@ -186,9 +210,9 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="section bg-white">
+      <section className="section bg-soft">
         <div className="wrap">
-          <Eyebrow num="7" tag="Preguntas frecuentes" />
+          <Eyebrow num="8" tag="Preguntas frecuentes" />
           <h2 className="reveal maxw-h2">Resolvemos tus dudas antes de empezar.</h2>
           <div className="faq mt-l reveal">
             {faqs.map(([q, a], i) => (

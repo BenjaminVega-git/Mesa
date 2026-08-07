@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { ManuelAvatar } from "@/components/admin/assistant/ManuelAvatar"
 
 const ORANGE = "#F5871F"
 
@@ -68,12 +69,48 @@ export function Btn({ label, variant = "orange", href, block }: { label: string;
 }
 
 /* Fondo del hero: degradado naranja nítido + grilla de puntos (igual al
-   fallback del original). Sin shader WebGL: el codegen de three genera
-   identificadores GLSL con doble guión bajo que el driver del navegador
-   rechaza, así que no compila en todas las GPU. */
+   fallback del original) + un segundo glow que sigue al cursor. Sin shader
+   WebGL: el codegen de three genera identificadores GLSL con doble guión
+   bajo que el driver del navegador rechaza, así que no compila en todas
+   las GPU — esto es CSS puro, corre en cualquier lado. */
 export function HeroFx() {
+  const ref = useRef<HTMLDivElement>(null)
+  const [active, setActive] = useState(false)
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return
+
+    let raf = 0
+    function onMove(e: PointerEvent) {
+      cancelAnimationFrame(raf)
+      raf = requestAnimationFrame(() => {
+        const rect = el!.getBoundingClientRect()
+        if (rect.width === 0 || rect.height === 0) return
+        const x = ((e.clientX - rect.left) / rect.width) * 100
+        const y = ((e.clientY - rect.top) / rect.height) * 100
+        // Margen de tolerancia: el glow se apaga solo cerca del borde del
+        // hero, en vez de "saltar" de golpe al entrar/salir.
+        if (x < -20 || x > 120 || y < -20 || y > 120) {
+          setActive(false)
+          return
+        }
+        el!.style.setProperty("--mx", `${x}%`)
+        el!.style.setProperty("--my", `${y}%`)
+        setActive(true)
+      })
+    }
+    window.addEventListener("pointermove", onMove, { passive: true })
+    return () => {
+      window.removeEventListener("pointermove", onMove)
+      cancelAnimationFrame(raf)
+    }
+  }, [])
+
   return (
-    <div className="hero-fx" aria-hidden>
+    <div className="hero-fx" ref={ref} aria-hidden>
+      <div className={`hero-glow${active ? " on" : ""}`} />
       <div className="dots" />
     </div>
   )
@@ -145,24 +182,119 @@ function Corners() {
 }
 
 export function DashShot() {
-  const li = (tag: string, green: boolean, mesa: string, items: string, total: string) => (
-    <div className="d-li"><span className={`tg${green ? " g" : ""}`}>{tag}</span><small>{mesa} · {items}</small><b>{total}</b></div>
+  const li = (tag: string, green: boolean, mesa: string, items: string, total: string, i: number) => (
+    <div className="d-li" style={{ animationDelay: `${i * 90}ms` }}>
+      <span className={`tg${green ? " g" : ""}`}>{tag}</span><small>{mesa} · {items}</small><b>{total}</b>
+    </div>
   )
   return (
     <div className="shot"><Corners />
       <div className="dash">
-        <div className="d-top"><span className="dot o" /><span className="dot" /><span className="dot" /><b>Panel MESA · hoy</b></div>
+        <div className="d-top">
+          <span className="dot o" /><span className="dot" /><span className="dot" /><b>Panel MESA · hoy</b>
+          <span className="d-live"><span className="p"><span className="ping" /><span /></span>LIVE</span>
+        </div>
         <div className="d-row">
           <div className="d-kpi"><span>Pedidos</span><b>48</b></div>
           <div className="d-kpi"><span>Ticket prom.</span><b>$14<em>.2k</em></b></div>
           <div className="d-kpi"><span>Mesas activas</span><b>9</b></div>
         </div>
         <div className="d-list">
-          {li("En cocina", false, "Mesa 7", "2 ítems", "$15.400")}
-          {li("Entregado", true, "Mesa 3", "4 ítems", "$28.900")}
-          {li("En cocina", false, "Mesa 12", "1 ítem", "$6.500")}
-          {li("Entregado", true, "Barra 2", "3 ítems", "$19.700")}
+          {li("En cocina", false, "Mesa 7", "2 ítems", "$15.400", 0)}
+          {li("Entregado", true, "Mesa 3", "4 ítems", "$28.900", 1)}
+          {li("En cocina", false, "Mesa 12", "1 ítem", "$6.500", 2)}
+          {li("Entregado", true, "Barra 2", "3 ítems", "$19.700", 3)}
         </div>
+      </div>
+    </div>
+  )
+}
+
+/* ---------- Marquee genérico (logos, marcas, badges) ---------- */
+export function Marquee({ items }: { items: string[] }) {
+  return (
+    <div className="marquee">
+      <div className="marquee-track">
+        {[...items, ...items].map((l, i) => <span key={`${l}-${i}`} className="logo">{l}</span>)}
+      </div>
+    </div>
+  )
+}
+
+/* ---------- Demo animada de Manuel (asistente IA) ---------- */
+type ManuelPhase = "user" | "typing" | "bot"
+const MANUEL_DEMOS: { q: string; a: string }[] = [
+  { q: "¿Cómo van las ventas de hoy?", a: "Hoy llevas <b>$284.500</b> en 32 pedidos — 18% más que ayer. Tu plato más vendido: Empanada de pino." },
+  { q: "Crea un cupón de 10% para los lunes", a: "Listo ✓ Cupón <b>LUNES10</b> creado: 10% de descuento, válido todos los lunes." },
+  { q: "¿Qué insumos se están acabando?", a: "Tienes <b>2 insumos</b> bajo el mínimo: Palta (3 kg) y Pan de hamburguesa (12 un)." },
+]
+
+export function ManuelDemo() {
+  const rootRef = useRef<HTMLDivElement>(null)
+  const [idx, setIdx] = useState(0)
+  const [phase, setPhase] = useState<ManuelPhase>("user")
+
+  useEffect(() => {
+    const el = rootRef.current
+    if (!el) return
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return
+
+    let mounted = true
+    let localIdx = 0
+    const timeouts: number[] = []
+    function step() {
+      if (!mounted) return
+      setPhase("user")
+      timeouts.push(window.setTimeout(() => mounted && setPhase("typing"), 1500))
+      timeouts.push(window.setTimeout(() => mounted && setPhase("bot"), 2500))
+      timeouts.push(
+        window.setTimeout(() => {
+          if (!mounted) return
+          localIdx = (localIdx + 1) % MANUEL_DEMOS.length
+          setIdx(localIdx)
+          step()
+        }, 6800)
+      )
+    }
+    // Arranca el ciclo solo cuando el demo entra en pantalla — si corriera
+    // desde el montaje de la página, el usuario vería un punto random del
+    // loop (no la primera pregunta) al llegar scrolleando hasta acá.
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          io.disconnect()
+          step()
+        }
+      },
+      { threshold: 0.35 }
+    )
+    io.observe(el)
+    return () => {
+      mounted = false
+      timeouts.forEach(clearTimeout)
+      io.disconnect()
+    }
+  }, [])
+
+  const demo = MANUEL_DEMOS[idx]
+  return (
+    <div className="manuel-demo" ref={rootRef}>
+      <div className="manuel-demo-top">
+        <ManuelAvatar size={30} />
+        <div><b>Manuel</b><br /><span>Asistente de MESA</span></div>
+        <span className="live"><span className="dot"><span className="ping" /><span /></span>en vivo</span>
+      </div>
+      <div className="manuel-msgs">
+        <div className="m-bubble user" key={`u-${idx}`}>{demo.q}</div>
+        {phase === "typing" && (
+          <div className="m-typing" aria-hidden="true"><span /><span /><span /></div>
+        )}
+        {phase === "bot" && (
+          <div className="m-bubble bot" key={`b-${idx}`}>
+            <ManuelAvatar size={22} className="av" />
+            <span dangerouslySetInnerHTML={{ __html: demo.a }} />
+          </div>
+        )}
       </div>
     </div>
   )
@@ -295,11 +427,34 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const [mOpen, setMOpen] = useState(false)
   const [clock, setClock] = useState("--:--")
+  const [scrolled, setScrolled] = useState(false)
+  const [progress, setProgress] = useState(0)
 
   useEffect(() => {
     const tick = () => setClock(new Date().toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit", hour12: false }))
     tick(); const id = setInterval(tick, 20000)
     return () => clearInterval(id)
+  }, [])
+
+  // Nav compacta + halo de sombra al hacer scroll, y barra fina de progreso
+  // de lectura arriba de todo — ambas leen el mismo scroll, un solo listener.
+  useEffect(() => {
+    let raf = 0
+    function onScroll() {
+      cancelAnimationFrame(raf)
+      raf = requestAnimationFrame(() => {
+        const y = window.scrollY
+        setScrolled(y > 8)
+        const max = document.documentElement.scrollHeight - window.innerHeight
+        setProgress(max > 0 ? Math.min(100, (y / max) * 100) : 0)
+      })
+    }
+    onScroll()
+    window.addEventListener("scroll", onScroll, { passive: true })
+    return () => {
+      window.removeEventListener("scroll", onScroll)
+      cancelAnimationFrame(raf)
+    }
   }, [])
 
   useEffect(() => {
@@ -318,7 +473,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="mesa-site">
-      <div className="nav-shell">
+      <div className="scroll-progress" style={{ width: `${progress}%` }} aria-hidden="true" />
+      <div className={`nav-shell${scrolled ? " scrolled" : ""}`}>
         <div className="nav">
           <div className="nav-left">
             <Link className="brand" href="/"><span className="mark"><Mark /></span><span className="name">MESA</span></Link>
