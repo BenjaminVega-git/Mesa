@@ -1,10 +1,17 @@
-import { Btn, Mark, Ico, Eyebrow, Feature, CornerArrow, DashShot, Counter, CtaBand, HeroFx, Marquee, ManuelDemo } from "@/components/marketing/site"
+import { Btn, Ico, Eyebrow, Feature, CornerArrow, DashShot, Counter, CtaBand, Marquee, ManuelDemo, TicketRail } from "@/components/marketing/site"
 import { ManuelAvatar } from "@/components/admin/assistant/ManuelAvatar"
 
 export const metadata = {
-  title: "MESA — Software para restaurantes: menús QR y pedidos en tiempo real",
+  title: "MESA — El sistema operativo para restaurantes y cocinas profesionales",
   description: "MESA digitaliza tu restaurante con menús QR, pedidos en tiempo real y un panel para administrar todo en un solo lugar. Sin descargar apps. Listo en minutos.",
 }
+
+const heroStats: { to: number; suffix?: string; decimals?: number; lab: string }[] = [
+  { to: 35, suffix: "%", lab: "más eficiencia en el servicio" },
+  { to: 90, suffix: "%", decimals: 0, lab: "menos errores de comanda" },
+  { to: 4.8, decimals: 1, suffix: "/5", lab: "experiencia del cliente" },
+  { to: 100, suffix: "%", lab: "escalable a tu ritmo" },
+]
 
 const modules = [
   ["layers", "Categorías", "Organiza tus productos por tipo y sección de forma simple."],
@@ -12,7 +19,7 @@ const modules = [
   ["qr", "Mesas QR", "Cada mesa tiene su código único para escanear y pedir."],
   ["bell", "Pedidos", "Seguimiento en tiempo real del estado de cada orden."],
   ["users", "Meseros", "Gestión de usuarios, roles y permisos de tu equipo."],
-  ["panel", "Panel", "Control total de tu operación desde un solo lugar."],
+  ["chart", "Reportes", "Ventas, márgenes y horas peak siempre a la mano."],
 ]
 const steps = [
   ["Escanea el QR", "El cliente escanea el código de su mesa."],
@@ -53,18 +60,33 @@ const faqs = [
 export default function Home() {
   return (
     <>
-      <section className="hero">
-        <HeroFx />
-        <span className="hero-chip c1"><span className="hc-dot" />Pedido #142 · Mesa 7 pagado</span>
-        <span className="hero-chip c2 o"><span className="hc-dot" />+18% en ventas esta semana</span>
-        <span className="hero-chip c3"><span className="hc-dot" />Mesa 3 · nuevo pedido</span>
-        <div className="hero-inner">
-          <p className="kicker muted">MESA · Tomando nuevos restaurantes 2026</p>
-          <h1>Digitaliza la experiencia de tu restaurante: menús QR, pedidos en <span className="accent">tiempo real</span>.</h1>
-          <p className="sub lead">Administración inteligente para restaurantes, cafeterías y negocios gastronómicos modernos. Tus clientes piden desde su celular, sin descargar apps.</p>
-          <div className="cta-row">
-            <Btn label="Solicita una demo" href="/demo" />
-            <span className="chip"><Mark stroke="#F5871F" /><span className="lab">Listo en minutos</span><span className="pill">Sin apps</span></span>
+      <section className="hero-pro">
+        <div className="hero-pro-bg" aria-hidden="true">
+          <div className="sheen" /><div className="grain" /><div className="fade" />
+        </div>
+        <div className="hero-pro-grid">
+          <div>
+            <span className="hp-kicker"><span className="hc-dot" />Sistema operativo para restaurantes</span>
+            <h1>El sistema que corre en cada <span className="accent">cocina profesional</span>.</h1>
+            <p className="sub">De la mesa a la cocina y de la cocina al reporte: MESA conecta pedidos, inventario y un asistente de IA en un solo panel, en tiempo real — para restaurantes, cafeterías y cadenas que operan en serio.</p>
+            <div className="cta-row">
+              <Btn label="Solicita una demo" href="/demo" />
+              <span className="chip-dark"><strong>Sin apps</strong> · listo en minutos</span>
+            </div>
+          </div>
+          <TicketRail />
+        </div>
+      </section>
+
+      <section className="stats-strip">
+        <div className="wrap">
+          <div className="grid">
+            {heroStats.map((s) => (
+              <div key={s.lab} className="stat-item">
+                <div className="sv"><Counter to={s.to} suffix={s.suffix} decimals={s.decimals} /></div>
+                <div className="sl">{s.lab}</div>
+              </div>
+            ))}
           </div>
         </div>
       </section>
@@ -134,9 +156,19 @@ export default function Home() {
         <div className="wrap">
           <Eyebrow num="3" tag="Módulos principales" />
           <h2 className="reveal maxw-h2">Todo lo que tu local necesita, integrado.</h2>
-          <div className="grid g-3 mt-l stagger">
-            {modules.map(([ico, t, p]) => (
-              <div key={t} className="card card-rel reveal"><CornerArrow /><div className="c-ico"><Ico n={ico} /></div><h3>{t}</h3><p>{p}</p></div>
+          <div className="bento mt-l stagger">
+            <div className="bento-card big reveal">
+              <div className="bc-top"><span className="bc-num">00</span></div>
+              <div>
+                <h3>Panel de control</h3>
+                <p>Toda tu operación —carta, mesas, pedidos y equipo— desde un solo lugar, en tiempo real.</p>
+              </div>
+            </div>
+            {modules.map(([ico, t, p], i) => (
+              <div key={t} className="bento-card reveal">
+                <div className="bc-top"><div className="c-ico"><Ico n={ico} /></div><span className="bc-num">{String(i + 1).padStart(2, "0")}</span></div>
+                <div><h3>{t}</h3><p>{p}</p></div>
+              </div>
             ))}
           </div>
         </div>

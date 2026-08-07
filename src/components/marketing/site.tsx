@@ -221,6 +221,33 @@ export function Marquee({ items }: { items: string[] }) {
   )
 }
 
+/* ---------- Cinta de comandas (metáfora del rollo de impresora de cocina) ---------- */
+type Ticket = { mesa: string; items: string[]; time: string; status: string }
+const KITCHEN_TICKETS: Ticket[] = [
+  { mesa: "Mesa 4", items: ["2x Empanada de pino", "1x Jugo natural"], time: "12:41", status: "Nuevo" },
+  { mesa: "Barra 2", items: ["1x Ceviche del día", "1x Pisco sour"], time: "12:42", status: "Nuevo" },
+  { mesa: "Mesa 9", items: ["3x Lomo a lo pobre"], time: "12:44", status: "En cocina" },
+  { mesa: "Delivery", items: ["1x Pizza familiar", "2x Bebida 500ml"], time: "12:45", status: "Nuevo" },
+  { mesa: "Mesa 2", items: ["1x Ensalada césar", "1x Sopa del día"], time: "12:47", status: "En cocina" },
+  { mesa: "Mesa 12", items: ["1x Tabla para compartir"], time: "12:48", status: "Listo" },
+]
+
+export function TicketRail() {
+  return (
+    <div className="ticket-rail" aria-hidden="true">
+      <div className="ticket-track">
+        {[...KITCHEN_TICKETS, ...KITCHEN_TICKETS].map((t, i) => (
+          <div className="ticket" key={`${t.mesa}-${i}`}>
+            <div className="t-head"><span>{t.mesa}</span><span className="t-status">{t.status}</span></div>
+            {t.items.map((it) => <div className="t-item" key={it}>{it}</div>)}
+            <div className="t-time"><span>MESA · comanda</span><span>{t.time}</span></div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 /* ---------- Demo animada de Manuel (asistente IA) ---------- */
 type ManuelPhase = "user" | "typing" | "bot"
 const MANUEL_DEMOS: { q: string; a: string }[] = [
@@ -471,10 +498,15 @@ export function Shell({ children }: { children: React.ReactNode }) {
     return () => io.disconnect()
   }, [pathname])
 
+  // El nav queda transparente y con texto claro SOLO sobre el hero oscuro de
+  // la home, mientras no se haya scrolleado — en cualquier otra página, o ya
+  // scrolleado, vuelve al nav blanco de siempre.
+  const onDarkHero = pathname === "/" && !scrolled
+
   return (
     <div className="mesa-site">
       <div className="scroll-progress" style={{ width: `${progress}%` }} aria-hidden="true" />
-      <div className={`nav-shell${scrolled ? " scrolled" : ""}`}>
+      <div className={`nav-shell${scrolled ? " scrolled" : ""}${onDarkHero ? " on-dark" : ""}`}>
         <div className="nav">
           <div className="nav-left">
             <Link className="brand" href="/"><span className="mark"><Mark /></span><span className="name">MESA</span></Link>
