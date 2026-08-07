@@ -41,6 +41,9 @@ export type ChargeScope = {
   orderIds?: number[] | null
 }
 
+export type PresentialPaymentMethod = "cash" | "card" | "transfer" | "mixed"
+export type PaymentPart = { method: "cash" | "card" | "transfer"; amount: number }
+
 /** Emite la boleta de un pago y la registra ligada a él (helper interno). */
 async function emitBoletaInternal(
   supabase: SupabaseClient,
@@ -95,7 +98,8 @@ async function emitBoletaInternal(
 /** Cobro presencial (efectivo o tarjeta) + boleta automática. */
 export async function registerStaffPayment(
   scope: ChargeScope,
-  method: "cash" | "card"
+  method: PresentialPaymentMethod,
+  parts?: PaymentPart[]
 ): Promise<Result<StaffChargeResult>> {
   const auth = await requireCurrentStaff()
   if (!auth.ok) return fail(auth.error)
@@ -108,6 +112,9 @@ export async function registerStaffPayment(
     p_diner_slot: scope.dinerSlot ?? null,
     p_order_id: scope.orderId ?? null,
     p_order_ids: scope.orderIds ?? null,
+    p_cash_amount: parts?.find((p) => p.method === "cash")?.amount ?? null,
+    p_card_amount: parts?.find((p) => p.method === "card")?.amount ?? null,
+    p_transfer_amount: parts?.find((p) => p.method === "transfer")?.amount ?? null,
   })
   if (error) return fail(error.message ?? "No se pudo registrar el cobro")
 
@@ -229,6 +236,7 @@ export type StaffPayment = {
   provider: string | null
   amount: number
   tip: number
+  parts: PaymentPart[]
   tableNumber: number | null
   paidAt: string | null
   boleta: BoletaInfo | null
@@ -259,6 +267,9 @@ export async function getStaffPayment(paymentId: number): Promise<Result<StaffPa
     provider: data.provider ?? null,
     amount: Number(data.amount ?? 0),
     tip: Number(data.tip ?? 0),
+    parts: Array.isArray(data.parts)
+      ? data.parts.map((p: { method: string; amount: number }) => ({ method: p.method as PaymentPart["method"], amount: Number(p.amount ?? 0) }))
+      : [],
     tableNumber: data.table_number != null ? Number(data.table_number) : null,
     paidAt: data.paid_at ?? null,
     boleta: mapBoleta(data.boleta ?? null),
@@ -281,6 +292,7 @@ export async function listPaymentsToday(): Promise<Result<PaymentTodayRow[]>> {
     table_number: number | null
     amount: number
     tip: number
+    parts?: { method: string; amount: number }[]
     status: string
     method: string
     provider: string | null
@@ -296,7 +308,10 @@ export async function listPaymentsToday(): Promise<Result<PaymentTodayRow[]>> {
       method: String(r.method),
       provider: r.provider ?? null,
       amount: Number(r.amount ?? 0),
-      tip: Number(r.tip ?? 0),
+    tip: Number(r.tip ?? 0),
+      parts: Array.isArray(r.parts)
+        ? r.parts.map((p: { method: string; amount: number }) => ({ method: p.method as PaymentPart["method"], amount: Number(p.amount ?? 0) }))
+        : [],
       tableNumber: r.table_number != null ? Number(r.table_number) : null,
       createdAt: r.created_at,
       paidAt: r.paid_at ?? null,

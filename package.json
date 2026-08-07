@@ -8,6 +8,7 @@
     "dev:local": "node scripts/dev-supabase.mjs local",
     "dev:remote": "node scripts/dev-supabase.mjs remote",
     "build": "next build",
+    "deploy:verify": "npm run lint && npm run build",
     "start": "next start",
     "lint": "eslint",
     "users:list": "node scripts/list-supabase-users.mjs",

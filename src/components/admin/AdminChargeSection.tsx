@@ -142,7 +142,7 @@ export function AdminChargeSection({ orders }: { orders: Order[] }) {
           onClose={() => setTarget(null)}
           onSettled={(label, method) =>
             setSettledMsg(
-              `${label} cobrada (${method === "cash" ? "efectivo" : method === "card" ? "tarjeta" : "en línea"}) ✅`
+              `${label} cobrada (${method === "cash" ? "efectivo" : method === "card" ? "tarjeta" : method === "transfer" ? "transferencia" : method === "mixed" ? "pago mixto" : "en línea"}) ✅`
             )
           }
         />

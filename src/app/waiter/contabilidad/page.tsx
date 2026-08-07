@@ -42,7 +42,7 @@ const STATUS_LABEL: Record<string, string> = {
   failed: "Rechazado",
   refunded: "Reembolsado",
 }
-const METHOD_LABEL: Record<string, string> = { cash: "💵 Efectivo", card: "💳 Tarjeta", online: "📱 En línea" }
+const METHOD_LABEL: Record<string, string> = { cash: "💵 Efectivo", card: "💳 Tarjeta", transfer: "🏦 Transferencia", mixed: "🔀 Mixto", online: "📱 En línea" }
 
 /**
  * CONTABILIDAD del mesero: historial de solo lectura — pedidos tomados y
@@ -179,6 +179,13 @@ export default function ContabilidadPage() {
                         <td className="py-2.5 pr-3">
                           {METHOD_LABEL[p.method] ?? p.method}
                           {providerLabel && <span className="ml-1 text-[10px] text-stone-400">{providerLabel}</span>}
+                          {p.method === "mixed" && p.parts.length > 0 && (
+                            <div className="mt-1 space-y-0.5 text-[10px] font-semibold text-stone-500">
+                              {p.parts.map((part) => (
+                                <div key={part.method}>{part.method === "cash" ? "Efectivo" : part.method === "card" ? "Tarjeta" : "Transferencia"}: {fmt(part.amount)}</div>
+                              ))}
+                            </div>
+                          )}
                         </td>
                         <td className="py-2.5 pr-3">
                           <span

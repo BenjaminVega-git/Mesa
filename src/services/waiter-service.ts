@@ -30,7 +30,9 @@ export type WaiterListItem = {
 function getAppBaseUrl(): string {
   return (
     process.env.NEXT_PUBLIC_APP_URL ??
-    process.env.VERCEL_URL ??
+    (process.env.RAILWAY_PUBLIC_DOMAIN
+      ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
+      : undefined) ??
     "https://tumesaqr.com"
   )
 }

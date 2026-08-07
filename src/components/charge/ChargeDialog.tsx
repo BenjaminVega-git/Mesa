@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useRef, useState } from "react"
-import { Banknote, CreditCard, QrCode, Receipt } from "lucide-react"
+import { Banknote, CreditCard, QrCode, Receipt, Smartphone, Split } from "lucide-react"
 import { QRCodeSVG } from "qrcode.react"
 import {
   createStaffGatewayCharge,
@@ -10,6 +10,8 @@ import {
   registerStaffPayment,
   type BoletaInfo,
   type ChargeScope,
+  type PaymentPart,
+  type PresentialPaymentMethod,
 } from "@/services/charge-service"
 import { PAYMENT_PROVIDER_LABEL } from "@/lib/payments/types"
 
@@ -30,7 +32,7 @@ export type ChargeTarget = {
 
 type Step =
   | { kind: "method" }
-  | { kind: "charging"; method: "cash" | "card" }
+  | { kind: "charging"; method: PresentialPaymentMethod }
   | { kind: "gateway-email" }
   | { kind: "gateway-creating" }
   | { kind: "gateway-qr"; checkoutUrl: string; paymentId: number }
@@ -71,6 +73,10 @@ export function ChargeDialog({
   const [customPctOpen, setCustomPctOpen] = useState(false)
   const tip = Math.round((target.total * tipPct) / 100)
   const [payerEmail, setPayerEmail] = useState("")
+  const [mixedOpen, setMixedOpen] = useState(false)
+  const [mixedCash, setMixedCash] = useState("")
+  const [mixedCard, setMixedCard] = useState("")
+  const [mixedTransfer, setMixedTransfer] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [retryingBoleta, setRetryingBoleta] = useState(false)
   const settledRef = useRef(false)
@@ -88,10 +94,15 @@ export function ChargeDialog({
     [onSettled, target.label]
   )
 
-  async function chargePresential(method: "cash" | "card") {
+  function parseAmount(value: string) {
+    const digits = value.replace(/[^\d]/g, "")
+    return digits ? Number.parseInt(digits, 10) : 0
+  }
+
+  async function chargePresential(method: PresentialPaymentMethod, parts?: PaymentPart[]) {
     setError(null)
     setStep({ kind: "charging", method })
-    const res = await registerStaffPayment({ ...target.scope, tip }, method)
+    const res = await registerStaffPayment({ ...target.scope, tip }, method, parts)
     if (!res.ok) {
       setError(res.error)
       setStep({ kind: "method" })
@@ -105,6 +116,19 @@ export function ChargeDialog({
       boleta: res.data.boleta,
       boletaError: res.data.boletaError,
     })
+  }
+
+  function chargeMixed() {
+    const parts = [
+      { method: "cash", amount: parseAmount(mixedCash) },
+      { method: "card", amount: parseAmount(mixedCard) },
+      { method: "transfer", amount: parseAmount(mixedTransfer) },
+    ].filter((part) => part.amount > 0) as PaymentPart[]
+    if (parts.reduce((sum, part) => sum + part.amount, 0) !== target.total + tip) {
+      setError(`El desglose debe sumar ${fmt(target.total + tip)}.`)
+      return
+    }
+    void chargePresential("mixed", parts)
   }
 
   async function startGateway() {
@@ -180,7 +204,11 @@ export function ChargeDialog({
     cash: "Efectivo",
     card: "Tarjeta",
     online: providerLabel ? `En línea (${providerLabel})` : "En línea",
+    transfer: "Transferencia",
+    mixed: "Pago mixto",
   }
+
+  const mixedTotal = parseAmount(mixedCash) + parseAmount(mixedCard) + parseAmount(mixedTransfer)
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-stone-900/50 p-4 backdrop-blur-sm animate-fade-in">
@@ -320,6 +348,56 @@ export function ChargeDialog({
 
                 <button
                   type="button"
+                  onClick={() => chargePresential("transfer")}
+                  disabled={busy}
+                  className="flex items-center justify-between rounded-2xl border border-violet-200 bg-violet-50/50 px-4 py-3.5 text-left shadow-sm transition hover:border-violet-300 hover:bg-violet-50 disabled:opacity-50"
+                >
+                  <span className="flex items-center gap-3">
+                    <Smartphone className="h-5 w-5 shrink-0 text-violet-600" aria-hidden="true" />
+                    <span>
+                      <span className="block text-sm font-bold text-stone-900">Transferencia</span>
+                      <span className="block text-[11px] text-stone-500">Verifica el comprobante y registra el pago</span>
+                    </span>
+                  </span>
+                  {step.kind === "charging" && step.method === "transfer" && <span className="text-xs font-bold text-stone-400">…</span>}
+                </button>
+
+                {!mixedOpen ? (
+                  <button
+                    type="button"
+                    onClick={() => setMixedOpen(true)}
+                    disabled={busy}
+                    className="flex items-center justify-between rounded-2xl border border-amber-200 bg-amber-50/50 px-4 py-3.5 text-left shadow-sm transition hover:border-amber-300 hover:bg-amber-50 disabled:opacity-50"
+                  >
+                    <span className="flex items-center gap-3">
+                      <Split className="h-5 w-5 shrink-0 text-amber-600" aria-hidden="true" />
+                      <span>
+                        <span className="block text-sm font-bold text-stone-900">Pago mixto</span>
+                        <span className="block text-[11px] text-stone-500">Combina efectivo, tarjeta y transferencia</span>
+                      </span>
+                    </span>
+                  </button>
+                ) : (
+                  <div className="rounded-2xl border border-amber-200 bg-amber-50/50 p-3">
+                    <div className="mb-2 flex items-center justify-between">
+                      <p className="text-xs font-bold text-stone-800">Desglose del pago mixto</p>
+                      <button type="button" onClick={() => setMixedOpen(false)} disabled={busy} className="text-[11px] font-semibold text-stone-500">Cancelar</button>
+                    </div>
+                    {([ ["Efectivo", mixedCash, setMixedCash], ["Tarjeta", mixedCard, setMixedCard], ["Transferencia", mixedTransfer, setMixedTransfer] ] as const).map(([label, value, setter]) => (
+                      <label key={label} className="mb-2 flex items-center justify-between gap-3 text-xs font-semibold text-stone-600 last:mb-0">
+                        {label}
+                        <input type="text" inputMode="numeric" value={value} onChange={(e) => setter(e.target.value)} placeholder="$0" disabled={busy} className="w-32 rounded-xl border border-stone-200 bg-white px-3 py-2 text-right font-bold tabular-nums text-stone-900 outline-none focus:border-amber-300" />
+                      </label>
+                    ))}
+                    <div className={`mt-3 flex items-center justify-between text-xs font-bold ${mixedTotal === target.total + tip ? "text-emerald-700" : "text-stone-500"}`}>
+                      <span>Total ingresado</span><span>{fmt(mixedTotal)} / {fmt(target.total + tip)}</span>
+                    </div>
+                    <button type="button" onClick={chargeMixed} disabled={busy || mixedTotal !== target.total + tip} className="mt-3 w-full rounded-full bg-amber-600 px-4 py-2.5 text-xs font-bold text-white shadow hover:bg-amber-700 disabled:opacity-50">Registrar pago mixto</button>
+                  </div>
+                )}
+
+                <button
+                  type="button"
                   onClick={() => chargePresential("card")}
                   disabled={busy}
                   className="flex items-center justify-between rounded-2xl border border-stone-200 bg-white px-4 py-3.5 text-left shadow-sm transition hover:border-sky-300 hover:bg-sky-50/50 disabled:opacity-50"
@@ -454,6 +532,17 @@ export function ChargeDialog({
                 <p className="mt-1 text-xs text-stone-500">
                   {target.label} · {fmt(target.total + tip)} · {METHOD_LABEL[step.method] ?? step.method}
                 </p>
+                {step.method === "mixed" && (
+                  <div className="mt-2 space-y-0.5 text-[11px] font-semibold text-stone-500">
+                    {(mixedTotal > 0 ? ([
+                      ["Efectivo", parseAmount(mixedCash)],
+                      ["Tarjeta", parseAmount(mixedCard)],
+                      ["Transferencia", parseAmount(mixedTransfer)],
+                    ] as [string, number][]) : []).filter(([, amount]) => amount > 0).map(([label, amount]) => (
+                      <p key={label}>{label}: {fmt(amount)}</p>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {step.boleta ? (

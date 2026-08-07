@@ -29,6 +29,8 @@ const METHOD_STYLE: Record<string, { label: string; cls: string }> = {
   cash: { label: "💵 Efectivo", cls: "bg-emerald-50 text-emerald-700" },
   card: { label: "💳 Tarjeta", cls: "bg-sky-50 text-sky-700" },
   online: { label: "📱 En línea", cls: "bg-orange-50 text-orange-700" },
+  transfer: { label: "🏦 Transferencia", cls: "bg-violet-50 text-violet-700" },
+  mixed: { label: "🔀 Mixto", cls: "bg-amber-50 text-amber-700" },
 }
 
 function hora(iso: string): string {
@@ -179,6 +181,13 @@ export function PaymentsTodaySection() {
                         </span>
                         {providerLabel && (
                           <span className="ml-1 text-[10px] text-stone-400">{providerLabel}</span>
+                        )}
+                        {p.method === "mixed" && p.parts.length > 0 && (
+                          <div className="mt-1 space-y-0.5 text-[10px] font-semibold text-stone-500">
+                            {p.parts.map((part) => (
+                              <div key={part.method}>{part.method === "cash" ? "Efectivo" : part.method === "card" ? "Tarjeta" : "Transferencia"}: {fmt(part.amount)}</div>
+                            ))}
+                          </div>
                         )}
                       </td>
                       <td className="py-2.5 pr-3">
