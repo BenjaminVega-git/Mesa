@@ -90,6 +90,9 @@ export function ChargeDialog({
       if (settledRef.current) return
       settledRef.current = true
       onSettled?.(target.label, method)
+      // PaymentsTodaySection puede estar montado como un componente hermano
+      // del diálogo. Avisarle aquí evita esperar al polling de 30 segundos.
+      window.dispatchEvent(new Event("mesa:payment-settled"))
     },
     [onSettled, target.label]
   )

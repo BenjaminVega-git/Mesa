@@ -9,6 +9,7 @@ import {
 } from "@/services/charge-service"
 import { PAYMENT_PROVIDER_LABEL } from "@/lib/payments/types"
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog"
+import { PaymentMethodBadge } from "@/components/charge/PaymentMethodBadge"
 
 const clp = new Intl.NumberFormat("es-CL", {
   style: "currency",
@@ -23,14 +24,6 @@ const STATUS_STYLE: Record<string, { label: string; cls: string }> = {
   authorized: { label: "Procesando", cls: "bg-amber-50 text-amber-700 ring-amber-200" },
   failed: { label: "Rechazado", cls: "bg-red-50 text-red-600 ring-red-200" },
   refunded: { label: "Anulado", cls: "bg-stone-100 text-stone-600 ring-stone-200" },
-}
-
-const METHOD_STYLE: Record<string, { label: string; cls: string }> = {
-  cash: { label: "💵 Efectivo", cls: "bg-emerald-50 text-emerald-700" },
-  card: { label: "💳 Tarjeta", cls: "bg-sky-50 text-sky-700" },
-  online: { label: "📱 En línea", cls: "bg-orange-50 text-orange-700" },
-  transfer: { label: "🏦 Transferencia", cls: "bg-violet-50 text-violet-700" },
-  mixed: { label: "🔀 Mixto", cls: "bg-amber-50 text-amber-700" },
 }
 
 function hora(iso: string): string {
@@ -67,10 +60,13 @@ export function PaymentsTodaySection() {
     const onVisible = () => {
       if (document.visibilityState === "visible") load()
     }
+    const onPaymentSettled = () => load()
     document.addEventListener("visibilitychange", onVisible)
+    window.addEventListener("mesa:payment-settled", onPaymentSettled)
     return () => {
       window.clearInterval(interval)
       document.removeEventListener("visibilitychange", onVisible)
+      window.removeEventListener("mesa:payment-settled", onPaymentSettled)
     }
   }, [load])
 
@@ -162,7 +158,6 @@ export function PaymentsTodaySection() {
               <tbody className="divide-y divide-stone-100">
                 {payments.map((p) => {
                   const st = STATUS_STYLE[p.status] ?? STATUS_STYLE.pending
-                  const m = METHOD_STYLE[p.method] ?? METHOD_STYLE.online
                   const providerLabel =
                     p.method === "online"
                       ? (PAYMENT_PROVIDER_LABEL[p.provider ?? ""] ?? p.provider ?? "")
@@ -176,19 +171,7 @@ export function PaymentsTodaySection() {
                         {p.tip > 0 ? fmt(p.tip) : "—"}
                       </td>
                       <td className="py-2.5 pr-3">
-                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-bold ${m.cls}`}>
-                          {m.label}
-                        </span>
-                        {providerLabel && (
-                          <span className="ml-1 text-[10px] text-stone-400">{providerLabel}</span>
-                        )}
-                        {p.method === "mixed" && p.parts.length > 0 && (
-                          <div className="mt-1 space-y-0.5 text-[10px] font-semibold text-stone-500">
-                            {p.parts.map((part) => (
-                              <div key={part.method}>{part.method === "cash" ? "Efectivo" : part.method === "card" ? "Tarjeta" : "Transferencia"}: {fmt(part.amount)}</div>
-                            ))}
-                          </div>
-                        )}
+                        <PaymentMethodBadge method={p.method} parts={p.parts} providerLabel={providerLabel} />
                       </td>
                       <td className="py-2.5 pr-3">
                         <span
