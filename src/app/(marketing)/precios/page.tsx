@@ -76,11 +76,12 @@ export default function Page() {
   return (
     <>
       <header className="phead-precios">
+        <div className="sheen" /><div className="grain" /><div className="halo" />
         <div className="grid-dots" />
         <div className="wrap">
           <div className="copy">
             <div className="free-badge reveal"><span className="dot" /> Primer mes de prueba sin costo</div>
-            <div className="eyebrow reveal"><span className="dot" /><span className="tag">Precios</span></div>
+            <div className="eyebrow reveal"><span className="num">·</span><span className="tag">Precios</span></div>
             <h1 className="reveal">Un plan para cada tamaño de local.</h1>
             <p className="lead reveal">Precios en pesos chilenos, sin contratos largos ni sorpresas. El costo depende de la cantidad de mesas. Cancela cuando quieras.</p>
           </div>
@@ -104,12 +105,12 @@ export default function Page() {
                     <rect x="8" y="8" width="22" height="22" fill="none" stroke="#111" strokeWidth="3.5" /><rect x="13" y="13" width="12" height="12" fill="#111" />
                     <rect x="50" y="8" width="22" height="22" fill="none" stroke="#111" strokeWidth="3.5" /><rect x="55" y="13" width="12" height="12" fill="#111" />
                     <rect x="8" y="50" width="22" height="22" fill="none" stroke="#111" strokeWidth="3.5" /><rect x="13" y="55" width="12" height="12" fill="#111" />
-                    <rect x="36" y="8" width="6" height="6" fill="#2B4C86" /><rect x="44" y="8" width="6" height="6" fill="#111" /><rect x="36" y="16" width="6" height="6" fill="#111" /><rect x="44" y="16" width="6" height="6" fill="#2B4C86" /><rect x="36" y="24" width="6" height="6" fill="#2B4C86" />
-                    <rect x="8" y="36" width="6" height="6" fill="#111" /><rect x="16" y="36" width="6" height="6" fill="#2B4C86" /><rect x="24" y="36" width="6" height="6" fill="#111" /><rect x="32" y="36" width="6" height="6" fill="#2B4C86" /><rect x="40" y="36" width="6" height="6" fill="#111" /><rect x="48" y="36" width="6" height="6" fill="#2B4C86" /><rect x="56" y="36" width="6" height="6" fill="#111" /><rect x="64" y="36" width="6" height="6" fill="#2B4C86" />
-                    <rect x="8" y="44" width="6" height="6" fill="#2B4C86" /><rect x="16" y="44" width="6" height="6" fill="#111" /><rect x="24" y="44" width="6" height="6" fill="#2B4C86" /><rect x="32" y="44" width="6" height="6" fill="#111" /><rect x="40" y="44" width="6" height="6" fill="#2B4C86" /><rect x="48" y="44" width="6" height="6" fill="#111" />
-                    <rect x="32" y="50" width="6" height="6" fill="#2B4C86" /><rect x="40" y="50" width="6" height="6" fill="#111" /><rect x="48" y="50" width="6" height="6" fill="#2B4C86" /><rect x="56" y="50" width="6" height="6" fill="#111" /><rect x="64" y="50" width="6" height="6" fill="#2B4C86" />
-                    <rect x="32" y="58" width="6" height="6" fill="#111" /><rect x="40" y="58" width="6" height="6" fill="#2B4C86" /><rect x="48" y="58" width="6" height="6" fill="#111" /><rect x="56" y="58" width="6" height="6" fill="#2B4C86" />
-                    <rect x="32" y="66" width="6" height="6" fill="#2B4C86" /><rect x="40" y="66" width="6" height="6" fill="#111" /><rect x="56" y="66" width="6" height="6" fill="#111" /><rect x="64" y="66" width="6" height="6" fill="#2B4C86" />
+                    <rect x="36" y="8" width="6" height="6" fill="#F5871F" /><rect x="44" y="8" width="6" height="6" fill="#111" /><rect x="36" y="16" width="6" height="6" fill="#111" /><rect x="44" y="16" width="6" height="6" fill="#F5871F" /><rect x="36" y="24" width="6" height="6" fill="#F5871F" />
+                    <rect x="8" y="36" width="6" height="6" fill="#111" /><rect x="16" y="36" width="6" height="6" fill="#F5871F" /><rect x="24" y="36" width="6" height="6" fill="#111" /><rect x="32" y="36" width="6" height="6" fill="#F5871F" /><rect x="40" y="36" width="6" height="6" fill="#111" /><rect x="48" y="36" width="6" height="6" fill="#F5871F" /><rect x="56" y="36" width="6" height="6" fill="#111" /><rect x="64" y="36" width="6" height="6" fill="#F5871F" />
+                    <rect x="8" y="44" width="6" height="6" fill="#F5871F" /><rect x="16" y="44" width="6" height="6" fill="#111" /><rect x="24" y="44" width="6" height="6" fill="#F5871F" /><rect x="32" y="44" width="6" height="6" fill="#111" /><rect x="40" y="44" width="6" height="6" fill="#F5871F" /><rect x="48" y="44" width="6" height="6" fill="#111" />
+                    <rect x="32" y="50" width="6" height="6" fill="#F5871F" /><rect x="40" y="50" width="6" height="6" fill="#111" /><rect x="48" y="50" width="6" height="6" fill="#F5871F" /><rect x="56" y="50" width="6" height="6" fill="#111" /><rect x="64" y="50" width="6" height="6" fill="#F5871F" />
+                    <rect x="32" y="58" width="6" height="6" fill="#111" /><rect x="40" y="58" width="6" height="6" fill="#F5871F" /><rect x="48" y="58" width="6" height="6" fill="#111" /><rect x="56" y="58" width="6" height="6" fill="#F5871F" />
+                    <rect x="32" y="66" width="6" height="6" fill="#F5871F" /><rect x="40" y="66" width="6" height="6" fill="#111" /><rect x="56" y="66" width="6" height="6" fill="#111" /><rect x="64" y="66" width="6" height="6" fill="#F5871F" />
                   </svg>
                 </div>
                 <div className="qr-scan-line" />

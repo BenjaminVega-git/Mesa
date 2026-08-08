@@ -8,9 +8,9 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ p
   return (
     <>
       <header className="phead" style={{ paddingBottom: 0 }}>
-        <div className="grid-lines" aria-hidden="true" />
+        <div className="halo" />
         <div className="wrap">
-          <div className="eyebrow reveal"><span className="dot" /><span className="tag">Solicita una demo</span></div>
+          <div className="eyebrow reveal"><span className="num">·</span><span className="tag">Solicita una demo</span></div>
           <h1 className="reveal">Lleva tu restaurante al siguiente nivel.</h1>
           <p className="lead reveal">Déjanos tus datos y te mostramos MESA funcionando con tu propia carta. Una demo de 20 minutos, sin compromiso.</p>
         </div>

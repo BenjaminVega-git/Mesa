@@ -1,4 +1,4 @@
-import { Btn, Ico, SectionMark, Feature, DashShot, Counter, CtaBand, Marquee, ManuelDemo, TestimonialGrid } from "@/components/marketing/site"
+import { Btn, Ico, SectionMark, Feature, DashShot, Counter, CtaBand, Marquee, ManuelDemo, TicketRail, TestimonialSpotlight } from "@/components/marketing/site"
 import { ManuelAvatar } from "@/components/admin/assistant/ManuelAvatar"
 
 export const metadata = {
@@ -41,7 +41,7 @@ const testimonials = [
   { av: "RC", name: "Rodrigo C.", place: "Parrilla · Concepción", text: "La instalación fue en minutos y sin instalar nada. Mis clientes piden desde el QR y la cocina recibe al toque." },
   { av: "VP", name: "Valentina P.", place: "Restaurante · Viña del Mar", text: "Tener todo el menú actualizado al instante nos cambió la vida. Subir un plato nuevo toma segundos." },
 ]
-const cmpHead = ["Funcionalidad", "MESA", "Menú físico", "Software tradicional"]
+const cmpCols = ["MESA", "Menú físico", "Software tradicional"] as const
 const cmpRows: [string, boolean, boolean, boolean][] = [
   ["Menú siempre actualizado", true, false, true],
   ["Pide sin descargar apps", true, false, false],
@@ -61,25 +61,28 @@ const faqs = [
 export default function Home() {
   return (
     <>
-      <section className="hero-light">
-        <div className="grid-lines" aria-hidden="true" />
-        <div className="wrap hero-grid">
+      {/* ---- Bloque de apertura oscuro: hero + stats + video, un solo tramo ---- */}
+      <section className="hero-pro">
+        <div className="hero-pro-bg" aria-hidden="true">
+          <div className="sheen" /><div className="grain" /><div className="fade" />
+        </div>
+        <div className="hero-pro-grid">
           <div>
-            <span className="eyebrow"><span className="dot" /><span className="tag">Sistema operativo para restaurantes</span></span>
+            <span className="hp-kicker"><span className="hc-dot" />Sistema operativo para restaurantes</span>
             <h1>El sistema que corre en cada <span className="accent">cocina profesional</span>.</h1>
-            <p className="lead sub">De la mesa a la cocina y de la cocina al reporte: MESA conecta pedidos, inventario y un asistente de IA en un solo panel, en tiempo real — para restaurantes, cafeterías y cadenas que operan en serio.</p>
+            <p className="sub">De la mesa a la cocina y de la cocina al reporte: MESA conecta pedidos, inventario y un asistente de IA en un solo panel, en tiempo real — para restaurantes, cafeterías y cadenas que operan en serio.</p>
             <div className="cta-row">
               <Btn label="Solicita una demo" href="/demo" />
-              <span className="chip-line"><strong>Sin apps</strong><span className="sep" />listo en minutos</span>
+              <span className="chip-dark"><strong>Sin apps</strong> · listo en minutos</span>
             </div>
           </div>
-          <DashShot />
+          <TicketRail />
         </div>
       </section>
 
-      <section className="section bg-white" style={{ paddingBlock: "clamp(32px,5vw,48px)" }}>
+      <section className="stats-strip">
         <div className="wrap">
-          <div className="stat-row" style={{ gridTemplateColumns: "repeat(4,1fr)" }}>
+          <div className="grid">
             {heroStats.map((s) => (
               <div key={s.lab} className="stat-item">
                 <div className="sv"><Counter to={s.to} suffix={s.suffix} decimals={s.decimals} /></div>
@@ -90,7 +93,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="video-intro bg-soft" aria-labelledby="video-intro-title">
+      <section className="video-intro dark-block" aria-labelledby="video-intro-title">
         <div className="wrap">
           <div className="video-intro-copy reveal">
             <p className="kicker muted">MESA en acción</p>
@@ -111,6 +114,7 @@ export default function Home() {
         </div>
       </section>
 
+      {/* ---- Bloque claro: la historia del producto ---- */}
       <section className="section bg-white" style={{ paddingBlock: "clamp(40px,6vw,64px)" }}>
         <div className="wrap center">
           <p className="muted reveal" style={{ fontSize: 13.5, marginBottom: 26 }}>Pensado para todo tipo de negocio gastronómico en Chile</p>
@@ -159,45 +163,54 @@ export default function Home() {
         <div className="wrap">
           <SectionMark num="03" tag="Módulos principales" />
           <h2 className="reveal maxw-h2">Todo lo que tu local necesita, integrado.</h2>
-          <div className="grid g-3 mt-l stagger">
-            {modules.map(([ico, t, p]) => (
-              <div key={t} className="spec-card reveal">
-                <div className="c-ico"><Ico n={ico} /></div>
-                <h3>{t}</h3><p>{p}</p>
+          <div className="bento mt-l stagger">
+            <div className="bento-card big reveal">
+              <div className="bc-top"><span className="bc-num">00</span></div>
+              <div>
+                <h3>Panel de control</h3>
+                <p>Toda tu operación —carta, mesas, pedidos y equipo— desde un solo lugar, en tiempo real.</p>
+              </div>
+            </div>
+            {modules.map(([ico, t, p], i) => (
+              <div key={t} className="bento-card reveal">
+                <div className="bc-top"><div className="c-ico"><Ico n={ico} /></div><span className="bc-num">{String(i + 1).padStart(2, "0")}</span></div>
+                <div><h3>{t}</h3><p>{p}</p></div>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      <section className="section bg-soft" id="manuel">
+      {/* ---- Interludio oscuro: el diferenciador de IA ---- */}
+      <section className="section dark-block manuel-section" id="manuel">
+        <div className="halo" />
         <div className="wrap">
-          <div className="panel-navy">
-            <SectionMark num="04" tag="Tu asistente de IA" />
-            <div className="manuel-split mt-l">
-              <div className="reveal">
-                <span className="manuel-badge"><ManuelAvatar size={22} /><span>Se llama Manuel</span></span>
-                <h2 style={{ maxWidth: "18ch" }}>La única plataforma con un asistente que <span className="accent">ejecuta</span>, no solo responde.</h2>
-                <p className="lead mt-m">Manuel vive dentro de tu panel: le hablas como a un encargado de confianza y él consulta tus datos reales, crea productos y cupones, y te avisa qué necesita atención — todo en segundos, en español chileno.</p>
-                <ul className="feature-list manuel-feats">
-                  <Feature title="Entiende lenguaje natural" text="Sin menús ni formularios: le escribes lo que necesitas." />
-                  <Feature title="Ejecuta acciones reales" text="Crea categorías, productos, cupones y promociones por ti." />
-                  <Feature title="Conoce tu negocio" text="Ventas, márgenes, inventario y horas peak, siempre al día." />
-                </ul>
-              </div>
-              <div className="reveal"><ManuelDemo /></div>
+          <SectionMark num="04" tag="Tu asistente de IA" />
+          <div className="manuel-split mt-l">
+            <div className="reveal">
+              <span className="manuel-badge"><ManuelAvatar size={22} /><span>Se llama Manuel</span></span>
+              <h2 style={{ maxWidth: "18ch" }}>La única plataforma con un asistente que <span className="accent">ejecuta</span>, no solo responde.</h2>
+              <p className="lead mt-m">Manuel vive dentro de tu panel: le hablas como a un encargado de confianza y él consulta tus datos reales, crea productos y cupones, y te avisa qué necesita atención — todo en segundos, en español chileno.</p>
+              <ul className="feature-list manuel-feats">
+                <Feature title="Entiende lenguaje natural" text="Sin menús ni formularios: le escribes lo que necesitas." />
+                <Feature title="Ejecuta acciones reales" text="Crea categorías, productos, cupones y promociones por ti." />
+                <Feature title="Conoce tu negocio" text="Ventas, márgenes, inventario y horas peak, siempre al día." />
+              </ul>
             </div>
+            <div className="reveal"><ManuelDemo /></div>
           </div>
         </div>
       </section>
 
+      {/* ---- Bloque claro: prueba social y decisión ---- */}
       <section className="section bg-white" id="beneficios">
         <div className="wrap">
           <SectionMark num="05" tag="Beneficios para tu negocio" />
           <h2 className="reveal" style={{ maxWidth: "16ch" }}>Resultados que <span className="accent">se notan</span> desde el primer servicio.</h2>
           <div className="grid g-3 mt-l stagger">
-            {metrics.map((m) => (
+            {metrics.map((m, i) => (
               <div key={m.lab} className="spec-card reveal">
+                <span className="sc-tag">{String(i + 1).padStart(2, "0")}</span>
                 <div className="val">{m.text ? m.text : <Counter to={m.to ?? 0} prefix={m.prefix} suffix={m.suffix} decimals={m.decimals} />}</div>
                 <div className="lab">{m.lab}</div>
                 <p>{m.p}</p>
@@ -207,12 +220,12 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="section bg-soft">
+      <section className="section dark-block">
         <div className="wrap">
           <SectionMark num="06" tag="Testimonios" />
-          <h2 className="reveal maxw-h2" style={{ marginBottom: 8 }}>A los equipos les encanta trabajar con MESA.</h2>
+          <h2 className="reveal center maxw mx-auto" style={{ marginBottom: 8 }}>A los equipos les encanta trabajar con MESA.</h2>
           <div className="mt-l reveal">
-            <TestimonialGrid items={testimonials} />
+            <TestimonialSpotlight items={testimonials} />
           </div>
         </div>
       </section>
@@ -221,20 +234,24 @@ export default function Home() {
         <div className="wrap">
           <SectionMark num="07" tag="Por qué MESA" />
           <h2 className="reveal maxw-h2">Lo esencial, sin la complejidad de siempre.</h2>
-          <div className="cmp-scroll mt-l reveal">
-            <table className="cmp">
-              <thead><tr>{cmpHead.map((h, i) => <th key={h} className={i === 0 ? "" : "center"}>{h}</th>)}</tr></thead>
-              <tbody>
-                {cmpRows.map((r) => (
-                  <tr key={r[0]}>
-                    <td>{r[0]}</td>
-                    {r.slice(1).map((v, i) => (
-                      <td key={i} className="center">{v ? <span className="yes">✓</span> : <span className="no">✕</span>}</td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="cmp-cards reveal">
+            {cmpCols.map((col, ci) => (
+              <div key={col} className={`cmp-card${ci === 0 ? " featured" : ""}`}>
+                <div className={`cc-head${ci === 0 ? " on" : ""}`}>{ci === 0 ? "Recomendado" : "Alternativa"}</div>
+                <h4>{col}</h4>
+                <ul>
+                  {cmpRows.map((r) => {
+                    const ok = r[ci + 1] as boolean
+                    return (
+                      <li key={r[0]} className={ok ? "yes" : "no"}>
+                        <span className="m">{ok ? "✓" : "✕"}</span>
+                        <span>{r[0]}</span>
+                      </li>
+                    )
+                  })}
+                </ul>
+              </div>
+            ))}
           </div>
         </div>
       </section>

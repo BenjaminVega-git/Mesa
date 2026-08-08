@@ -12,9 +12,9 @@ export default function Page() {
   return (
     <>
       <header className="phead">
-        <div className="grid-lines" aria-hidden="true" />
+        <div className="sheen" /><div className="grain" /><div className="halo" />
         <div className="wrap">
-          <div className="eyebrow reveal"><span className="dot" /><span className="tag">Integraciones</span></div>
+          <div className="eyebrow reveal"><span className="num">·</span><span className="tag">Integraciones</span></div>
           <h1 className="reveal">Conecta MESA con tus herramientas. <span className="soon">Próximamente</span></h1>
           <p className="lead reveal">Estamos construyendo integraciones para que MESA converse con los servicios que ya usas: pagos, delivery y facturación. Esto es lo que viene en el camino.</p>
           <div className="cta-row mt-m reveal"><Btn label="Solicita una demo" href="/demo" /></div>
