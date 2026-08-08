@@ -1,4 +1,4 @@
-import { Phead, Eyebrow, Ico, CornerArrow, CtaBand } from "@/components/marketing/site"
+import { Phead, SectionMark, Ico, CtaBand } from "@/components/marketing/site"
 
 export const metadata = { title: "Cómo funciona | MESA — del escaneo a la mesa en 5 pasos", description: "Descubre cómo funciona MESA: tus clientes escanean el QR, exploran el menú, piden, tu equipo recibe la orden y el platillo llega a la mesa correcta." }
 
@@ -21,24 +21,33 @@ export default function Page() {
       <Phead tag="Cómo funciona" title="Del escaneo a la mesa, en cinco pasos." lead="MESA conecta a tus clientes con tu cocina en segundos. Así se ve un servicio completo, de principio a fin." />
       <section className="section bg-white">
         <div className="wrap">
-          <div className="grid g-3" style={{ alignItems: "start" }}>
+          <SectionMark num="01" tag="El recorrido" />
+          <h2 className="reveal maxw-h2">Del escaneo a la mesa, en cinco pasos.</h2>
+          <div className="rail">
             {steps.map(([t, p], i) => (
-              <div key={t} className="step reveal"><span className="n">{i + 1}</span><h4>{t}</h4><p>{p}</p></div>
+              <div key={t} className="rail-step reveal">
+                <span className="rn">{i + 1}</span>
+                <h4>{t}</h4>
+                <p>{p}</p>
+              </div>
             ))}
-            <div className="card reveal" style={{ display: "flex", flexDirection: "column", justifyContent: "center", background: "var(--orange-soft)", borderColor: "transparent" }}>
-              <h4 style={{ marginBottom: 8 }}>¿Y la administración?</h4>
-              <p style={{ color: "var(--ink-2)" }}>Mientras todo esto pasa, tú ves cada pedido, mesa y estado desde el panel, en tiempo real.</p>
-            </div>
+          </div>
+          <div className="spec-card reveal mt-l" style={{ background: "var(--orange-soft)", borderColor: "transparent" }}>
+            <h3 style={{ marginBottom: 8 }}>¿Y la administración?</h3>
+            <p style={{ color: "var(--ink-2)" }}>Mientras todo esto pasa, tú ves cada pedido, mesa y estado desde el panel, en tiempo real.</p>
           </div>
         </div>
       </section>
       <section className="section bg-soft">
         <div className="wrap">
-          <Eyebrow num="·" tag="Puesta en marcha" />
+          <SectionMark num="02" tag="Puesta en marcha" />
           <h2 className="reveal maxw-h2">Listo para operar el mismo día.</h2>
-          <div className="grid g-3 mt-l">
-            {setup.map(([ico, t, p]) => (
-              <div key={t} className="card card-rel reveal"><CornerArrow /><div className="c-ico"><Ico n={ico} /></div><h3>{t}</h3><p>{p}</p></div>
+          <div className="grid g-3 mt-l stagger">
+            {setup.map(([ico, t, p], i) => (
+              <div key={t} className="spec-card reveal">
+                <span className="sc-tag">{String(i + 1).padStart(2, "0")}</span>
+                <div className="c-ico"><Ico n={ico} /></div><h3>{t}</h3><p>{p}</p>
+              </div>
             ))}
           </div>
         </div>

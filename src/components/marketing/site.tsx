@@ -138,7 +138,7 @@ export function Feature({ title, text }: { title: string; text: string }) {
 export function Phead({ tag, title, lead }: { tag: string; title: string; lead: string }) {
   return (
     <header className="phead">
-      <div className="halo" />
+      <div className="sheen" /><div className="grain" /><div className="halo" />
       <div className="wrap">
         <div className="eyebrow reveal"><span className="num">·</span><span className="tag">{tag}</span></div>
         <h1 className="reveal">{title}</h1>

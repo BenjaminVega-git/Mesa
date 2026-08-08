@@ -1,4 +1,4 @@
-import { Phead, Eyebrow, Feature, Ico, CornerArrow, Mock, CtaBand } from "@/components/marketing/site"
+import { Phead, SectionMark, Feature, Ico, Mock, CtaBand } from "@/components/marketing/site"
 
 export const metadata = { title: "Software para cafeterías y panaderías | MESA", description: "MESA agiliza la atención en cafeterías y panaderías con menús QR y pedidos directos, para mover la fila más rápido y mantener la carta al día." }
 
@@ -31,11 +31,14 @@ export default function Page() {
       </section>
       <section className="section bg-soft">
         <div className="wrap">
-          <Eyebrow num="·" tag="Productos ideales para cafeterías" />
+          <SectionMark num="01" tag="Productos ideales para cafeterías" />
           <h2 className="reveal maxw-h2">Tu combinación recomendada.</h2>
-          <div className="grid g-3 mt-l">
-            {cards.map(([ico, t, p]) => (
-              <div key={t} className="card card-rel reveal"><CornerArrow /><div className="c-ico"><Ico n={ico} /></div><h3>{t}</h3><p>{p}</p></div>
+          <div className="grid g-3 mt-l stagger">
+            {cards.map(([ico, t, p], i) => (
+              <div key={t} className="spec-card reveal">
+                <span className="sc-tag">{String(i + 1).padStart(2, "0")}</span>
+                <div className="c-ico"><Ico n={ico} /></div><h3>{t}</h3><p>{p}</p>
+              </div>
             ))}
           </div>
         </div>

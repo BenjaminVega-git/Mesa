@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { Phead, Eyebrow, Feature, Btn, Ico, CornerArrow, DashShot, RecipeShot, ApiShot, CtaBand } from "@/components/marketing/site"
+import { Phead, SectionMark, Feature, Btn, Ico, DashShot, RecipeShot, ApiShot, CtaBand } from "@/components/marketing/site"
 
 export const metadata = { title: "Gestión e inventario | MESA", description: "La capa de gestión de MESA: control de stock en tiempo real, reportes estratégicos, módulo de ingredientes y costo de recetas, y API de inventario." }
 
@@ -10,11 +10,11 @@ export default function Page() {
 
       <section className="section bg-white" style={{ paddingBottom: 0 }}>
         <div className="wrap">
-          <div className="grid g-4 reveal">
-            <Link className="card card-rel" href="/stock"><CornerArrow /><div className="c-ico"><Ico n="boxes" /></div><h4>Control de stock</h4><p>Inventario que se actualiza solo con cada venta.</p></Link>
-            <Link className="card card-rel" href="/reportes"><CornerArrow /><div className="c-ico"><Ico n="chart" /></div><h4>Reportes estratégicos</h4><p>Datos para decidir con cabeza, no a ciegas.</p></Link>
-            <div className="card card-rel"><div className="c-ico"><Ico n="scale" /></div><h4>Ingredientes y recetas</h4><p>Costo real de cada plato y su margen.</p></div>
-            <div className="card card-rel"><div className="c-ico"><Ico n="code" /></div><h4>API de inventario</h4><p>Conecta MESA con tus otros sistemas.</p></div>
+          <div className="grid g-4 reveal stagger">
+            <Link className="spec-card" href="/stock"><span className="sc-tag">01</span><div className="c-ico"><Ico n="boxes" /></div><h4>Control de stock</h4><p>Inventario que se actualiza solo con cada venta.</p></Link>
+            <Link className="spec-card" href="/reportes"><span className="sc-tag">02</span><div className="c-ico"><Ico n="chart" /></div><h4>Reportes estratégicos</h4><p>Datos para decidir con cabeza, no a ciegas.</p></Link>
+            <div className="spec-card"><span className="sc-tag">03</span><div className="c-ico"><Ico n="scale" /></div><h4>Ingredientes y recetas</h4><p>Costo real de cada plato y su margen.</p></div>
+            <div className="spec-card"><span className="sc-tag">04</span><div className="c-ico"><Ico n="code" /></div><h4>API de inventario</h4><p>Conecta MESA con tus otros sistemas.</p></div>
           </div>
         </div>
       </section>
@@ -23,7 +23,7 @@ export default function Page() {
         <div className="wrap">
           <div className="split">
             <div className="copy reveal">
-              <Eyebrow num="1" tag="Control de stock" />
+              <SectionMark num="01" tag="Control de stock" />
               <h2 className="maxw-h2">Tu inventario, siempre al día.</h2>
               <p className="lead mt-s">Cada pedido descuenta el stock automáticamente. Defines mínimos, recibes alertas de quiebre y evitas vender lo que ya no tienes.</p>
               <ul className="feature-list">
@@ -43,7 +43,7 @@ export default function Page() {
           <div className="split rev">
             <div className="reveal"><DashShot /></div>
             <div className="copy reveal">
-              <Eyebrow num="2" tag="Reportes estratégicos" />
+              <SectionMark num="02" tag="Reportes estratégicos" />
               <h2 className="maxw-h2">Decisiones con datos, no con corazonadas.</h2>
               <p className="lead mt-s">MESA convierte cada venta en información clara: qué se vende, cuánto deja, a qué hora se mueve tu local y qué productos cuidar.</p>
               <ul className="feature-list">
@@ -61,7 +61,7 @@ export default function Page() {
         <div className="wrap">
           <div className="split">
             <div className="copy reveal">
-              <Eyebrow num="3" tag="Ingredientes y costo de recetas" />
+              <SectionMark num="03" tag="Ingredientes y costo de recetas" />
               <h2 className="maxw-h2">Sabe cuánto te cuesta cada plato.</h2>
               <p className="lead mt-s">Carga los ingredientes de cada producto y MESA calcula su costo real y su margen. Cuando sube un insumo, sabes al instante qué platos ajustar.</p>
               <ul className="feature-list">
@@ -80,7 +80,7 @@ export default function Page() {
           <div className="split rev">
             <div className="reveal"><ApiShot /></div>
             <div className="copy reveal">
-              <Eyebrow num="4" tag="API de inventario" />
+              <SectionMark num="04" tag="API de inventario" />
               <h2 className="maxw-h2">Conecta MESA con tus otros sistemas.</h2>
               <p className="lead mt-s">La API de inventario de MESA deja que tus plataformas conversen: sincroniza stock, productos y movimientos con tu ERP, e-commerce o contabilidad.</p>
               <ul className="feature-list">

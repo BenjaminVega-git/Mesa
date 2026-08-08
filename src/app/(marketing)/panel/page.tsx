@@ -1,4 +1,4 @@
-import { Phead, Eyebrow, Feature, Ico, CornerArrow, DashShot, CtaBand } from "@/components/marketing/site"
+import { Phead, SectionMark, Feature, Ico, DashShot, CtaBand } from "@/components/marketing/site"
 
 export const metadata = { title: "Panel administrativo | MESA", description: "Controla categorías, productos, mesas, pedidos y meseros desde un solo panel. Toda la operación de tu restaurante en un lugar con MESA." }
 
@@ -31,11 +31,14 @@ export default function Page() {
       </section>
       <section className="section bg-soft">
         <div className="wrap">
-          <Eyebrow num="·" tag="Hecho para tu día a día" />
+          <SectionMark num="01" tag="Hecho para tu día a día" />
           <h2 className="reveal maxw-h2">Decisiones claras, operación bajo control.</h2>
-          <div className="grid g-3 mt-l">
-            {cards.map(([ico, t, p]) => (
-              <div key={t} className="card card-rel reveal"><CornerArrow /><div className="c-ico"><Ico n={ico} /></div><h3>{t}</h3><p>{p}</p></div>
+          <div className="grid g-3 mt-l stagger">
+            {cards.map(([ico, t, p], i) => (
+              <div key={t} className="spec-card reveal">
+                <span className="sc-tag">{String(i + 1).padStart(2, "0")}</span>
+                <div className="c-ico"><Ico n={ico} /></div><h3>{t}</h3><p>{p}</p>
+              </div>
             ))}
           </div>
         </div>

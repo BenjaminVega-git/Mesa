@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { Btn } from "@/components/marketing/site"
+import { Btn, SectionMark } from "@/components/marketing/site"
 
 export const metadata = { title: "Precios | MESA — planes para cada tipo de restaurante", description: "Planes de MESA en pesos chilenos para restaurantes, cafeterías y bares. Sin contratos largos. Empieza con una demo gratis y elige el plan que te acomode." }
 
@@ -76,7 +76,7 @@ export default function Page() {
   return (
     <>
       <header className="phead-precios">
-        <div className="halo" />
+        <div className="sheen" /><div className="grain" /><div className="halo" />
         <div className="grid-dots" />
         <div className="wrap">
           <div className="copy">
@@ -157,7 +157,7 @@ export default function Page() {
 
       <section className="section bg-soft">
         <div className="wrap">
-          <div className="eyebrow reveal"><span className="num">·</span><span className="tag">Comparativa de planes</span></div>
+          <SectionMark num="01" tag="Comparativa de planes" />
           <h2 className="reveal maxw-h2">Qué incluye cada plan.</h2>
           <div className="cmp-scroll mt-l reveal">
             <table className="cmp">
@@ -179,11 +179,18 @@ export default function Page() {
 
       <section className="section bg-white">
         <div className="wrap">
-          <div className="eyebrow reveal"><span className="num">·</span><span className="tag">Dudas sobre precios</span></div>
+          <SectionMark num="02" tag="Dudas sobre precios" />
           <h2 className="reveal maxw-h2">Lo que sueles preguntarte antes de contratar.</h2>
-          <div className="faq mt-l reveal">
+          <div className="faq-v2 mt-l reveal">
             {faqs.map(([q, a], i) => (
-              <details key={q} open={i === 0}><summary>{q}<span className="pm">+</span></summary><div className="ans">{a}</div></details>
+              <details key={q} open={i === 0}>
+                <summary>
+                  <span className="fq-idx">{String(i + 1).padStart(2, "0")}</span>
+                  <span className="fq-q">{q}</span>
+                  <span className="pm">+</span>
+                </summary>
+                <div className="fq-a">{a}</div>
+              </details>
             ))}
           </div>
         </div>

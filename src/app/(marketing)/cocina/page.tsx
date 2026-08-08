@@ -1,4 +1,4 @@
-import { Phead, Eyebrow, Feature, Ico, CornerArrow, DashShot, CtaBand } from "@/components/marketing/site"
+import { Phead, SectionMark, Feature, Ico, DashShot, CtaBand } from "@/components/marketing/site"
 
 export const metadata = { title: "Comandas en cocina | MESA", description: "Los pedidos de MESA llegan directo a quien prepara, ordenados y sin papel. Tu cocina recibe cada orden al instante y marca su estado." }
 
@@ -31,11 +31,14 @@ export default function Page() {
       </section>
       <section className="section bg-soft">
         <div className="wrap">
-          <Eyebrow num="·" tag="Lo que mejora" />
+          <SectionMark num="01" tag="Lo que mejora" />
           <h2 className="reveal maxw-h2">Una cocina que fluye en el peak.</h2>
-          <div className="grid g-3 mt-l">
-            {cards.map(([ico, t, p]) => (
-              <div key={t} className="card card-rel reveal"><CornerArrow /><div className="c-ico"><Ico n={ico} /></div><h3>{t}</h3><p>{p}</p></div>
+          <div className="grid g-3 mt-l stagger">
+            {cards.map(([ico, t, p], i) => (
+              <div key={t} className="spec-card reveal">
+                <span className="sc-tag">{String(i + 1).padStart(2, "0")}</span>
+                <div className="c-ico"><Ico n={ico} /></div><h3>{t}</h3><p>{p}</p>
+              </div>
             ))}
           </div>
         </div>

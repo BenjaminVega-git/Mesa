@@ -42,6 +42,7 @@
 .mesa-site .eyebrow .tag{font-size:12.5px;font-weight:500;border:1px solid var(--line);border-radius:999px;padding:5px 14px;color:var(--ink);}
 .mesa-site .soon{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;color:var(--orange);background:var(--orange-soft);border-radius:999px;padding:4px 11px;margin-left:10px;vertical-align:middle;}
 .mesa-site .card .soon{position:absolute;top:22px;right:22px;margin:0;}
+.mesa-site .spec-card .soon{position:absolute;top:20px;right:20px;margin:0;}
 
 .mesa-site .btn{display:inline-flex;align-items:center;gap:10px;border-radius:999px;padding:11px 12px 11px 22px;font-size:14px;font-weight:500;transition:background .45s var(--ease),transform .45s var(--ease),box-shadow .45s var(--ease);}
 .mesa-site .btn .ico{display:grid;place-items:center;width:30px;height:30px;border-radius:999px;background:#fff;flex:0 0 auto;transition:transform .5s var(--ease);}
@@ -122,11 +123,15 @@
 .mesa-site .video-frame::after{content:"";position:absolute;inset:0;border:1px solid rgba(255,255,255,.12);border-radius:inherit;pointer-events:none;}
 .mesa-site .video-frame video{display:block;width:100%;height:auto;aspect-ratio:16/9;object-fit:cover;}
 
-.mesa-site .phead{position:relative;overflow:hidden;padding-block:clamp(60px,9vw,110px) clamp(40px,6vw,64px);}
-.mesa-site .phead .halo{position:absolute;inset:0;z-index:0;background:radial-gradient(100% 120% at 80% -20%,rgba(245,135,31,0.16),rgba(245,135,31,0) 60%);}
+.mesa-site .phead{position:relative;overflow:hidden;padding-block:clamp(76px,10vw,126px) clamp(48px,7vw,72px);background:#0B0B0D;}
+.mesa-site .phead .sheen{position:absolute;inset:-40%;z-index:0;background:conic-gradient(from 0deg,transparent 0deg,rgba(245,135,31,.14) 60deg,transparent 140deg,transparent 360deg);animation:mesaSheenSpin 16s linear infinite;}
+.mesa-site .phead .grain{position:absolute;inset:0;z-index:0;opacity:.05;background-image:repeating-linear-gradient(0deg,#fff 0 1px,transparent 1px 3px);}
+.mesa-site .phead .halo{position:absolute;inset:0;z-index:0;background:radial-gradient(90% 130% at 82% -10%,rgba(245,135,31,0.32),rgba(245,135,31,0) 60%);}
 .mesa-site .phead .wrap{position:relative;z-index:1;}
-.mesa-site .phead h1{max-width:20ch;}
-.mesa-site .phead .lead{margin-top:20px;max-width:54ch;}
+.mesa-site .phead h1{max-width:20ch;color:#F5F1EA;}
+.mesa-site .phead .lead{margin-top:20px;max-width:54ch;color:#B9B3A6;}
+.mesa-site .phead .eyebrow .tag{border-color:rgba(255,255,255,.16);color:#F5F1EA;}
+.mesa-site .phead .soon{background:rgba(245,135,31,.16);}
 
 .mesa-site .grid{display:grid;gap:22px;}
 .mesa-site .g-2{grid-template-columns:repeat(2,1fr);}
@@ -351,11 +356,17 @@
 .mesa-site .maxw-h2{max-width:22ch;}
 
 /* ---- Precios: hero con visual QR ---- */
-.mesa-site .phead-precios{position:relative;overflow:hidden;padding-block:clamp(60px,9vw,110px) clamp(32px,5vw,56px);background:var(--bg);}
-.mesa-site .phead-precios .halo{position:absolute;inset:0;z-index:0;background:radial-gradient(110% 130% at 78% -20%,rgba(245,135,31,0.18),rgba(245,135,31,0) 55%);}
-.mesa-site .phead-precios .grid-dots{position:absolute;right:0;bottom:0;width:260px;height:220px;z-index:0;opacity:.4;background-image:radial-gradient(var(--muted) 1px,transparent 1px);background-size:26px 26px;-webkit-mask-image:linear-gradient(to top left,#000,transparent);mask-image:linear-gradient(to top left,#000,transparent);}
+.mesa-site .phead-precios{position:relative;overflow:hidden;padding-block:clamp(76px,10vw,124px) clamp(40px,6vw,64px);background:#0B0B0D;}
+.mesa-site .phead-precios .sheen{position:absolute;inset:-40%;z-index:0;background:conic-gradient(from 0deg,transparent 0deg,rgba(245,135,31,.14) 60deg,transparent 140deg,transparent 360deg);animation:mesaSheenSpin 16s linear infinite;}
+.mesa-site .phead-precios .grain{position:absolute;inset:0;z-index:0;opacity:.05;background-image:repeating-linear-gradient(0deg,#fff 0 1px,transparent 1px 3px);}
+.mesa-site .phead-precios .halo{position:absolute;inset:0;z-index:0;background:radial-gradient(100% 140% at 78% -10%,rgba(245,135,31,0.32),rgba(245,135,31,0) 55%);}
+.mesa-site .phead-precios .grid-dots{position:absolute;right:0;bottom:0;width:260px;height:220px;z-index:0;opacity:.5;background-image:radial-gradient(rgba(255,255,255,.35) 1px,transparent 1px);background-size:26px 26px;-webkit-mask-image:linear-gradient(to top left,#000,transparent);mask-image:linear-gradient(to top left,#000,transparent);}
 .mesa-site .phead-precios .wrap{position:relative;z-index:1;display:grid;grid-template-columns:1fr auto;gap:clamp(28px,5vw,64px);align-items:center;}
 .mesa-site .phead-precios .copy{max-width:600px;}
+.mesa-site .phead-precios h1{color:#F5F1EA;}
+.mesa-site .phead-precios .lead{color:#B9B3A6;}
+.mesa-site .phead-precios .eyebrow .tag{border-color:rgba(255,255,255,.16);color:#F5F1EA;}
+.mesa-site .phead-precios .free-badge{background:rgba(245,135,31,.18);border-color:rgba(245,135,31,.35);}
 .mesa-site .phead-precios h1{max-width:22ch;}
 .mesa-site .phead-precios .lead{margin-top:18px;max-width:52ch;}
 .mesa-site .qr-visual{flex-shrink:0;position:relative;width:clamp(200px,22vw,280px);display:flex;flex-direction:column;align-items:center;gap:16px;}
@@ -645,6 +656,12 @@
 .mesa-site .spec-card .val{font-size:clamp(2rem,3.6vw,2.8rem);font-weight:700;letter-spacing:-0.03em;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;}
 .mesa-site .spec-card .lab{margin-top:10px;font-size:14.5px;font-weight:700;}
 .mesa-site .spec-card p{margin-top:6px;font-size:13.5px;color:var(--muted);line-height:1.55;}
+.mesa-site .spec-card .c-ico{display:grid;place-items:center;width:44px;height:44px;border-radius:12px;background:var(--orange-soft);margin-bottom:16px;}
+.mesa-site .spec-card .c-ico svg{width:20px;height:20px;stroke:var(--orange);}
+.mesa-site .spec-card h3{margin-bottom:6px;}
+.mesa-site .spec-card h4{margin-bottom:6px;}
+.mesa-site .dark-block .spec-card{background:#1B1A17;border-color:rgba(255,255,255,.1);}
+.mesa-site .dark-block .spec-card p{color:#9C958A;}
 
 /* Timeline conectado para "Cómo funciona" — línea punteada detrás de los
    nodos numerados, en vez de tarjetas sueltas en grilla. */
