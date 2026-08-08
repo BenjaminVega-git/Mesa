@@ -5,17 +5,17 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { ManuelAvatar } from "@/components/admin/assistant/ManuelAvatar"
 
-const ORANGE = "#F5871F"
+const ACCENT = "#2B4C86"
 
 /* ---------- Marca (cloche + QR) ---------- */
 export function Mark({ stroke = "#fff" }: { stroke?: string }) {
   return (
     <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
       <g stroke={stroke} strokeWidth="6" strokeLinecap="square"><path d="M22 14H14V22M78 14h8v8M22 86H14v-8M78 86h8v-8" /></g>
-      <path d="M30 64h40l-3 5H33z" fill={ORANGE} />
-      <path d="M46 69h8v9h10v4H36v-4h10z" fill={ORANGE} />
-      <path d="M28 60a22 22 0 0 1 44 0z" fill={ORANGE} />
-      <circle cx="50" cy="34" r="4" fill={ORANGE} />
+      <path d="M30 64h40l-3 5H33z" fill={ACCENT} />
+      <path d="M46 69h8v9h10v4H36v-4h10z" fill={ACCENT} />
+      <path d="M28 60a22 22 0 0 1 44 0z" fill={ACCENT} />
+      <circle cx="50" cy="34" r="4" fill={ACCENT} />
       <path d="M40 56c0-9 4-15 9-18" stroke="#fff" strokeWidth="3" strokeLinecap="round" />
     </svg>
   )
@@ -49,16 +49,13 @@ const PATHS: Record<string, string> = {
   alert: '<path d="M12 3 2 20h20z"/><path d="M12 9v5M12 17v.5"/>',
 }
 export function Ico({ n }: { n: string }) {
-  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" dangerouslySetInnerHTML={{ __html: PATHS[n] ?? "" }} />
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" dangerouslySetInnerHTML={{ __html: PATHS[n] ?? "" }} />
 }
 function ArrowSvg() {
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
 }
-export function CornerArrow() {
-  return <span className="corner"><svg viewBox="0 0 24 24" fill="none" stroke={ORANGE} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M7 17 17 7M17 7H9M17 7v8" /></svg></span>
-}
 export function Tick() {
-  return <span className="tick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5l4.5 4.5L19 7" /></svg></span>
+  return <span className="tick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5l4.5 4.5L19 7" /></svg></span>
 }
 
 export function Btn({ label, variant = "orange", href, block }: { label: string; variant?: "orange" | "dark" | "ghost"; href: string; block?: boolean }) {
@@ -68,63 +65,12 @@ export function Btn({ label, variant = "orange", href, block }: { label: string;
   return <a className={cls} href={href}>{inner}</a>
 }
 
-/* Fondo del hero: degradado naranja nítido + grilla de puntos (igual al
-   fallback del original) + un segundo glow que sigue al cursor. Sin shader
-   WebGL: el codegen de three genera identificadores GLSL con doble guión
-   bajo que el driver del navegador rechaza, así que no compila en todas
-   las GPU — esto es CSS puro, corre en cualquier lado. */
-export function HeroFx() {
-  const ref = useRef<HTMLDivElement>(null)
-  const [active, setActive] = useState(false)
-
-  useEffect(() => {
-    const el = ref.current
-    if (!el) return
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return
-
-    let raf = 0
-    function onMove(e: PointerEvent) {
-      cancelAnimationFrame(raf)
-      raf = requestAnimationFrame(() => {
-        const rect = el!.getBoundingClientRect()
-        if (rect.width === 0 || rect.height === 0) return
-        const x = ((e.clientX - rect.left) / rect.width) * 100
-        const y = ((e.clientY - rect.top) / rect.height) * 100
-        // Margen de tolerancia: el glow se apaga solo cerca del borde del
-        // hero, en vez de "saltar" de golpe al entrar/salir.
-        if (x < -20 || x > 120 || y < -20 || y > 120) {
-          setActive(false)
-          return
-        }
-        el!.style.setProperty("--mx", `${x}%`)
-        el!.style.setProperty("--my", `${y}%`)
-        setActive(true)
-      })
-    }
-    window.addEventListener("pointermove", onMove, { passive: true })
-    return () => {
-      window.removeEventListener("pointermove", onMove)
-      cancelAnimationFrame(raf)
-    }
-  }, [])
-
-  return (
-    <div className="hero-fx" ref={ref} aria-hidden>
-      <div className={`hero-glow${active ? " on" : ""}`} />
-      <div className="dots" />
-    </div>
-  )
-}
-
-export function Eyebrow({ num, tag }: { num: string; tag: string }) {
-  return <div className="eyebrow reveal"><span className="num">{num}</span><span className="tag">{tag}</span></div>
-}
-
-/** Marcador de sección de la home: número gigante en contorno + tag mono. */
+/** Kicker de sección: índice discreto + etiqueta, sin numeral gigante. */
 export function SectionMark({ num, tag }: { num: string; tag: string }) {
   return (
     <div className="section-mark reveal">
       <span className="sm-num">{num}</span>
+      <span className="sm-rule" aria-hidden="true" />
       <span className="sm-tag">{tag}</span>
     </div>
   )
@@ -138,9 +84,9 @@ export function Feature({ title, text }: { title: string; text: string }) {
 export function Phead({ tag, title, lead }: { tag: string; title: string; lead: string }) {
   return (
     <header className="phead">
-      <div className="sheen" /><div className="grain" /><div className="halo" />
+      <div className="grid-lines" aria-hidden="true" />
       <div className="wrap">
-        <div className="eyebrow reveal"><span className="num">·</span><span className="tag">{tag}</span></div>
+        <div className="eyebrow reveal"><span className="dot" /><span className="tag">{tag}</span></div>
         <h1 className="reveal">{title}</h1>
         <p className="lead reveal">{lead}</p>
         <div className="cta-row mt-m reveal"><Btn label="Solicita una demo" href="/demo" /></div>
@@ -154,7 +100,6 @@ export function CtaBand({ title, lead, secondary }: { title: string; lead: strin
     <section className="section bg-white" style={{ paddingTop: 0 }}>
       <div className="wrap">
         <div className="cta-band reveal">
-          <div className="halo" />
           <h2>{title}</h2>
           <p className="lead">{lead}</p>
           <div className="row">
@@ -169,7 +114,7 @@ export function CtaBand({ title, lead, secondary }: { title: string; lead: strin
 
 /* ---------- Mockups ---------- */
 export function Mock({ label, light }: { label: string; light?: boolean }) {
-  const bracket = light ? "#111827" : "#ffffff"
+  const bracket = light ? "#101828" : "#ffffff"
   return (
     <div className={`mock${light ? " light" : ""}`}>
       <div className="dome">
@@ -226,33 +171,6 @@ export function Marquee({ items }: { items: string[] }) {
     <div className="marquee">
       <div className="marquee-track">
         {[...items, ...items].map((l, i) => <span key={`${l}-${i}`} className="logo">{l}</span>)}
-      </div>
-    </div>
-  )
-}
-
-/* ---------- Cinta de comandas (metáfora del rollo de impresora de cocina) ---------- */
-type Ticket = { mesa: string; items: string[]; time: string; status: string }
-const KITCHEN_TICKETS: Ticket[] = [
-  { mesa: "Mesa 4", items: ["2x Empanada de pino", "1x Jugo natural"], time: "12:41", status: "Nuevo" },
-  { mesa: "Barra 2", items: ["1x Ceviche del día", "1x Pisco sour"], time: "12:42", status: "Nuevo" },
-  { mesa: "Mesa 9", items: ["3x Lomo a lo pobre"], time: "12:44", status: "En cocina" },
-  { mesa: "Delivery", items: ["1x Pizza familiar", "2x Bebida 500ml"], time: "12:45", status: "Nuevo" },
-  { mesa: "Mesa 2", items: ["1x Ensalada césar", "1x Sopa del día"], time: "12:47", status: "En cocina" },
-  { mesa: "Mesa 12", items: ["1x Tabla para compartir"], time: "12:48", status: "Listo" },
-]
-
-export function TicketRail() {
-  return (
-    <div className="ticket-rail" aria-hidden="true">
-      <div className="ticket-track">
-        {[...KITCHEN_TICKETS, ...KITCHEN_TICKETS].map((t, i) => (
-          <div className="ticket" key={`${t.mesa}-${i}`}>
-            <div className="t-head"><span>{t.mesa}</span><span className="t-status">{t.status}</span></div>
-            {t.items.map((it) => <div className="t-item" key={it}>{it}</div>)}
-            <div className="t-time"><span>MESA · comanda</span><span>{t.time}</span></div>
-          </div>
-        ))}
       </div>
     </div>
   )
@@ -440,38 +358,21 @@ export function Counter({ to, prefix = "", suffix = "", decimals = 0 }: { to: nu
   return <span ref={ref}>{prefix}{decimals > 0 ? val.toFixed(decimals) : Math.round(val)}{suffix}</span>
 }
 
-/* ---------- Spotlight de testimonios (una cita a la vez, auto-rotando) ---------- */
+/* ---------- Testimonios: grilla estática, sin carrusel ---------- */
 export type TestimonialItem = { av: string; name: string; place: string; text: string }
 
-export function TestimonialSpotlight({ items }: { items: TestimonialItem[] }) {
-  const [idx, setIdx] = useState(0)
-
-  useEffect(() => {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return
-    const id = setInterval(() => setIdx((i) => (i + 1) % items.length), 5500)
-    return () => clearInterval(id)
-  }, [items.length])
-
-  const t = items[idx]
+export function TestimonialGrid({ items }: { items: TestimonialItem[] }) {
   return (
-    <div className="quote-spotlight">
-      <span className="qs-mark" aria-hidden="true">&ldquo;</span>
-      <p className="qs-text" key={idx}>{t.text}</p>
-      <div className="qs-who">
-        <span className="av">{t.av}</span>
-        <div><strong>{t.name}</strong><span>{t.place}</span></div>
-      </div>
-      <div className="qs-dots">
-        {items.map((it, i) => (
-          <button
-            key={it.name}
-            type="button"
-            className={i === idx ? "on" : ""}
-            onClick={() => setIdx(i)}
-            aria-label={`Ver testimonio de ${it.name}`}
-          />
-        ))}
-      </div>
+    <div className="t-grid">
+      {items.map((t) => (
+        <div key={t.name} className="t-card reveal">
+          <p>{t.text}</p>
+          <div className="t-who">
+            <span className="av">{t.av}</span>
+            <div><strong>{t.name}</strong><span>{t.place}</span></div>
+          </div>
+        </div>
+      ))}
     </div>
   )
 }
@@ -509,8 +410,6 @@ export function Shell({ children }: { children: React.ReactNode }) {
     return () => clearInterval(id)
   }, [])
 
-  // Nav compacta + halo de sombra al hacer scroll, y barra fina de progreso
-  // de lectura arriba de todo — ambas leen el mismo scroll, un solo listener.
   useEffect(() => {
     let raf = 0
     function onScroll() {
@@ -544,15 +443,10 @@ export function Shell({ children }: { children: React.ReactNode }) {
     return () => io.disconnect()
   }, [pathname])
 
-  // El nav queda transparente y con texto claro SOLO sobre el hero oscuro de
-  // la home, mientras no se haya scrolleado — en cualquier otra página, o ya
-  // scrolleado, vuelve al nav blanco de siempre.
-  const onDarkHero = pathname === "/" && !scrolled
-
   return (
     <div className="mesa-site">
       <div className="scroll-progress" style={{ width: `${progress}%` }} aria-hidden="true" />
-      <div className={`nav-shell${scrolled ? " scrolled" : ""}${onDarkHero ? " on-dark" : ""}`}>
+      <div className={`nav-shell${scrolled ? " scrolled" : ""}`}>
         <div className="nav">
           <div className="nav-left">
             <Link className="brand" href="/"><span className="mark"><Mark /></span><span className="name">MESA</span></Link>
