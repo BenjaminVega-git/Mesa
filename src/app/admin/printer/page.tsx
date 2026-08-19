@@ -64,6 +64,11 @@ function ticketItemName(item: FetchedOrder["order_items"][number]) {
 }
 
 const EN_PREPARACION_STATUS_ID = 2
+const ORDER_FETCH_RETRY_DELAYS_MS = [0, 250, 700, 1500]
+
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
 
 export default function PrinterPage() {
   const { restaurant, loading } = useRestaurant()
@@ -237,6 +242,36 @@ export default function PrinterPage() {
     }
   }
 
+  const fetchOrderForTicket = useCallback(async (orderId: number): Promise<FetchedOrder | null> => {
+    let lastData: FetchedOrder | null = null
+    let lastError: string | null = null
+
+    for (const delayMs of ORDER_FETCH_RETRY_DELAYS_MS) {
+      if (delayMs > 0) await wait(delayMs)
+
+      const { data, error } = await supabase
+        .from("orders")
+        .select("id, status_id, table_id, order_type, fulfillment_type, delivery_customer_name, delivery_customer_phone, delivery_address, delivery_reference, tables ( table_number ), order_items ( product_quantity, product_name, variant_name, notes )")
+        .eq("id", orderId)
+        .maybeSingle<FetchedOrder>()
+
+      if (error) {
+        lastError = error.message
+        continue
+      }
+      if (!data) {
+        lastError = "data null"
+        continue
+      }
+
+      lastData = data
+      if (data.status_id !== EN_PREPARACION_STATUS_ID || data.order_items.length > 0) return data
+    }
+
+    if (lastError) throw new Error(lastError)
+    return lastData
+  }, [])
+
   function handlePreview() {
     setPreviewText(formatTicketAsText(buildSampleTicket()))
   }
@@ -304,13 +339,14 @@ export default function PrinterPage() {
       if (currentPrinter) {
         const ticket = buildOrderTicket(buildSampleTicket(), ticketWidth)
         await sendBluetoothTicket(ticket)
-        appendEntry({ orderId: 9999, kind: "ok", message: "Ticket de prueba enviado" })
+        appendEntry({ orderId: 9999, kind: "ok", message: "Ticket de prueba enviado", ticketInput: buildSampleTicket() })
       } else {
-        const mode = await printViaSystemDriver(buildSampleTicket())
+        const sampleTicket = buildSampleTicket()
+        const mode = await printViaSystemDriver(sampleTicket)
         if (mode === "raw") {
-          appendEntry({ orderId: 9999, kind: "ok", message: "Ticket RAW enviado en silencio" })
+          appendEntry({ orderId: 9999, kind: "ok", message: "Ticket RAW enviado en silencio", ticketInput: sampleTicket })
         } else {
-          appendEntry({ orderId: 9999, kind: "ok", message: "Se abrió el diálogo de impresión del sistema" })
+          appendEntry({ orderId: 9999, kind: "ok", message: "Se abrió el diálogo de impresión del sistema", ticketInput: sampleTicket })
         }
       }
     } catch (err) {
@@ -359,22 +395,27 @@ export default function PrinterPage() {
 
     let ticketInput: TicketInput | undefined
     try {
-      const { data, error } = await supabase
-        .from("orders")
-        .select("id, status_id, table_id, order_type, fulfillment_type, delivery_customer_name, delivery_customer_phone, delivery_address, delivery_reference, tables ( table_number ), order_items ( product_quantity, product_name, variant_name, notes )")
-        .eq("id", orderId)
-        .maybeSingle<FetchedOrder>()
+      const data = await fetchOrderForTicket(orderId)
 
-      if (error || !data) {
+      if (!data) {
         appendEntry({
           orderId,
           kind: "error",
-          message: `No se pudo leer el pedido: ${error?.message ?? "data null"}`,
+          message: "No se pudo leer el pedido: data null",
         })
         return
       }
 
       if (data.status_id !== EN_PREPARACION_STATUS_ID) return
+
+      if (data.order_items.length === 0) {
+        appendEntry({
+          orderId,
+          kind: "error",
+          message: "El pedido todavía no tiene productos para imprimir. Intenta reimprimir desde pedidos.",
+        })
+        return
+      }
 
       ticketInput = {
         restaurantName: current.restaurant_name ?? "Restaurante",
@@ -429,7 +470,7 @@ export default function PrinterPage() {
     } finally {
       processingOrderIds.current.delete(orderId)
     }
-  }, [printViaSystemDriver])
+  }, [fetchOrderForTicket, printViaSystemDriver])
 
   useEffect(() => {
     if (!restaurant?.id) return

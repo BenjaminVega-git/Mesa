@@ -12,6 +12,7 @@ import {
 import { logger } from "@/lib/logger"
 
 const EN_PREPARACION_STATUS_ID = 2
+const ORDER_FETCH_RETRY_DELAYS_MS = [0, 250, 700, 1500]
 
 type FetchedOrder = {
   id: number
@@ -47,6 +48,10 @@ function ticketItemName(item: FetchedOrder["order_items"][number]) {
   return item.notes ? `${base} - ${item.notes}` : base
 }
 
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
 export function AdminPrinterListener() {
   const { restaurant } = useRestaurant()
   const pathname = usePathname()
@@ -59,6 +64,27 @@ export function AdminPrinterListener() {
     restaurantRef.current = restaurant
   }, [restaurant])
 
+  const fetchOrderForTicket = useCallback(async (orderId: number): Promise<FetchedOrder | null> => {
+    let lastData: FetchedOrder | null = null
+
+    for (const delayMs of ORDER_FETCH_RETRY_DELAYS_MS) {
+      if (delayMs > 0) await wait(delayMs)
+
+      const { data, error } = await supabase
+        .from("orders")
+        .select("id, status_id, table_id, order_type, fulfillment_type, delivery_customer_name, delivery_customer_phone, delivery_address, delivery_reference, tables ( table_number ), order_items ( product_quantity, product_name, variant_name, notes )")
+        .eq("id", orderId)
+        .maybeSingle<FetchedOrder>()
+
+      if (error || !data) continue
+
+      lastData = data
+      if (data.status_id !== EN_PREPARACION_STATUS_ID || data.order_items.length > 0) return data
+    }
+
+    return lastData
+  }, [])
+
   const handleOrderEvent = useCallback(async (orderId: number) => {
     const current = restaurantRef.current
     if (!current || current.output_mode !== "printer") return
@@ -66,21 +92,21 @@ export function AdminPrinterListener() {
     processingOrderIds.current.add(orderId)
 
     try {
-      const { data, error } = await supabase
-        .from("orders")
-        .select("id, status_id, table_id, order_type, fulfillment_type, delivery_customer_name, delivery_customer_phone, delivery_address, delivery_reference, tables ( table_number ), order_items ( product_quantity, product_name, variant_name, notes )")
-        .eq("id", orderId)
-        .maybeSingle<FetchedOrder>()
+      const data = await fetchOrderForTicket(orderId)
 
-      if (error || !data) {
+      if (!data) {
         logger.warn("global printer could not read order", {
           orderId,
-          error: error?.message ?? "data null",
+          error: "data null",
         })
         return
       }
 
       if (data.status_id !== EN_PREPARACION_STATUS_ID) return
+      if (data.order_items.length === 0) {
+        logger.warn("global printer skipped empty order ticket", { orderId })
+        return
+      }
 
       const ticketInput = {
         restaurantName: current.restaurant_name ?? "Restaurante",
@@ -113,7 +139,7 @@ export function AdminPrinterListener() {
     } finally {
       processingOrderIds.current.delete(orderId)
     }
-  }, [])
+  }, [fetchOrderForTicket])
 
   useEffect(() => {
     if (!restaurant?.id) return
