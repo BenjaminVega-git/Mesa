@@ -29,7 +29,7 @@ export interface TableCartStore {
   setTable: (tableId: number | null, restaurantId: number | null, qrCode: string | null) => void
   fetchItems: () => Promise<void>
   addItem: (input: AddCartItemInput) => Promise<void>
-  // selections solo para promos "build" (arma tu promo).
+  // selections solo para promos configurables (arma tu promo / mixta).
   addPromo: (
     promotionId: number,
     quantity?: number,

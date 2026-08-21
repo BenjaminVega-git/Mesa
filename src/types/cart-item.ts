@@ -1,4 +1,4 @@
-// Selección cruda de una línea de promo "build" (una opción elegida por el
+// Selección cruda de una línea de promo configurable (una opción elegida por el
 // comensal). Se reenvía tal cual al crear el pedido.
 export type CartPromoSelection = {
   groupId: number
@@ -24,7 +24,7 @@ export type CartItem = {
   variantId: number | null
   // promotionId no es null cuando la línea es una promoción.
   promotionId?: number | null
-  // Solo en promos "build": elecciones crudas (para el pedido) y etiquetas ya
+  // Solo en promos configurables: elecciones crudas (para el pedido) y etiquetas ya
   // resueltas (para mostrar el detalle en el carrito).
   selections?: CartPromoSelection[] | null
   selectionLabels?: string[] | null

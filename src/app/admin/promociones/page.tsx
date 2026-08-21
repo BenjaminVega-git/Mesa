@@ -19,6 +19,13 @@ function formatPrice(n: number) {
   return `$${Math.round(n).toLocaleString("es-CL")}`
 }
 
+function promoDiscountLabel(promo: Promotion, pct: number) {
+  if (promo.kind === "fixed") return `${pct}% OFF`
+  return promo.discount_type === "amount"
+    ? `${formatPrice(promo.discount_amount ?? 0)} OFF`
+    : `${promo.discount_pct ?? 0}% OFF`
+}
+
 export default function PromocionesPage() {
   const { restaurantId } = useRestaurantId()
   const { categories } = useAllCategories()
@@ -154,13 +161,14 @@ export default function PromocionesPage() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {promos.map((promo) => {
-            const isBuild = promo.kind === "build"
-            const pct = isBuild
+            const isConfigurable = promo.kind !== "fixed"
+            const pct = isConfigurable
               ? (promo.discount_pct ?? 0)
               : promoDiscountPct(promo.original_total, promo.promo_price)
-            const someUnavailable = isBuild
-              ? promo.groups.some((g) => g.available_count < g.min_select)
-              : promo.items.some((it) => !it.available)
+            const discountLabel = promoDiscountLabel(promo, pct)
+            const fixedUnavailable = promo.items.some((it) => !it.available)
+            const groupsUnavailable = promo.groups.some((g) => g.available_count < g.min_select)
+            const someUnavailable = fixedUnavailable || groupsUnavailable
             return (
               <article
                 key={promo.id}
@@ -172,9 +180,9 @@ export default function PromocionesPage() {
                   <div className="min-w-0">
                     <div className="flex items-center gap-1.5">
                       <h3 className="truncate text-base font-bold text-stone-900">{promo.name}</h3>
-                      {isBuild && (
+                      {isConfigurable && (
                         <span className="shrink-0 rounded-full bg-orange-50 px-1.5 py-0.5 text-[10px] font-bold text-orange-700 ring-1 ring-orange-600/10">
-                          Arma tu promo
+                          {promo.kind === "mixed" ? "Mixta" : "Arma tu promo"}
                         </span>
                       )}
                     </div>
@@ -182,17 +190,30 @@ export default function PromocionesPage() {
                       <p className="mt-0.5 line-clamp-2 text-xs text-stone-500">{promo.description}</p>
                     )}
                   </div>
-                  {pct > 0 && (
+                  {(isConfigurable || pct > 0) && (
                     <span className="shrink-0 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-bold text-emerald-700 ring-1 ring-emerald-600/10">
-                      {pct}% OFF
+                      {discountLabel}
                     </span>
                   )}
                 </div>
 
                 <ul className="mt-3 space-y-1">
-                  {isBuild
-                    ? promo.groups.map((g) => (
-                        <li key={g.id} className="flex items-center gap-1.5 text-xs text-stone-600">
+                  {promo.items.map((it, i) => (
+                    <li key={`item-${i}`} className="flex items-center gap-1.5 text-xs text-stone-600">
+                      <span className="text-stone-400">{it.quantity}×</span>
+                      <span className="truncate">
+                        {it.product_name}
+                        {it.variant_name ? ` · ${it.variant_name}` : ""}
+                      </span>
+                      {!it.available && (
+                        <span className="rounded bg-amber-50 px-1 text-[10px] font-semibold text-amber-700">
+                          no disp.
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                  {promo.groups.map((g) => (
+                        <li key={`group-${g.id}`} className="flex items-center gap-1.5 text-xs text-stone-600">
                           <span className="text-stone-400">
                             {g.min_select === g.max_select ? `${g.min_select}×` : `${g.min_select}-${g.max_select}×`}
                           </span>
@@ -205,29 +226,17 @@ export default function PromocionesPage() {
                             </span>
                           )}
                         </li>
-                      ))
-                    : promo.items.map((it, i) => (
-                        <li key={i} className="flex items-center gap-1.5 text-xs text-stone-600">
-                          <span className="text-stone-400">{it.quantity}×</span>
-                          <span className="truncate">
-                            {it.product_name}
-                            {it.variant_name ? ` · ${it.variant_name}` : ""}
-                          </span>
-                          {!it.available && (
-                            <span className="rounded bg-amber-50 px-1 text-[10px] font-semibold text-amber-700">
-                              no disp.
-                            </span>
-                          )}
-                        </li>
                       ))}
                 </ul>
 
                 <div className="mt-3 flex items-end justify-between border-t border-stone-100 pt-3">
                   <div>
-                    {isBuild ? (
+                    {isConfigurable ? (
                       <>
-                        <span className="text-xs text-stone-400">Sobre lo que elija</span>
-                        <p className="text-lg font-bold text-orange-600">{pct}% OFF</p>
+                        <span className="text-xs text-stone-400">
+                          {promo.kind === "mixed" ? "Sobre fijos + elecciones" : "Sobre lo que elija"}
+                        </span>
+                        <p className="text-lg font-bold text-orange-600">{discountLabel}</p>
                       </>
                     ) : (
                       <>
@@ -255,7 +264,7 @@ export default function PromocionesPage() {
 
                 {someUnavailable && (
                   <p className="mt-2 rounded-lg bg-amber-50 px-2 py-1 text-[11px] font-medium text-amber-700">
-                    {isBuild
+                    {groupsUnavailable
                       ? "Un grupo no tiene suficientes productos disponibles; no se mostrará hasta reponerlos."
                       : "Tiene productos no disponibles; no se mostrará hasta reponerlos."}
                   </p>

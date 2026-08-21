@@ -190,17 +190,25 @@ const READ_ROUTES: ReadRoute[] = [
     format: (r) => {
       const promos = (r.promociones as {
         name: string
-        kind: "fixed" | "build"
+        kind: "fixed" | "build" | "mixed"
         promo_price: number
+        discount_type?: "percent" | "amount"
         discount_pct: number | null
+        discount_amount?: number | null
         active: boolean
       }[]) ?? []
       if (promos.length === 0) return "No tienes promociones creadas todavía."
       const lineas = ["### Tus promociones"]
       lineas.push(
         ...promos.map((p) => {
-          const detalle = p.kind === "fixed" ? clp.format(p.promo_price) : `${p.discount_pct ?? 0}% de descuento`
-          const tipo = p.kind === "fixed" ? "combo fijo" : "arma tu promo"
+          const detalle =
+            p.kind === "fixed"
+              ? clp.format(p.promo_price)
+              : p.discount_type === "amount"
+                ? `${clp.format(p.discount_amount ?? 0)} de descuento`
+                : `${p.discount_pct ?? 0}% de descuento`
+          const tipo =
+            p.kind === "fixed" ? "combo fijo" : p.kind === "mixed" ? "promo mixta" : "arma tu promo"
           return `- **${p.name}** (${tipo}) — ${detalle}${p.active ? "" : " _(inactiva)_"}`
         })
       )

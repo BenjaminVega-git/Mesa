@@ -15,14 +15,18 @@ export interface MenuPromotionGroup {
 // Promoción (combo) tal como la ve el comensal en el menú.
 export interface MenuPromotion {
   id: number
-  kind: "fixed" | "build"
+  kind: "fixed" | "build" | "mixed"
   name: string
   description: string | null
-  /** Precio del combo fijo. En 'build' es 0 (el total depende de lo elegido). */
+  /** Precio del combo fijo. En 'build'/'mixed' es 0 (el total depende de lo elegido). */
   promo_price: number
-  /** Solo 'build': % de descuento sobre la suma de lo que elija el comensal. */
+  /** Solo 'build'/'mixed': tipo de descuento sobre la suma del combo. */
+  discount_type: "percent" | "amount"
+  /** Solo 'build'/'mixed': % de descuento sobre la suma del combo. */
   discount_pct: number | null
-  /** Solo 'build': total más barato posible ("desde $X"), ya con el % aplicado. */
+  /** Solo 'build'/'mixed': monto fijo de descuento sobre la suma del combo. */
+  discount_amount: number | null
+  /** Solo 'build'/'mixed': total más barato posible ("desde $X"), ya con el % aplicado. */
   min_price: number | null
   image_url: string | null
   original_total: number

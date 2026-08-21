@@ -218,7 +218,7 @@ export const useTableCartStore = create<TableCartStore>()((set, get) => ({
       p_promotion_id: promotionId,
       p_quantity: quantity,
       p_added_by: getGuestId(),
-      // Solo las promos "build" llevan elecciones (snake_case para la RPC).
+      // Solo las promos configurables llevan elecciones (snake_case para la RPC).
       p_selections: promoSelections,
     }
 

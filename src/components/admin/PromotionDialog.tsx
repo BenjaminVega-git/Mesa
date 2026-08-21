@@ -6,6 +6,7 @@ import {
   savePromotion,
   promoDiscountPct,
   type Promotion,
+  type PromoDiscountType,
   type PromoKind,
   type SelectableProduct,
 } from "@/services/promotions-service"
@@ -13,6 +14,15 @@ import type { Category } from "@/types/category"
 
 function formatPrice(n: number) {
   return `$${Math.round(n).toLocaleString("es-CL")}`
+}
+
+function discountLabel(type: PromoDiscountType, pct: number, amount: number) {
+  return type === "amount" ? `${formatPrice(amount || 0)}` : `${pct || 0}%`
+}
+
+function calcDiscount(subtotal: number, type: PromoDiscountType, pct: number, amount: number) {
+  const raw = type === "amount" ? amount : Math.round((subtotal * pct) / 100)
+  return Math.max(0, Math.min(Math.round(subtotal), Math.round(raw || 0)))
 }
 
 // ---- Combo fijo ----
@@ -69,6 +79,10 @@ export function PromotionDialog({
   const [discountPct, setDiscountPct] = useState<string>(
     initial?.discount_pct != null ? String(initial.discount_pct) : ""
   )
+  const [discountType, setDiscountType] = useState<PromoDiscountType>(initial?.discount_type ?? "percent")
+  const [discountAmount, setDiscountAmount] = useState<string>(
+    initial?.discount_amount != null ? String(initial.discount_amount) : ""
+  )
   const [active, setActive] = useState(initial?.active ?? true)
   const [items, setItems] = useState<DraftItem[]>(
     (initial?.items ?? []).map((it) => ({
@@ -101,7 +115,11 @@ export function PromotionDialog({
   )
   const promoPriceNum = Number(promoPrice) || 0
   const discountPctNum = Number(discountPct) || 0
+  const discountAmountNum = Number(discountAmount) || 0
   const fixedDiscountPct = promoDiscountPct(originalTotal, promoPriceNum)
+  const hasFixedItems = kind === "fixed" || kind === "mixed"
+  const hasChoiceGroups = kind === "build" || kind === "mixed"
+  const usesDiscountPct = kind !== "fixed"
 
   // Cuántos productos tiene cada categoría (hint para armar los grupos).
   const countByCategory = useMemo(() => {
@@ -121,8 +139,8 @@ export function PromotionDialog({
   // Ejemplo para el admin: cómo queda el combo eligiendo lo más económico de
   // cada grupo (mismo criterio que el "desde $X" que ve el comensal).
   const buildExample = useMemo(() => {
-    if (kind !== "build" || groups.length === 0) return null
-    let subtotal = 0
+    if (!usesDiscountPct || groups.length === 0) return null
+    let subtotal = kind === "mixed" ? originalTotal : 0
     for (const g of groups) {
       if (!g.category_id) continue
       const opts = products.filter((p) => p.category_id === g.category_id)
@@ -137,9 +155,9 @@ export function PromotionDialog({
       subtotal += cheapest * g.min_select
     }
     if (subtotal <= 0) return null
-    const discount = Math.round((subtotal * discountPctNum) / 100)
+    const discount = calcDiscount(subtotal, discountType, discountPctNum, discountAmountNum)
     return { subtotal, discount, total: Math.max(0, subtotal - discount) }
-  }, [kind, groups, products, discountPctNum])
+  }, [kind, usesDiscountPct, groups, products, discountType, discountPctNum, discountAmountNum, originalTotal])
 
   function addItem(product: SelectableProduct, variantId: number | null) {
     const variant = variantId ? product.variants.find((v) => v.id === variantId) ?? null : null
@@ -202,8 +220,14 @@ export function PromotionDialog({
         return setError("El precio de promoción no puede superar el precio original.")
       }
     } else {
-      if (discountPctNum < 1 || discountPctNum > 100) {
+      if (discountType === "percent" && (discountPctNum < 1 || discountPctNum > 100)) {
         return setError("Ingresá un descuento entre 1% y 100%.")
+      }
+      if (discountType === "amount" && discountAmountNum <= 0) {
+        return setError("Ingresá un monto fijo de descuento mayor a $0.")
+      }
+      if (kind === "mixed" && items.length === 0) {
+        return setError("Agregá al menos un producto fijo para la promo mixta.")
       }
       if (groups.length === 0) return setError("Agregá al menos un grupo de elección.")
       for (const g of groups) {
@@ -222,11 +246,13 @@ export function PromotionDialog({
         name: name.trim(),
         description: description.trim() || null,
         promo_price: kind === "fixed" ? promoPriceNum : 0,
-        discount_pct: kind === "build" ? discountPctNum : null,
+        discount_type: usesDiscountPct ? discountType : "percent",
+        discount_pct: usesDiscountPct && discountType === "percent" ? discountPctNum : null,
+        discount_amount: usesDiscountPct && discountType === "amount" ? discountAmountNum : null,
         image_url: initial?.image_url ?? null,
         active,
         items:
-          kind === "fixed"
+          hasFixedItems
             ? items.map((it) => ({
                 product_id: it.product_id,
                 variant_id: it.variant_id,
@@ -234,7 +260,7 @@ export function PromotionDialog({
               }))
             : [],
         groups:
-          kind === "build"
+          hasChoiceGroups
             ? groups.map((g, i) => ({
                 category_id: g.category_id as number,
                 name: g.name.trim(),
@@ -263,17 +289,18 @@ export function PromotionDialog({
       onClose={onClose}
       size="xl"
       title={initial ? "Editar promoción" : "Nueva promoción"}
-      description="Combo fijo o 'arma tu promo': el comensal elige por categoría."
+      description="Combo fijo, arma tu promo o una mezcla con productos obligatorios y elecciones."
       locked={saving}
     >
       <div className="space-y-5">
         {/* Selector de tipo */}
         <div>
           <label className={labelCls}>Tipo de promoción</label>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid gap-2 sm:grid-cols-3">
             {([
               { k: "fixed", t: "Combo fijo", d: "Productos definidos, precio fijo" },
               { k: "build", t: "Arma tu promo", d: "El comensal elige por categoría" },
+              { k: "mixed", t: "Mixta", d: "Fijos + elecciones con descuento" },
             ] as const).map((opt) => (
               <button
                 key={opt.k}
@@ -299,7 +326,7 @@ export function PromotionDialog({
               className={inputCls}
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder={kind === "build" ? "Ej. Arma tu combo" : "Ej. Promo Once para 2"}
+              placeholder={usesDiscountPct ? "Ej. Arma tu combo" : "Ej. Promo Once para 2"}
               maxLength={120}
             />
           </div>
@@ -315,11 +342,13 @@ export function PromotionDialog({
           </div>
         </div>
 
-        {kind === "fixed" ? (
+        {hasFixedItems && (
           <>
-            {/* Selector de productos (combo fijo) */}
+            {/* Selector de productos fijos */}
             <div>
-              <label className={labelCls}>Agregar productos de tu carta</label>
+              <label className={labelCls}>
+                {kind === "mixed" ? "Productos fijos incluidos" : "Agregar productos de tu carta"}
+              </label>
               <input
                 className={inputCls}
                 value={search}
@@ -408,7 +437,9 @@ export function PromotionDialog({
               </div>
             )}
           </>
-        ) : (
+        )}
+
+        {hasChoiceGroups && (
           <>
             {/* Grupos de elección (arma tu promo) */}
             <div>
@@ -510,26 +541,58 @@ export function PromotionDialog({
           </>
         )}
 
-        {/* Precio (fijo) o % de descuento (build) */}
+        {/* Precio fijo o descuento */}
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <label className={labelCls}>
-              {kind === "build" ? "Descuento sobre lo que elija" : "Precio de la promoción"}
+              {usesDiscountPct ? "Descuento sobre el combo" : "Precio de la promoción"}
             </label>
-            {kind === "build" ? (
-              <div className="relative">
-                <input
-                  type="number"
-                  min={1}
-                  max={100}
-                  className={inputCls + " pr-8"}
-                  value={discountPct}
-                  onChange={(e) => setDiscountPct(e.target.value)}
-                  placeholder="Ej. 20"
-                />
-                <span className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-sm font-bold text-stone-400">
-                  %
-                </span>
+            {usesDiscountPct ? (
+              <div className="space-y-2">
+                <div className="grid grid-cols-2 gap-2 rounded-xl bg-stone-100 p-1">
+                  {([
+                    { value: "percent", label: "%" },
+                    { value: "amount", label: "$ fijo" },
+                  ] as const).map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setDiscountType(opt.value)}
+                      className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${
+                        discountType === opt.value
+                          ? "bg-white text-orange-700 shadow-sm ring-1 ring-orange-200"
+                          : "text-stone-500 hover:bg-white/60"
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+                {discountType === "percent" ? (
+                  <div className="relative">
+                    <input
+                      type="number"
+                      min={1}
+                      max={100}
+                      className={inputCls + " pr-8"}
+                      value={discountPct}
+                      onChange={(e) => setDiscountPct(e.target.value)}
+                      placeholder="Ej. 20"
+                    />
+                    <span className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-sm font-bold text-stone-400">
+                      %
+                    </span>
+                  </div>
+                ) : (
+                  <input
+                    type="number"
+                    min={0}
+                    className={inputCls}
+                    value={discountAmount}
+                    onChange={(e) => setDiscountAmount(e.target.value)}
+                    placeholder="Ej. 3000"
+                  />
+                )}
               </div>
             ) : (
               <input
@@ -543,7 +606,7 @@ export function PromotionDialog({
             )}
           </div>
 
-          {kind === "fixed" ? (
+          {!usesDiscountPct ? (
             <div className="rounded-xl border border-stone-200 bg-white p-3">
               <div className="flex items-center justify-between text-sm">
                 <span className="text-stone-500">Precio original</span>
@@ -569,20 +632,30 @@ export function PromotionDialog({
           ) : (
             <div className="rounded-xl border border-stone-200 bg-white p-3">
               <p className="text-xs text-stone-500">
-                El comensal paga la suma de lo que elija, menos{" "}
-                <span className="font-bold text-orange-600">{discountPctNum || 0}%</span>.
+                El comensal paga la suma de {kind === "mixed" ? "lo fijo y lo que elija" : "lo que elija"}, menos{" "}
+                <span className="font-bold text-orange-600">
+                  {discountLabel(discountType, discountPctNum, discountAmountNum)}
+                </span>.
               </p>
+              {kind === "mixed" && originalTotal > 0 && (
+                <div className="mt-2 flex items-center justify-between border-t border-stone-100 pt-2 text-xs">
+                  <span className="text-stone-500">Productos fijos</span>
+                  <span className="font-semibold text-stone-700">{formatPrice(originalTotal)}</span>
+                </div>
+              )}
               {buildExample ? (
-                <div className="mt-2 border-t border-stone-100 pt-2">
+                <div className={kind === "mixed" && originalTotal > 0 ? "mt-2" : "mt-2 border-t border-stone-100 pt-2"}>
                   <p className="mb-1 text-[10px] font-bold tracking-wide text-stone-400 uppercase">
-                    Ejemplo (opción más económica)
+                    {kind === "mixed" ? "Ejemplo total (opción más económica)" : "Ejemplo (opción más económica)"}
                   </p>
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-stone-500">Suma de productos</span>
                     <span className="text-stone-600">{formatPrice(buildExample.subtotal)}</span>
                   </div>
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-stone-500">Descuento {discountPctNum || 0}%</span>
+                    <span className="text-stone-500">
+                      Descuento {discountLabel(discountType, discountPctNum, discountAmountNum)}
+                    </span>
                     <span className="text-emerald-600">−{formatPrice(buildExample.discount)}</span>
                   </div>
                   <div className="mt-0.5 flex items-center justify-between text-sm">

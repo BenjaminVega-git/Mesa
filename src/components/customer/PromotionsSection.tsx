@@ -15,6 +15,12 @@ function discountPct(original: number, promo: number) {
   return Math.max(0, Math.min(100, Math.round((1 - promo / original) * 100)))
 }
 
+function configurableDiscountLabel(promo: MenuPromotion) {
+  return promo.discount_type === "amount"
+    ? `${formatPrice(promo.discount_amount ?? 0)} OFF`
+    : `${promo.discount_pct ?? 0}% OFF`
+}
+
 type AddPromo = (
   id: number,
   quantity?: number,
@@ -32,12 +38,11 @@ function PromoCard({
 }) {
   const [added, setAdded] = useState(false)
   const [building, setBuilding] = useState(false)
-  const isBuild = promo.kind === "build"
-  // En build el % lo fija el local y se aplica sobre lo que elija el comensal;
+  const isConfigurable = promo.kind === "build" || promo.kind === "mixed"
+  // En build/mixed el % lo fija el local y se aplica sobre el combo calculado;
   // en fixed se deriva del precio de carta vs el precio de promo.
-  const pct = isBuild
-    ? (promo.discount_pct ?? 0)
-    : discountPct(promo.original_total, promo.promo_price)
+  const pct = isConfigurable ? 0 : discountPct(promo.original_total, promo.promo_price)
+  const discountLabel = isConfigurable ? configurableDiscountLabel(promo) : `${pct}% OFF`
 
   async function handleAddFixed() {
     try {
@@ -49,8 +54,13 @@ function PromoCard({
     }
   }
 
-  const includes = isBuild
-    ? promo.groups.map((g) => g.name).join(" · ")
+  const includes = isConfigurable
+    ? [
+        promo.kind === "mixed"
+          ? promo.items.map((it) => `${it.quantity}× ${it.product_name}`).join(" · ")
+          : null,
+        promo.groups.map((g) => g.name).join(" · "),
+      ].filter(Boolean).join(" · ")
     : promo.items
         .map((it) => `${it.quantity}× ${it.product_name}${it.variant_name ? ` (${it.variant_name})` : ""}`)
         .join(" · ")
@@ -63,16 +73,16 @@ function PromoCard({
             // eslint-disable-next-line @next/next/no-img-element
             <img src={promo.image_url} alt={promo.name} className="h-full w-full object-cover" />
           ) : (
-            <div className="flex h-full w-full items-center justify-center text-4xl">{isBuild ? "🍔" : "🏷️"}</div>
+            <div className="flex h-full w-full items-center justify-center text-4xl">{isConfigurable ? "🍔" : "🏷️"}</div>
           )}
-          {pct > 0 && (
+          {(isConfigurable || pct > 0) && (
             <span className="absolute top-2 left-2 rounded-full bg-[#fb923c] px-2 py-0.5 text-[11px] font-black text-[#1a1a1a]">
-              {pct}% OFF
+              {discountLabel}
             </span>
           )}
-          {isBuild && (
+          {isConfigurable && (
             <span className="absolute top-2 right-2 rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-bold text-[#fafafa] backdrop-blur">
-              Armá el tuyo
+              {promo.kind === "mixed" ? "Mixta" : "Armá el tuyo"}
             </span>
           )}
         </div>
@@ -84,7 +94,7 @@ function PromoCard({
           </p>
 
           <div className="mt-1 flex items-end gap-2">
-            {isBuild ? (
+            {isConfigurable ? (
               promo.min_price != null && promo.min_price > 0 ? (
                 <>
                   <span className="text-[12px] text-[#71717a]">desde</span>
@@ -94,7 +104,7 @@ function PromoCard({
                 </>
               ) : (
                 <span className="text-[15px] font-black text-[#fb923c]">
-                  {pct}% en tu combo
+                  {discountLabel} en tu combo
                 </span>
               )
             ) : (
@@ -113,12 +123,12 @@ function PromoCard({
 
           <button
             type="button"
-            onClick={isBuild ? () => setBuilding(true) : handleAddFixed}
+            onClick={isConfigurable ? () => setBuilding(true) : handleAddFixed}
             className={`mt-2 flex h-9 items-center justify-center gap-1.5 rounded-full text-[13px] font-extrabold transition active:scale-[0.98] ${
               added ? "bg-emerald-500 text-[#052e16]" : "bg-[#fb923c] text-[#1a1a1a]"
             }`}
           >
-            {added ? "Agregado ✓" : isBuild ? "Armar combo" : "Agregar promo"}
+            {added ? "Agregado ✓" : isConfigurable ? "Armar combo" : "Agregar promo"}
           </button>
         </div>
       </div>

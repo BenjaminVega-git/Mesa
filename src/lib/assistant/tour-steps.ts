@@ -76,7 +76,7 @@ const TOUR_INFO: Record<string, TourInfo> = {
   promociones: {
     icon: Tag,
     title: "Promociones",
-    text: 'Dos tipos: combo fijo (productos definidos a precio especial) y "arma tu promo" (el comensal elige por categoría y paga con % de descuento).',
+    text: 'Promos fijas, armables y mixtas: puedes usar precio especial, porcentaje o monto fijo de descuento según el tipo.',
   },
   descuentos: {
     icon: Ticket,

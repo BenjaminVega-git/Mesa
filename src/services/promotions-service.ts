@@ -2,7 +2,9 @@ import { supabase } from "@/lib/supabase"
 
 // 'fixed' = combo de productos fijos (precio fijo). 'build' = "arma tu promo":
 // el comensal elige, por grupo, entre min..max productos de una categoría.
-export type PromoKind = "fixed" | "build"
+// 'mixed' = productos fijos + grupos de elección, con % sobre todo el combo.
+export type PromoKind = "fixed" | "build" | "mixed"
+export type PromoDiscountType = "percent" | "amount"
 
 // Una línea de la promoción (producto o variante), tal como la devuelve promo_list.
 export type PromotionItem = {
@@ -32,10 +34,14 @@ export type Promotion = {
   kind: PromoKind
   name: string
   description: string | null
-  /** Solo para kind='fixed'. En 'build' queda en 0 (el precio se calcula). */
+  /** Solo para kind='fixed'. En 'build'/'mixed' queda en 0 (el precio se calcula). */
   promo_price: number
-  /** Solo para kind='build': % de descuento sobre lo que elija el comensal. */
+  /** Solo para kind='build'/'mixed': tipo de descuento sobre el combo armado. */
+  discount_type: PromoDiscountType
+  /** Solo para kind='build'/'mixed': % de descuento sobre el combo armado. */
   discount_pct: number | null
+  /** Solo para kind='build'/'mixed': monto fijo de descuento sobre el combo armado. */
+  discount_amount: number | null
   image_url: string | null
   active: boolean
   sort_order: number
@@ -63,10 +69,14 @@ export type PromotionInput = {
   kind: PromoKind
   name: string
   description: string | null
-  /** Precio del combo fijo. En 'build' se ignora (mandar 0). */
+  /** Precio del combo fijo. En 'build'/'mixed' se ignora (mandar 0). */
   promo_price: number
-  /** % de descuento del combo build (1-100). En 'fixed' va null. */
+  /** Tipo de descuento del combo build/mixed. En 'fixed' se ignora. */
+  discount_type: PromoDiscountType
+  /** % de descuento del combo build/mixed (1-100). En 'fixed' o monto fijo va null. */
   discount_pct: number | null
+  /** Monto fijo del combo build/mixed. En 'fixed' o porcentaje va null. */
+  discount_amount: number | null
   image_url: string | null
   active: boolean
   items: PromotionItemInput[]
@@ -107,7 +117,9 @@ export async function savePromotion(input: PromotionInput): Promise<number> {
     p_items: input.items,
     p_kind: input.kind,
     p_groups: input.groups,
+    p_discount_type: input.discount_type,
     p_discount_pct: input.discount_pct,
+    p_discount_amount: input.discount_amount,
   })
   if (error) throw error
   return data as number

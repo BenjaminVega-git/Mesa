@@ -3,7 +3,7 @@ import { z } from "zod"
 
 
 
-// Una elección del comensal en una promo "build" (arma tu promo).
+// Una elección del comensal en una promo "build"/"mixed" (arma tu promo).
 export const CreateOrderSelectionSchema = z.object({
   groupId: z.number().int().positive(),
   productId: z.number().int().positive(),
@@ -27,7 +27,7 @@ export const CreateOrderItemSchema = z
     variantId: z.number().int().positive().nullable().optional(),
     promotionId: z.number().int().positive().nullable().optional(),
 
-    // Solo en promos "build": las opciones elegidas por grupo. La RPC revalida.
+    // Solo en promos configurables: las opciones elegidas por grupo. La RPC revalida.
     selections: z.array(CreateOrderSelectionSchema).max(50).nullable().optional(),
 
     // Solo en líneas de producto: personalización de ingredientes. La RPC

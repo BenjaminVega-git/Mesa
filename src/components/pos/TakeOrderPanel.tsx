@@ -26,6 +26,20 @@ const clp = new Intl.NumberFormat("es-CL", {
 })
 const fmt = (n: number) => clp.format(Math.round(n || 0))
 
+function promoDiscountLabel(promo: MenuPromotion) {
+  return promo.discount_type === "amount"
+    ? `${fmt(promo.discount_amount ?? 0)} OFF`
+    : `${promo.discount_pct ?? 0}% OFF`
+}
+
+function calcPromoDiscount(promo: MenuPromotion, subtotal: number) {
+  const raw =
+    promo.discount_type === "amount"
+      ? promo.discount_amount ?? 0
+      : Math.round((subtotal * (promo.discount_pct ?? 0)) / 100)
+  return Math.max(0, Math.min(Math.round(subtotal), Math.round(raw)))
+}
+
 type CartLine = {
   key: string
   productId?: number
@@ -362,17 +376,21 @@ export function TakeOrderPanel({
 
   async function confirmBuildPromo(selections: CartPromoSelection[], quantity: number) {
     if (!buildPromo || !data) return
-    const pct = buildPromo.discount_pct ?? 0
+    const fixedSubtotal = buildPromo.kind === "mixed" ? buildPromo.original_total : 0
     const subtotal = selections.reduce((s, sel) => {
       const p = data.menu.products.find((x) => x.id === sel.productId)
       return s + (p ? priceOf(p, sel.variantId ?? null) : 0)
-    }, 0)
-    const unit = Math.round(subtotal * (1 - pct / 100))
+    }, fixedSubtotal)
+    const unit = Math.max(0, Math.round(subtotal) - calcPromoDiscount(buildPromo, subtotal))
+    const discount = promoDiscountLabel(buildPromo)
     addLine({
       promotionId: buildPromo.id,
       selections,
       name: buildPromo.name,
-      detail: `${selections.length} elecciones · ${pct}% OFF`,
+      detail:
+        buildPromo.kind === "mixed"
+          ? `${buildPromo.items.length} fijos + ${selections.length} elecciones · ${discount}`
+          : `${selections.length} elecciones · ${discount}`,
       unitPrice: unit,
       quantity,
       notes: "",
@@ -536,18 +554,18 @@ export function TakeOrderPanel({
                         key={promo.id}
                         type="button"
                         onClick={() =>
-                          promo.kind === "build" ? setBuildPromo(promo) : addFixedPromo(promo)
+                          promo.kind === "fixed" ? addFixedPromo(promo) : setBuildPromo(promo)
                         }
                         className="rounded-2xl border border-orange-200 bg-orange-50/60 p-3 text-left shadow-sm transition hover:border-orange-300 hover:bg-orange-50"
                       >
                         <p className="text-sm font-bold text-stone-900">🏷️ {promo.name}</p>
                         <p className="mt-0.5 line-clamp-1 text-[11px] text-stone-500">
-                          {promo.kind === "build"
-                            ? `${promo.discount_pct}% OFF eligiendo · desde ${fmt(promo.min_price ?? 0)}`
+                          {promo.kind !== "fixed"
+                            ? `${promoDiscountLabel(promo)} · desde ${fmt(promo.min_price ?? 0)}`
                             : promo.items.map((i) => `${i.quantity}× ${i.product_name}`).join(", ")}
                         </p>
                         <p className="mt-1 text-sm font-extrabold text-orange-700 tabular-nums">
-                          {promo.kind === "build" ? "Armar →" : fmt(promo.promo_price)}
+                          {promo.kind !== "fixed" ? "Armar →" : fmt(promo.promo_price)}
                         </p>
                       </button>
                     ))}

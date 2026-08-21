@@ -9,6 +9,20 @@ function formatPrice(price: number) {
   return `$${Math.round(price).toLocaleString("es-CL")}`
 }
 
+function promoDiscountLabel(promo: MenuPromotion) {
+  return promo.discount_type === "amount"
+    ? `${formatPrice(promo.discount_amount ?? 0)} OFF`
+    : `${promo.discount_pct ?? 0}% OFF`
+}
+
+function calcPromoDiscount(promo: MenuPromotion, subtotal: number) {
+  const raw =
+    promo.discount_type === "amount"
+      ? promo.discount_amount ?? 0
+      : Math.round((subtotal * (promo.discount_pct ?? 0)) / 100)
+  return Math.max(0, Math.min(Math.round(subtotal), Math.round(raw)))
+}
+
 type Sel = { productId: number; variantId: number | null }
 
 /** Precio de un producto según la variante elegida (o la base si no tiene). */
@@ -28,10 +42,9 @@ function fromPriceOf(product: Product): number {
 }
 
 /**
- * Configurador de una promo "arma tu promo" (build): por cada grupo el comensal
- * elige entre min..max productos de una categoría. El total se calcula en vivo
- * como la suma de lo elegido menos el % de descuento de la promo (la base
- * recalcula y valida ese precio al agregar y al pedir).
+ * Configurador de una promo armable: por cada grupo el comensal elige entre
+ * min..max productos de una categoría. En promos mixtas también suma los
+ * productos fijos. La base recalcula y valida el precio al agregar y al pedir.
  */
 export function BuildPromoDialog({
   promo,
@@ -49,7 +62,7 @@ export function BuildPromoDialog({
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState("")
 
-  const pct = promo.discount_pct ?? 0
+  const fixedSubtotal = promo.kind === "mixed" ? promo.original_total : 0
 
   // Opciones disponibles por grupo: productos disponibles de su categoría.
   const optionsByGroup = useMemo(() => {
@@ -69,18 +82,18 @@ export function BuildPromoDialog({
     return m
   }, [products])
 
-  // Precio en vivo: suma de lo elegido − % de descuento.
+  // Precio en vivo: suma de lo elegido menos el descuento configurado.
   const pricing = useMemo(() => {
-    let subtotal = 0
+    let subtotal = fixedSubtotal
     for (const g of promo.groups) {
       for (const s of byGroup[g.id] ?? []) {
         const p = productById.get(s.productId)
         if (p) subtotal += priceOf(p, s.variantId)
       }
     }
-    const discount = Math.round((subtotal * pct) / 100)
+    const discount = calcPromoDiscount(promo, subtotal)
     return { subtotal, discount, total: Math.max(0, subtotal - discount) }
-  }, [byGroup, promo.groups, productById, pct])
+  }, [byGroup, promo, productById, fixedSubtotal])
 
   const complete = useMemo(
     () =>
@@ -169,9 +182,9 @@ export function BuildPromoDialog({
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <h2 className="truncate text-[17px] font-black text-[#fafafa]">{promo.name}</h2>
-              {pct > 0 && (
+              {(promo.discount_pct ?? promo.discount_amount ?? 0) > 0 && (
                 <span className="shrink-0 rounded-full bg-[#fb923c] px-2 py-0.5 text-[11px] font-black text-[#1a1a1a]">
-                  {pct}% OFF
+                  {promoDiscountLabel(promo)}
                 </span>
               )}
             </div>
@@ -193,6 +206,20 @@ export function BuildPromoDialog({
 
         {/* Grupos */}
         <div className="flex-1 space-y-5 overflow-y-auto p-4">
+          {promo.kind === "mixed" && promo.items.length > 0 && (
+            <div>
+              <h3 className="mb-2 text-[14px] font-bold text-[#fafafa]">Incluye fijo</h3>
+              <div className="rounded-xl border border-[#27272a] bg-[#18181b] px-3 py-2.5">
+                <p className="line-clamp-2 text-[12px] text-[#a1a1aa]">
+                  {promo.items
+                    .map((it) => `${it.quantity}x ${it.product_name}${it.variant_name ? ` (${it.variant_name})` : ""}`)
+                    .join(" · ")}
+                </p>
+                <p className="mt-1 text-[12px] font-bold text-[#fb923c]">{formatPrice(fixedSubtotal)}</p>
+              </div>
+            </div>
+          )}
+
           {promo.groups.map((g) => {
             const opts = optionsByGroup.get(g.id) ?? []
             const count = (byGroup[g.id] ?? []).length
@@ -298,7 +325,7 @@ export function BuildPromoDialog({
               <span className="text-[#d4d4d8]">{formatPrice(pricing.subtotal * quantity)}</span>
             </div>
             <div className="flex items-center justify-between text-[13px]">
-              <span className="text-[#a1a1aa]">Descuento {pct}%</span>
+              <span className="text-[#a1a1aa]">Descuento {promoDiscountLabel(promo)}</span>
               <span className="font-semibold text-emerald-400">
                 −{formatPrice(pricing.discount * quantity)}
               </span>

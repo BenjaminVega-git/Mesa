@@ -706,7 +706,9 @@ async function crearPromocion(ctx: AssistantContext, args: ToolArgs) {
     })),
     p_kind: "fixed",
     p_groups: [],
+    p_discount_type: "percent",
     p_discount_pct: null,
+    p_discount_amount: null,
   })
   if (error) return { error: error.message }
   refreshMenu(ctx.restaurantId)
@@ -736,7 +738,9 @@ async function crearPromoArmable(ctx: AssistantContext, args: ToolArgs) {
       max_select: Math.max(1, Math.round(Number(g.max) || 1)),
       sort_order: i,
     })),
+    p_discount_type: "percent",
     p_discount_pct: Math.round(Number(args.descuento_pct) || 0),
+    p_discount_amount: null,
   })
   if (error) return { error: error.message }
   refreshMenu(ctx.restaurantId)
