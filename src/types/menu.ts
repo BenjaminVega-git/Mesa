@@ -2,12 +2,14 @@ import type { PublicRestaurant } from "@/types/restaurant"
 import type { Product } from "@/types/product"
 import type { Category } from "@/types/category"
 
-// Grupo de elección de una promo "arma tu promo" (build). La UI cruza
-// category_id con los products del menú (status disponible) para las opciones.
+// Grupo de elección de una promo "arma tu promo" (build). Puede tomar todos
+// los productos de una categoria, varias categorias alternativas o productos
+// puntuales.
 export interface MenuPromotionGroup {
   id: number
   name: string
   category_id: number
+  option_category_ids: number[]
   option_product_ids: number[]
   min_select: number
   max_select: number

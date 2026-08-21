@@ -45,6 +45,7 @@ type DraftGroup = {
   key: string
   name: string
   category_id: number | null
+  option_category_ids: number[]
   option_product_ids: number[]
   min_select: number
   max_select: number
@@ -101,6 +102,7 @@ export function PromotionDialog({
       key: newGroupKey(),
       name: g.name,
       category_id: g.category_id,
+      option_category_ids: g.option_category_ids ?? [],
       option_product_ids: g.option_product_ids ?? [],
       min_select: g.min_select,
       max_select: g.max_select,
@@ -145,10 +147,13 @@ export function PromotionDialog({
     let subtotal = kind === "mixed" ? originalTotal : 0
     for (const g of groups) {
       if (!g.category_id) continue
-      const allowed = new Set(g.option_product_ids)
-      const opts = products.filter((p) =>
-        allowed.size > 0 ? allowed.has(p.id) : p.category_id === g.category_id
-      )
+      const allowedProducts = new Set(g.option_product_ids)
+      const allowedCategories = new Set(g.option_category_ids)
+      const opts = products.filter((p) => {
+        if (allowedProducts.size > 0) return allowedProducts.has(p.id)
+        if (allowedCategories.size > 0) return p.category_id != null && allowedCategories.has(p.category_id)
+        return p.category_id === g.category_id
+      })
       if (opts.length === 0) continue
       const cheapest = Math.min(
         ...opts.map((p) =>
@@ -208,6 +213,7 @@ export function PromotionDialog({
         key: newGroupKey(),
         name: "",
         category_id: categories[0]?.id ?? null,
+        option_category_ids: [],
         option_product_ids: [],
         min_select: 1,
         max_select: 1,
@@ -228,6 +234,17 @@ export function PromotionDialog({
         if (current.has(productId)) current.delete(productId)
         else current.add(productId)
         return { ...g, option_product_ids: Array.from(current) }
+      })
+    )
+  }
+  function toggleGroupCategory(key: string, categoryId: number) {
+    setGroups((prev) =>
+      prev.map((g) => {
+        if (g.key !== key) return g
+        const current = new Set(g.option_category_ids)
+        if (current.has(categoryId)) current.delete(categoryId)
+        else current.add(categoryId)
+        return { ...g, option_category_ids: Array.from(current) }
       })
     )
   }
@@ -258,8 +275,14 @@ export function PromotionDialog({
         if (g.max_select < 1 || g.min_select < 0 || g.max_select < g.min_select) {
           return setError("Revisá el mínimo/máximo de un grupo.")
         }
-        if (g.option_product_ids.length > 0 && g.option_product_ids.length < g.min_select) {
-          return setError("Un grupo con productos específicos necesita suficientes opciones para el mínimo.")
+        const optionCount =
+          g.option_product_ids.length > 0
+            ? g.option_product_ids.length
+            : g.option_category_ids.length > 0
+              ? products.filter((p) => p.category_id != null && g.option_category_ids.includes(p.category_id)).length
+              : products.filter((p) => p.category_id === g.category_id).length
+        if (optionCount < g.min_select) {
+          return setError("Un grupo necesita suficientes opciones para su mínimo.")
         }
       }
     }
@@ -290,6 +313,7 @@ export function PromotionDialog({
             ? groups.map((g, i) => ({
                 category_id: g.category_id as number,
                 name: g.name.trim(),
+                option_category_ids: g.option_category_ids,
                 option_product_ids: g.option_product_ids,
                 min_select: g.min_select,
                 max_select: g.max_select,
@@ -492,12 +516,18 @@ export function PromotionDialog({
               ) : (
                 <div className="space-y-2.5">
                   {groups.map((g, idx) => {
-                    const isSpecific = g.option_product_ids.length > 0
-                    const count = isSpecific
+                    const optionMode = g.option_product_ids.length > 0
+                      ? "products"
+                      : g.option_category_ids.length > 0
+                        ? "categories"
+                        : "category"
+                    const count = optionMode === "products"
                       ? g.option_product_ids.length
-                      : g.category_id
-                        ? countByCategory.get(g.category_id) ?? 0
-                        : 0
+                      : optionMode === "categories"
+                        ? products.filter((p) => p.category_id != null && g.option_category_ids.includes(p.category_id)).length
+                        : g.category_id
+                          ? countByCategory.get(g.category_id) ?? 0
+                          : 0
                     const categoryProducts = g.category_id
                       ? products.filter((p) => p.category_id === g.category_id)
                       : products
@@ -527,7 +557,7 @@ export function PromotionDialog({
                           <select
                             className={inputCls}
                             value={g.category_id ?? ""}
-                            onChange={(e) => patchGroup(g.key, { category_id: Number(e.target.value), option_product_ids: [] })}
+                            onChange={(e) => patchGroup(g.key, { category_id: Number(e.target.value), option_category_ids: [], option_product_ids: [] })}
                           >
                             {categories.map((c) => (
                               <option key={c.id} value={c.id}>
@@ -541,12 +571,12 @@ export function PromotionDialog({
                             <span className="text-[11px] font-semibold text-stone-500">
                               Opciones del grupo
                             </span>
-                            <div className="grid grid-cols-2 gap-1 rounded-lg bg-stone-100 p-1">
+                            <div className="grid grid-cols-3 gap-1 rounded-lg bg-stone-100 p-1">
                               <button
                                 type="button"
-                                onClick={() => patchGroup(g.key, { option_product_ids: [] })}
+                                onClick={() => patchGroup(g.key, { option_category_ids: [], option_product_ids: [] })}
                                 className={`rounded-md px-2 py-1 text-[11px] font-bold transition ${
-                                  !isSpecific ? "bg-white text-orange-700 shadow-sm" : "text-stone-500"
+                                  optionMode === "category" ? "bg-white text-orange-700 shadow-sm" : "text-stone-500"
                                 }`}
                               >
                                 Categoría
@@ -555,6 +585,26 @@ export function PromotionDialog({
                                 type="button"
                                 onClick={() =>
                                   patchGroup(g.key, {
+                                    option_category_ids:
+                                      g.option_category_ids.length > 0
+                                        ? g.option_category_ids
+                                        : g.category_id
+                                          ? [g.category_id]
+                                          : categories.slice(0, 1).map((c) => c.id),
+                                    option_product_ids: [],
+                                  })
+                                }
+                                className={`rounded-md px-2 py-1 text-[11px] font-bold transition ${
+                                  optionMode === "categories" ? "bg-white text-orange-700 shadow-sm" : "text-stone-500"
+                                }`}
+                              >
+                                Categorías
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  patchGroup(g.key, {
+                                    option_category_ids: [],
                                     option_product_ids:
                                       g.option_product_ids.length > 0
                                         ? g.option_product_ids
@@ -562,14 +612,14 @@ export function PromotionDialog({
                                   })
                                 }
                                 className={`rounded-md px-2 py-1 text-[11px] font-bold transition ${
-                                  isSpecific ? "bg-white text-orange-700 shadow-sm" : "text-stone-500"
+                                  optionMode === "products" ? "bg-white text-orange-700 shadow-sm" : "text-stone-500"
                                 }`}
                               >
                                 Productos
                               </button>
                             </div>
                           </div>
-                          {isSpecific ? (
+                          {optionMode === "products" ? (
                             <div className="grid max-h-36 gap-1 overflow-y-auto sm:grid-cols-2">
                               {categoryProducts.length === 0 ? (
                                 <p className="col-span-full py-2 text-center text-xs text-stone-400">
@@ -591,6 +641,25 @@ export function PromotionDialog({
                                   </label>
                                 ))
                               )}
+                            </div>
+                          ) : optionMode === "categories" ? (
+                            <div className="grid max-h-36 gap-1 overflow-y-auto sm:grid-cols-2">
+                              {categories.map((c) => (
+                                <label
+                                  key={c.id}
+                                  className="flex min-w-0 items-center gap-2 rounded-lg px-2 py-1.5 text-xs text-stone-700 hover:bg-stone-50"
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={g.option_category_ids.includes(c.id)}
+                                    onChange={() => toggleGroupCategory(g.key, c.id)}
+                                    className="h-3.5 w-3.5 rounded border-stone-300 text-orange-500 focus:ring-orange-200"
+                                  />
+                                  <span className="truncate">
+                                    {c.category_name} ({countByCategory.get(c.id) ?? 0})
+                                  </span>
+                                </label>
+                              ))}
                             </div>
                           ) : (
                             <p className="text-[11px] text-stone-500">
@@ -626,7 +695,7 @@ export function PromotionDialog({
                             />
                           </label>
                           <span className="text-[11px] text-stone-400">
-                            {count} producto{count === 1 ? "" : "s"} en la categoría
+                            {count} producto{count === 1 ? "" : "s"} disponible{count === 1 ? "" : "s"}
                           </span>
                         </div>
                       </div>

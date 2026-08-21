@@ -64,17 +64,21 @@ export function BuildPromoDialog({
 
   const fixedSubtotal = promo.kind === "mixed" ? promo.original_total : 0
 
-  // Opciones disponibles por grupo: productos especificos si existen; si no,
-  // se usa la categoria completa para mantener compatibilidad con promos viejas.
+  // Opciones disponibles por grupo: productos especificos, categorias
+  // alternativas o la categoria base para mantener compatibilidad.
   const optionsByGroup = useMemo(() => {
     const m = new Map<number, Product[]>()
     for (const g of promo.groups) {
-      const allowed = new Set(g.option_product_ids ?? [])
+      const allowedProducts = new Set(g.option_product_ids ?? [])
+      const allowedCategories = new Set(g.option_category_ids ?? [])
       m.set(
         g.id,
-        products.filter((p) =>
-          p.status_id === 1 && (allowed.size > 0 ? allowed.has(p.id) : p.category_id === g.category_id)
-        )
+        products.filter((p) => {
+          if (p.status_id !== 1) return false
+          if (allowedProducts.size > 0) return allowedProducts.has(p.id)
+          if (allowedCategories.size > 0) return allowedCategories.has(p.category_id)
+          return p.category_id === g.category_id
+        })
       )
     }
     return m

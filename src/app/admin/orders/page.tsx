@@ -1,14 +1,16 @@
 "use client"
 
 import { useState } from "react"
-import { Barcode } from "lucide-react"
+import { Barcode, Plus } from "lucide-react"
 import { useOrderList } from "@/hooks/useOrderList"
 import { useBarcodeScanner } from "@/hooks/useBarcodeScanner"
 import { OrderDetailModal } from "@/components/admin/OrderDetailModal"
 import { AdminChargeSection } from "@/components/admin/AdminChargeSection"
 import { PaymentsTodaySection } from "@/components/charge/PaymentsTodaySection"
+import { TakeOrderPanel } from "@/components/pos/TakeOrderPanel"
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog"
 import { cancelOrderAction } from "@/app/actions/order-actions"
+import type { PosOrderResult } from "@/services/pos-service"
 import type { Order } from "@/types/order"
 
 const statusStyles: Record<string, string> = {
@@ -130,18 +132,20 @@ function OrdersGrid({
 }
 
 export default function OrdersPage() {
-  const { orders, loading, error } = useOrderList()
+  const { orders, loading, error, refresh } = useOrderList()
   const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null)
   const [cancelTarget, setCancelTarget] = useState<{ id: number; label: string } | null>(null)
   const [cancelling, setCancelling] = useState(false)
   const [cancelError, setCancelError] = useState<string | null>(null)
   const [scanNotice, setScanNotice] = useState<{ kind: "ok" | "error"; message: string } | null>(null)
+  const [takeOrderOpen, setTakeOrderOpen] = useState(false)
+  const [createdNotice, setCreatedNotice] = useState<string | null>(null)
 
   const tableOrders = orders.filter((order) => order.order_type !== "delivery")
   const onlineOrders = orders.filter((order) => order.order_type === "delivery")
 
   useBarcodeScanner({
-    enabled: selectedOrderId === null && cancelTarget === null,
+    enabled: !takeOrderOpen && selectedOrderId === null && cancelTarget === null,
     onScan: (code) => {
       const numericPart = code.match(/\d+/g)?.join("") ?? ""
       const scannedNumber = Number(numericPart || code)
@@ -177,6 +181,13 @@ export default function OrdersPage() {
     setCancelTarget(null)
   }
 
+  function handleOrderCreated(order: PosOrderResult) {
+    refresh()
+    const place = order.tableNumber === 0 ? "Recepción" : `Mesa ${order.tableNumber ?? "—"}`
+    setCreatedNotice(`Pedido #${order.id} creado para ${place}.`)
+    setTimeout(() => setCreatedNotice(null), 3500)
+  }
+
   const summary = [
     {
       label: "Nuevos",
@@ -204,6 +215,14 @@ export default function OrdersPage() {
             Monitoreo, despacho y cobro de las comandas activas.
           </p>
         </div>
+        <button
+          type="button"
+          onClick={() => setTakeOrderOpen(true)}
+          className="inline-flex items-center justify-center gap-2 rounded-xl bg-orange-500 px-4 py-2.5 text-sm font-extrabold text-white shadow-sm transition hover:bg-orange-600"
+        >
+          <Plus className="h-4 w-4" aria-hidden="true" />
+          Tomar pedido
+        </button>
       </div>
 
       <div className="flex items-center gap-2 rounded-2xl border border-stone-200 bg-white px-4 py-3 text-xs font-semibold text-stone-600 shadow-sm">
@@ -222,6 +241,12 @@ export default function OrdersPage() {
           }`}
         >
           {scanNotice.message}
+        </div>
+      )}
+
+      {createdNotice && (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs font-bold text-emerald-700 shadow-sm">
+          {createdNotice}
         </div>
       )}
 
@@ -318,6 +343,13 @@ export default function OrdersPage() {
           if (!cancelling) setCancelTarget(null)
         }}
       />
+
+      {takeOrderOpen && (
+        <TakeOrderPanel
+          onClose={() => setTakeOrderOpen(false)}
+          onCreated={handleOrderCreated}
+        />
+      )}
     </div>
   )
 }

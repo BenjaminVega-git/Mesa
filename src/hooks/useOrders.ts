@@ -63,5 +63,6 @@ export function useOrders({ limit = 30 }: { limit?: number } = {}) {
     orders: data ?? [],
     loading: loadingId || isLoading || isPendingRetry,
     error: idError || (error ? "Error al cargar pedidos" : ""),
+    refresh,
   }
 }

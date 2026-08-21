@@ -1,7 +1,7 @@
 import { useOrders } from "@/hooks/useOrders"
 
 export function useOrderList({ limit = 30 }: { limit?: number } = {}) {
-  const { orders, loading, error } = useOrders({ limit })
+  const { orders, loading, error, refresh } = useOrders({ limit })
 
   const activeOrdersCount = orders.length
 
@@ -10,5 +10,6 @@ export function useOrderList({ limit = 30 }: { limit?: number } = {}) {
     activeOrdersCount,
     loading,
     error,
+    refresh,
   }
 }
