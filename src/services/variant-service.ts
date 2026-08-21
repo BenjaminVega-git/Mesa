@@ -8,7 +8,7 @@ import {
   type DeleteVariantInput,
 } from "@/lib/validation/variant"
 import { ok, fail, type Result } from "@/services/result"
-import { deleteImageBestEffort } from "@/lib/cloudinary/delete-image-server"
+import { deleteUnreferencedProductImages } from "@/services/image-cleanup"
 import { requireAdminForRestaurant } from "@/services/auth-guard"
 import { revalidatePublicMenu } from "@/lib/menu/menu-cache"
 
@@ -138,7 +138,7 @@ export async function updateVariant(input: UpdateVariantInput): Promise<Result<{
   }
 
   if (previousImagePublicId && previousImagePublicId !== imagePublicId) {
-    await deleteImageBestEffort(previousImagePublicId)
+    await deleteUnreferencedProductImages(supabase, [previousImagePublicId])
   }
 
   revalidateMenu(restaurantId)
@@ -179,7 +179,7 @@ export async function deleteVariant(input: DeleteVariantInput): Promise<Result<{
     return fail("Error al eliminar la variante")
   }
 
-  await deleteImageBestEffort(previous?.variant_image_public_id)
+  await deleteUnreferencedProductImages(supabase, [previous?.variant_image_public_id])
 
   revalidateMenu(restaurantId)
   return ok({ id: variantId })

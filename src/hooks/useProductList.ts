@@ -16,6 +16,7 @@ type UseProductListOptions = {
   search?: string
   categoryId?: number | null
   statusId?: number | null
+  missingImages?: boolean
 }
 
 export function useProductList({
@@ -24,8 +25,16 @@ export function useProductList({
   search = "",
   categoryId = null,
   statusId = null,
+  missingImages = false,
 }: UseProductListOptions = {}) {
-  const { products, total, loading, error, refresh } = useProducts({ page, pageSize, search, categoryId, statusId })
+  const { products, total, loading, error, refresh } = useProducts({
+    page,
+    pageSize,
+    search,
+    categoryId,
+    statusId,
+    missingImages,
+  })
   const {
     deleteProduct,
     loading: deleting,

@@ -10,7 +10,7 @@ import {
   type UpdateProductStatusInput,
 } from "@/lib/validation/product"
 import { ok, fail, type Result } from "@/services/result"
-import { deleteImagesBestEffort } from "@/lib/cloudinary/delete-image-server"
+import { deleteUnreferencedProductImages } from "@/services/image-cleanup"
 import { requireAdminForRestaurant } from "@/services/auth-guard"
 import { revalidatePublicMenu } from "@/lib/menu/menu-cache"
 
@@ -424,7 +424,7 @@ export async function updateProduct(input: UpdateProductInput): Promise<Result<{
   }
 
   if (orphanedImagePublicIds.length > 0) {
-    await deleteImagesBestEffort(orphanedImagePublicIds)
+    await deleteUnreferencedProductImages(supabase, orphanedImagePublicIds)
   }
 
   const { error: deleteMenuOptionsError } = await supabase
@@ -500,7 +500,7 @@ export async function deleteProduct(input: DeleteProductInput): Promise<Result<{
     return fail("No se borró ninguna fila. Probable bloqueo de RLS.")
   }
 
-  await deleteImagesBestEffort(publicIds)
+  await deleteUnreferencedProductImages(supabase, publicIds)
 
   revalidateMenu(restaurantId)
   return ok({ id: productId })

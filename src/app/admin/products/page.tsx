@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { useEffect, useState } from "react"
-import { Search, Sparkles, X } from "lucide-react"
+import { ImageOff, Search, Sparkles, X } from "lucide-react"
 import { Pagination } from "@/components/ui/Pagination"
 import { useProductList } from "@/hooks/useProductList"
 import { useAllCategories } from "@/hooks/useAllCategories"
@@ -52,6 +52,7 @@ export default function ProductsPage() {
   const [search, setSearch] = useState("")
   const [categoryFilter, setCategoryFilter] = useState<number | null>(null)
   const [statusFilter, setStatusFilter] = useState<number | null>(null)
+  const [missingImagesFilter, setMissingImagesFilter] = useState(false)
   const [showCreate, setShowCreate] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editInitialTab, setEditInitialTab] = useState<"datos" | "receta">("datos")
@@ -70,7 +71,14 @@ export default function ProductsPage() {
     updateProductStatus,
     deleteDialog,
     refresh,
-  } = useProductList({ page: currentPage, pageSize: 12, search, categoryId: categoryFilter, statusId: statusFilter })
+  } = useProductList({
+    page: currentPage,
+    pageSize: 12,
+    search,
+    categoryId: categoryFilter,
+    statusId: statusFilter,
+    missingImages: missingImagesFilter,
+  })
   const [openMenuProductId, setOpenMenuProductId] = useState<number | null>(null)
 
   // Debounce: espera a que dejen de tipear antes de disparar la búsqueda.
@@ -84,7 +92,7 @@ export default function ProductsPage() {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- reset al cambiar búsqueda/filtros
     setCurrentPage(1)
-  }, [search, categoryFilter, statusFilter])
+  }, [search, categoryFilter, statusFilter, missingImagesFilter])
 
   useEffect(() => {
     if (!loading && currentPage > totalPages) {
@@ -230,12 +238,27 @@ export default function ProductsPage() {
             <option value={3}>Deshabilitado</option>
           </select>
 
-          {(categoryFilter != null || statusFilter != null) && (
+          <button
+            type="button"
+            aria-pressed={missingImagesFilter}
+            onClick={() => setMissingImagesFilter((current) => !current)}
+            className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-bold transition ${
+              missingImagesFilter
+                ? "border-orange-300 bg-orange-50 text-orange-700 ring-1 ring-orange-100"
+                : "border-stone-200 bg-white text-stone-700 hover:border-orange-200 hover:text-orange-600"
+            }`}
+          >
+            <ImageOff className="h-3.5 w-3.5" aria-hidden="true" />
+            Sin imágenes
+          </button>
+
+          {(categoryFilter != null || statusFilter != null || missingImagesFilter) && (
             <button
               type="button"
               onClick={() => {
                 setCategoryFilter(null)
                 setStatusFilter(null)
+                setMissingImagesFilter(false)
               }}
               className="text-xs font-bold text-stone-500 underline-offset-2 hover:text-orange-600 hover:underline"
             >
@@ -256,7 +279,7 @@ export default function ProductsPage() {
           </div>
         )}
 
-        {!loading && !error && products.length === 0 && (search || categoryFilter != null || statusFilter != null) && (
+        {!loading && !error && products.length === 0 && (search || categoryFilter != null || statusFilter != null || missingImagesFilter) && (
           <div className="rounded-2xl border border-dashed border-stone-300 bg-stone-50 p-8 text-center shadow-inner">
             <h3 className="font-bold text-stone-900">
               {search ? <>Sin resultados para &quot;{search}&quot;</> : "Sin resultados para este filtro"}
@@ -267,7 +290,7 @@ export default function ProductsPage() {
           </div>
         )}
 
-        {!loading && !error && products.length === 0 && !search && categoryFilter == null && statusFilter == null && (
+        {!loading && !error && products.length === 0 && !search && categoryFilter == null && statusFilter == null && !missingImagesFilter && (
           <div className="rounded-2xl border border-dashed border-stone-300 bg-stone-50 p-8 text-center shadow-inner">
             <h3 className="font-bold text-stone-900">No hay productos en el menú</h3>
             <p className="mx-auto mt-2 max-w-xs text-xs text-stone-550 leading-relaxed">
@@ -286,7 +309,14 @@ export default function ProductsPage() {
         {!loading && !error && products.length > 0 && (
           <>
             <div className="grid gap-4 sm:grid-cols-2">
-              {products.map((product) => (
+              {products.map((product) => {
+                const variantsWithoutImage = (product.product_variants ?? []).filter(
+                  (variant) => !variant.variant_image
+                ).length
+                const isSimpleProductWithoutImage =
+                  (product.product_variants?.length ?? 0) === 0 && !product.product_image
+
+                return (
                 <article
                   key={product.id}
                   className="group relative flex min-w-0 flex-col justify-between rounded-2xl border border-stone-200 bg-white p-4 shadow-sm transition duration-150 hover:-translate-y-0.5 hover:border-orange-250 hover:shadow-md"
@@ -368,6 +398,15 @@ export default function ProductsPage() {
                       </span>
                     </div>
 
+                    {(isSimpleProductWithoutImage || variantsWithoutImage > 0) && (
+                      <div className="mb-3 inline-flex w-fit items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1 text-[10px] font-bold text-amber-700 ring-1 ring-amber-200">
+                        <ImageOff className="h-3 w-3" aria-hidden="true" />
+                        {isSimpleProductWithoutImage
+                          ? "Producto sin imagen"
+                          : `${variantsWithoutImage} variante${variantsWithoutImage === 1 ? "" : "s"} sin imagen`}
+                      </div>
+                    )}
+
                     {product.product_description && (
                       <p className="mb-3 line-clamp-2 text-xs leading-relaxed text-stone-600">
                         {product.product_description}
@@ -403,7 +442,8 @@ export default function ProductsPage() {
                     </div>
                   </div>
                 </article>
-              ))}
+                )
+              })}
             </div>
 
             <Pagination

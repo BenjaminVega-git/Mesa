@@ -14,6 +14,8 @@ type UseProductsOptions = {
   categoryId?: number | null
   /** Filtra por estado (1 Disponible, 2 Agotado, 3 Deshabilitado). null/undefined = todos. */
   statusId?: number | null
+  /** Solo productos simples sin imagen o productos con alguna variante sin imagen. */
+  missingImages?: boolean
 }
 
 type ProductsResult = {
@@ -27,6 +29,7 @@ export function useProducts({
   search = "",
   categoryId = null,
   statusId = null,
+  missingImages = false,
 }: UseProductsOptions = {}) {
   const { restaurantId, loading: loadingId, error: idError } = useRestaurantId()
   const instanceId = useId()
@@ -35,6 +38,36 @@ export function useProducts({
   const fetchProducts = useCallback(async (): Promise<ProductsResult> => {
     const from = (page - 1) * pageSize
     const to = from + pageSize - 1
+
+    let productIdsWithMissingImages: number[] | null = null
+
+    if (missingImages) {
+      const [simpleProductsResult, variantsResult] = await Promise.all([
+        supabase
+          .from("products")
+          .select("id, product_variants!left(id)")
+          .eq("restaurant_id", restaurantId)
+          .is("product_image", null)
+          .is("product_variants", null),
+        supabase
+          .from("product_variants")
+          .select("product_id, products!inner(restaurant_id)")
+          .eq("products.restaurant_id", restaurantId)
+          .is("variant_image", null),
+      ])
+
+      if (simpleProductsResult.error) throw simpleProductsResult.error
+      if (variantsResult.error) throw variantsResult.error
+
+      productIdsWithMissingImages = Array.from(new Set([
+        ...(simpleProductsResult.data ?? []).map((product) => product.id),
+        ...(variantsResult.data ?? []).map((variant) => variant.product_id),
+      ]))
+
+      if (productIdsWithMissingImages.length === 0) {
+        return { items: [], total: 0 }
+      }
+    }
 
     let query = supabase
       .from("products")
@@ -46,6 +79,10 @@ export function useProducts({
         product_status (
           id,
           status_name
+        ),
+        product_variants (
+          id,
+          variant_image
         )
       `, { count: "exact" })
       .eq("restaurant_id", restaurantId)
@@ -60,6 +97,9 @@ export function useProducts({
     if (statusId != null) {
       query = query.eq("status_id", statusId)
     }
+    if (productIdsWithMissingImages) {
+      query = query.in("id", productIdsWithMissingImages)
+    }
 
     const { data, error, count } = await query
       .order("id", { ascending: false })
@@ -71,10 +111,10 @@ export function useProducts({
       items: data ?? [],
       total: count ?? 0,
     }
-  }, [restaurantId, page, pageSize, trimmedSearch, categoryId, statusId])
+  }, [restaurantId, page, pageSize, trimmedSearch, categoryId, statusId, missingImages])
 
   const { data, isLoading, isPendingRetry, error, refresh } = useCache<ProductsResult>(
-    `products-${restaurantId ?? "pending"}-p${page}-s${pageSize}-q${trimmedSearch}-c${categoryId ?? "all"}-st${statusId ?? "all"}`,
+    `products-${restaurantId ?? "pending"}-p${page}-s${pageSize}-q${trimmedSearch}-c${categoryId ?? "all"}-st${statusId ?? "all"}-mi${missingImages}`,
     fetchProducts,
     {
       enabled: Boolean(restaurantId),

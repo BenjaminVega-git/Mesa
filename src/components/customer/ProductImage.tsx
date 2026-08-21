@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import type { RefObject, SyntheticEvent } from "react"
 
 type ProductImageProps = {
@@ -50,59 +50,24 @@ function ImageFallback() {
 export function ProductImage({ src, alt, className = "", imgRef, hasBackground, fade }: ProductImageProps) {
   const dataCutout = hasBackground ? undefined : "true"
   const imageSrc = normalizeImageSrc(src)
-  const [imageState, setImageState] = useState<{ src: string | null; status: "idle" | "loaded" | "failed" }>({
-    src: null,
-    status: "idle",
-  })
-  const currentStatus = imageState.src === imageSrc ? imageState.status : "idle"
-  const isLoaded = currentStatus === "loaded"
-  const hasFailed = currentStatus === "failed"
-  const handleLoad = () => setImageState({ src: imageSrc, status: "loaded" })
+  const [failedSrc, setFailedSrc] = useState<string | null>(null)
+  const hasFailed = failedSrc === imageSrc
   const handleError = (event: SyntheticEvent<HTMLImageElement>) => {
     event.currentTarget.style.display = "none"
-    setImageState({ src: imageSrc, status: "failed" })
+    setFailedSrc(imageSrc)
   }
-
-  useEffect(() => {
-    if (!imageSrc) {
-      return
-    }
-
-    let cancelled = false
-    const image = new Image()
-
-    image.onload = () => {
-      if (!cancelled) setImageState({ src: imageSrc, status: "loaded" })
-    }
-    image.onerror = () => {
-      if (!cancelled) setImageState({ src: imageSrc, status: "failed" })
-    }
-    image.src = imageSrc
-
-    if (image.complete) {
-      queueMicrotask(() => {
-        if (!cancelled) setImageState({ src: imageSrc, status: image.naturalWidth > 0 ? "loaded" : "failed" })
-      })
-    }
-
-    return () => {
-      cancelled = true
-    }
-  }, [imageSrc])
 
   return (
     <div className={`relative overflow-hidden ${className}`} aria-label={imageSrc ? alt : undefined}>
       {imageSrc && !hasFailed ? (
         hasBackground ? (
           <>
-            {!isLoaded ? <ImageFallback /> : null}
-            {isLoaded ? (
-              <div
-                aria-hidden="true"
-                className="pointer-events-none absolute inset-0 scale-125 bg-cover bg-center blur-2xl brightness-[0.55]"
-                style={{ backgroundImage: `url("${imageSrc}")` }}
-              />
-            ) : null}
+            <ImageFallback />
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 scale-125 bg-cover bg-center blur-2xl brightness-[0.55]"
+              style={{ backgroundImage: `url("${imageSrc}")` }}
+            />
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               key={imageSrc}
@@ -111,23 +76,20 @@ export function ProductImage({ src, alt, className = "", imgRef, hasBackground, 
               alt=""
               aria-hidden="true"
               loading="lazy"
-              onLoad={handleLoad}
               onError={handleError}
               data-cutout={dataCutout}
-              className={`absolute inset-0 z-[1] h-full w-full object-contain p-2 transition duration-300 group-hover:scale-[1.04] ${
-                isLoaded ? "opacity-100" : "opacity-0"
-              }`}
+              className="absolute inset-0 z-[1] h-full w-full object-contain p-2 transition duration-300 group-hover:scale-[1.04]"
             />
-            {isLoaded && fade === "right" ? (
+            {fade === "right" ? (
               <div className="pointer-events-none absolute inset-0 z-[2] bg-[linear-gradient(90deg,transparent_45%,#161618_100%)]" />
             ) : null}
-            {isLoaded && fade === "bottom" ? (
+            {fade === "bottom" ? (
               <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[2] h-28 bg-gradient-to-t from-[#0f0f10] to-transparent" />
             ) : null}
           </>
         ) : (
           <>
-            {!isLoaded ? <ImageFallback /> : null}
+            <ImageFallback />
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               key={imageSrc}
@@ -136,12 +98,9 @@ export function ProductImage({ src, alt, className = "", imgRef, hasBackground, 
               alt=""
               aria-hidden="true"
               loading="lazy"
-              onLoad={handleLoad}
               onError={handleError}
               data-cutout={dataCutout}
-              className={`absolute inset-0 z-[1] h-full w-full object-contain p-3 transition duration-300 group-hover:scale-[1.04] ${
-                isLoaded ? "opacity-100" : "opacity-0"
-              }`}
+              className="absolute inset-0 z-[1] h-full w-full object-contain p-3 transition duration-300 group-hover:scale-[1.04]"
             />
           </>
         )
