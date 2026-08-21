@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import type { RefObject } from "react"
+import type { RefObject, SyntheticEvent } from "react"
 
 type ProductImageProps = {
   src: string | null
@@ -31,7 +31,7 @@ function normalizeImageSrc(src: string | null) {
 
 function ImageFallback() {
   return (
-    <div className="flex h-full w-full items-center justify-center bg-[#141416] text-zinc-600">
+    <div aria-hidden="true" className="flex h-full w-full items-center justify-center bg-[#141416] text-zinc-600">
       <svg className="h-6 w-6 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
         <rect x="3" y="3" width="18" height="18" rx="2" />
         <circle cx="8.5" cy="8.5" r="1.5" />
@@ -57,9 +57,14 @@ export function ProductImage({ src, alt, className = "", imgRef, hasBackground, 
   const currentStatus = imageState.src === imageSrc ? imageState.status : "idle"
   const isLoaded = currentStatus === "loaded"
   const hasFailed = currentStatus === "failed"
+  const handleLoad = () => setImageState({ src: imageSrc, status: "loaded" })
+  const handleError = (event: SyntheticEvent<HTMLImageElement>) => {
+    event.currentTarget.style.display = "none"
+    setImageState({ src: imageSrc, status: "failed" })
+  }
 
   return (
-    <div className={`relative overflow-hidden ${className}`}>
+    <div className={`relative overflow-hidden ${className}`} aria-label={imageSrc ? alt : undefined}>
       {imageSrc && !hasFailed ? (
         hasBackground ? (
           <>
@@ -73,12 +78,14 @@ export function ProductImage({ src, alt, className = "", imgRef, hasBackground, 
             ) : null}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
+              key={imageSrc}
               ref={imgRef}
               src={imageSrc}
-              alt={alt}
+              alt=""
+              aria-hidden="true"
               loading="lazy"
-              onLoad={() => setImageState({ src: imageSrc, status: "loaded" })}
-              onError={() => setImageState({ src: imageSrc, status: "failed" })}
+              onLoad={handleLoad}
+              onError={handleError}
               data-cutout={dataCutout}
               className={`absolute inset-0 z-[1] h-full w-full object-contain p-2 transition duration-300 group-hover:scale-[1.04] ${
                 isLoaded ? "opacity-100" : "opacity-0"
@@ -96,12 +103,14 @@ export function ProductImage({ src, alt, className = "", imgRef, hasBackground, 
             {!isLoaded ? <ImageFallback /> : null}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
+              key={imageSrc}
               ref={imgRef}
               src={imageSrc}
-              alt={alt}
+              alt=""
+              aria-hidden="true"
               loading="lazy"
-              onLoad={() => setImageState({ src: imageSrc, status: "loaded" })}
-              onError={() => setImageState({ src: imageSrc, status: "failed" })}
+              onLoad={handleLoad}
+              onError={handleError}
               data-cutout={dataCutout}
               className={`absolute inset-0 z-[1] h-full w-full object-contain p-3 transition duration-300 group-hover:scale-[1.04] ${
                 isLoaded ? "opacity-100" : "opacity-0"
