@@ -218,6 +218,7 @@ const UpdateDeliveryConfigSchema = z.object({
   pickup: z.boolean(),
   onlinePayment: z.boolean(),
   payAtStore: z.boolean(),
+  deliveryFee: z.number().int("El costo debe ser un monto entero").min(0, "El costo no puede ser negativo").max(10_000_000, "El costo es demasiado alto").nullable(),
   slug: z
     .string()
     .trim()
@@ -242,7 +243,7 @@ export async function updateDeliveryConfig(
     return fail(parsed.error.issues[0]?.message ?? "Datos inválidos")
   }
 
-  const { enabled, slug, homeDelivery, pickup, onlinePayment, payAtStore } = parsed.data
+  const { enabled, slug, homeDelivery, pickup, onlinePayment, payAtStore, deliveryFee } = parsed.data
 
   if (enabled && !slug) {
     return fail("Necesitás definir un identificador para activar delivery")
@@ -268,6 +269,7 @@ export async function updateDeliveryConfig(
       pickup_enabled: pickup,
       delivery_online_payment_enabled: onlinePayment,
       delivery_pay_at_store_enabled: payAtStore,
+      delivery_fee: homeDelivery && deliveryFee && deliveryFee > 0 ? deliveryFee : null,
     })
     .eq("id", restaurantId)
 

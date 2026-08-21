@@ -31,6 +31,7 @@ export type Restaurant = PublicRestaurant & {
   pickup_enabled: boolean
   delivery_online_payment_enabled: boolean
   delivery_pay_at_store_enabled: boolean
+  delivery_fee: number | null
   reservation_contact_type: ReservationContactType
   reservation_whatsapp: string | null
   reservation_duration_minutes: number

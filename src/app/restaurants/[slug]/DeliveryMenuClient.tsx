@@ -88,6 +88,7 @@ type CartItem = {
 
 type DeliveryForm = { name: string; phone: string; address: string; reference: string; email: string }
 type PaymentMethod = "online" | "pay_at_store"
+type DeliveryOptions = { home_delivery?: boolean; pickup?: boolean; online_payment?: boolean; pay_at_store?: boolean; delivery_fee?: number | null }
 type TrackedDeliveryOrder = { id: number; phone: string; total: number; fulfillmentType: FulfillmentType; createdAt: string }
 type DeliveryOrderStatus = {
   id: number
@@ -140,7 +141,7 @@ export function DeliveryMenuClient({
 }: {
   data: DeliveryMenuData
   paymentProvider: string | null
-  deliveryOptions: { home_delivery?: boolean; pickup?: boolean; online_payment?: boolean; pay_at_store?: boolean }
+  deliveryOptions: DeliveryOptions
 }) {
   const { restaurant, categories, products } = data
   const storageKey = `mesa-delivery-cart:${restaurant.delivery_slug}`
@@ -289,7 +290,9 @@ export function DeliveryMenuClient({
   const visibleCategories = categories.filter((category) => products.some((product) => product.category_id === category.id))
 
   const quantity = cart.reduce((sum, item) => sum + item.quantity, 0)
-  const total = cart.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0)
+  const subtotal = cart.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0)
+  const deliveryFee = fulfillmentType === "home_delivery" ? Math.max(0, Number(deliveryOptions.delivery_fee) || 0) : 0
+  const total = subtotal + deliveryFee
 
   function addItem(item: Omit<CartItem, "key" | "quantity">, quantityToAdd: number) {
     requestIdRef.current = null
@@ -534,6 +537,8 @@ export function DeliveryMenuClient({
       {cartOpen ? (
         <CartDialog
           cart={cart}
+          subtotal={subtotal}
+          deliveryFee={deliveryFee}
           total={total}
           onClose={() => setCartOpen(false)}
           onChangeQuantity={changeQuantity}
@@ -544,6 +549,8 @@ export function DeliveryMenuClient({
       {checkoutOpen ? (
         <CheckoutDialog
           form={form}
+          subtotal={subtotal}
+          deliveryFee={deliveryFee}
           total={total}
           sending={sending}
           error={error}
@@ -853,27 +860,29 @@ function CheckChoice({ checked, label, price, onChange }: { checked: boolean; la
   return <label className="flex cursor-pointer items-center justify-between border-b border-stone-100 py-3 last:border-0"><span className="text-sm font-semibold">{label}</span><span className="flex items-center gap-3 text-xs font-bold text-stone-600">{price > 0 ? `+${money(price)}` : "¡GRATIS!"}<input type="checkbox" checked={checked} onChange={onChange} /></span></label>
 }
 
-function CartDialog({ cart, total, onClose, onChangeQuantity, onCheckout }: { cart: CartItem[]; total: number; onClose: () => void; onChangeQuantity: (key: string, delta: number) => void; onCheckout: () => void }) {
+function CartDialog({ cart, subtotal, deliveryFee, total, onClose, onChangeQuantity, onCheckout }: { cart: CartItem[]; subtotal: number; deliveryFee: number; total: number; onClose: () => void; onChangeQuantity: (key: string, delta: number) => void; onCheckout: () => void }) {
   return <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 sm:items-center" onClick={onClose}><section className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-lg bg-white p-5 text-stone-950 sm:rounded-lg" onClick={(event) => event.stopPropagation()}>
     <div className="flex items-center justify-between"><h2 className="text-xl font-black">Tu pedido</h2><button type="button" onClick={onClose} className="h-9 w-9" aria-label="Cerrar"><X className="mx-auto" /></button></div>
     <div className="mt-4 divide-y divide-stone-200">{cart.map((item) => <div key={item.key} className="py-4"><div className="flex gap-3"><div className="min-w-0 flex-1"><p className="font-bold">{item.productName}{item.variantName ? ` · ${item.variantName}` : ""}</p>{[...item.ingredientChoices, ...item.menuOptionChoices].length ? <p className="mt-1 text-xs leading-5 text-stone-500">{[...item.ingredientChoices, ...item.menuOptionChoices].map((choice) => choice.name).join(", ")}</p> : null}{item.notes ? <p className="mt-1 text-xs italic text-stone-500">{item.notes}</p> : null}</div><b>{money(item.unitPrice * item.quantity)}</b></div><div className="mt-3 flex items-center gap-3"><button type="button" onClick={() => onChangeQuantity(item.key, -1)} className="flex h-8 w-8 items-center justify-center rounded-md border border-stone-200">{item.quantity === 1 ? <Trash2 className="h-4 w-4" /> : <Minus className="h-4 w-4" />}</button><span className="text-sm font-black">{item.quantity}</span><button type="button" onClick={() => onChangeQuantity(item.key, 1)} className="flex h-8 w-8 items-center justify-center rounded-md border border-stone-200"><Plus className="h-4 w-4" /></button></div></div>)}</div>
-    <div className="mt-5 flex items-center justify-between border-t border-stone-200 pt-4 text-lg font-black"><span>Total</span><span>{money(total)}</span></div>
+    <OrderTotals subtotal={subtotal} deliveryFee={deliveryFee} total={total} />
     <button type="button" disabled={!cart.length} onClick={onCheckout} className="mt-4 w-full rounded-md bg-orange-600 px-4 py-3.5 text-sm font-bold text-white disabled:opacity-50">Continuar con el pedido</button>
   </section></div>
 }
 
 function CheckoutDialog({
-  form, total, sending, error, paymentProvider, paymentMethod, fulfillmentType,
+  form, subtotal, deliveryFee, total, sending, error, paymentProvider, paymentMethod, fulfillmentType,
   deliveryOptions, onFulfillmentTypeChange, onPaymentMethodChange, onChange, onBack, onClose, onSubmit,
 }: {
   form: DeliveryForm
+  subtotal: number
+  deliveryFee: number
   total: number
   sending: boolean
   error: string
   paymentProvider: string | null
   paymentMethod: PaymentMethod
   fulfillmentType: FulfillmentType
-  deliveryOptions: { home_delivery?: boolean; pickup?: boolean; online_payment?: boolean; pay_at_store?: boolean }
+  deliveryOptions: DeliveryOptions
   onFulfillmentTypeChange: (type: FulfillmentType) => void
   onPaymentMethodChange: (method: PaymentMethod) => void
   onChange: (form: DeliveryForm) => void
@@ -947,9 +956,19 @@ function CheckoutDialog({
     </fieldset>
     {paymentMethod === "online" && paymentProvider === "flow" ? <div className="mt-4"><InputField icon={<User />} label="Email para el comprobante" value={form.email} onChange={field("email")} maxLength={120} type="email" /></div> : null}
     {error ? <p className="mt-4 rounded-md bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">{error}</p> : null}
-    <div className="mt-5 flex items-center justify-between border-t border-stone-200 pt-4 text-lg font-black"><span>Total</span><span>{money(total)}</span></div>
+    <OrderTotals subtotal={subtotal} deliveryFee={deliveryFee} total={total} />
     <button type="button" disabled={sending} onClick={onSubmit} className="mt-4 w-full rounded-md bg-orange-600 px-4 py-3.5 text-sm font-bold text-white disabled:opacity-60">{sending ? (paymentMethod === "online" ? "Conectando con la pasarela..." : "Enviando pedido...") : paymentMethod === "online" ? `Pagar online · ${money(total)}` : "Confirmar pedido"}</button>
   </section></div>
+}
+
+function OrderTotals({ subtotal, deliveryFee, total }: { subtotal: number; deliveryFee: number; total: number }) {
+  return <div className="mt-5 space-y-2 border-t border-stone-200 pt-4">
+    {deliveryFee > 0 ? <>
+      <div className="flex items-center justify-between text-sm text-stone-600"><span>Subtotal</span><span>{money(subtotal)}</span></div>
+      <div className="flex items-center justify-between text-sm text-stone-600"><span>Entrega</span><span>{money(deliveryFee)}</span></div>
+    </> : null}
+    <div className="flex items-center justify-between text-lg font-black"><span>Total</span><span>{money(total)}</span></div>
+  </div>
 }
 
 function InputField({ icon, label, value, onChange, maxLength, type = "text" }: { icon: React.ReactNode; label: string; value: string; onChange: React.ChangeEventHandler<HTMLInputElement>; maxLength: number; type?: string }) {

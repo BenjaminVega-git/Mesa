@@ -466,6 +466,7 @@ function DeliverySection({ restaurant, onSaved }: DeliverySectionProps) {
   const initialPickup = restaurant?.pickup_enabled ?? false
   const initialOnlinePayment = restaurant?.delivery_online_payment_enabled ?? true
   const initialPayAtStore = restaurant?.delivery_pay_at_store_enabled ?? true
+  const initialDeliveryFee = restaurant?.delivery_fee ?? null
 
   const [enabledOverride, setEnabledOverride] = useState<boolean | null>(null)
   const [slugOverride, setSlugOverride] = useState<string | null>(null)
@@ -473,6 +474,7 @@ function DeliverySection({ restaurant, onSaved }: DeliverySectionProps) {
   const [pickupOverride, setPickupOverride] = useState<boolean | null>(null)
   const [onlinePaymentOverride, setOnlinePaymentOverride] = useState<boolean | null>(null)
   const [payAtStoreOverride, setPayAtStoreOverride] = useState<boolean | null>(null)
+  const [deliveryFeeOverride, setDeliveryFeeOverride] = useState<string | null>(null)
   const [onlinePaymentAvailable, setOnlinePaymentAvailable] = useState(false)
   const [loadingPaymentAccount, setLoadingPaymentAccount] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -531,6 +533,8 @@ function DeliverySection({ restaurant, onSaved }: DeliverySectionProps) {
   const pickup = pickupOverride ?? initialPickup
   const onlinePayment = onlinePaymentOverride ?? initialOnlinePayment
   const payAtStore = payAtStoreOverride ?? initialPayAtStore
+  const deliveryFeeText = deliveryFeeOverride ?? (initialDeliveryFee == null ? "" : String(initialDeliveryFee))
+  const deliveryFee = deliveryFeeText.trim() === "" ? null : Number(deliveryFeeText)
   const configuredOnlinePayment = onlinePayment && onlinePaymentAvailable
   const isDirty =
     enabled !== initialEnabled ||
@@ -538,6 +542,7 @@ function DeliverySection({ restaurant, onSaved }: DeliverySectionProps) {
     pickup !== initialPickup ||
     configuredOnlinePayment !== initialOnlinePayment ||
     payAtStore !== initialPayAtStore ||
+    deliveryFee !== initialDeliveryFee ||
     (slugOverride !== null && slugOverride.trim() !== initialSlug.trim())
 
   async function handleSave() {
@@ -552,6 +557,7 @@ function DeliverySection({ restaurant, onSaved }: DeliverySectionProps) {
         pickup,
         onlinePayment: configuredOnlinePayment,
         payAtStore,
+        deliveryFee,
       })
       if (!result.ok) {
         setFeedback({ kind: "error", message: result.error })
@@ -564,6 +570,7 @@ function DeliverySection({ restaurant, onSaved }: DeliverySectionProps) {
       setPickupOverride(null)
       setOnlinePaymentOverride(null)
       setPayAtStoreOverride(null)
+      setDeliveryFeeOverride(null)
       setFeedback({ kind: "ok", message: "Cambios guardados" })
     } finally {
       setSaving(false)
@@ -636,6 +643,32 @@ function DeliverySection({ restaurant, onSaved }: DeliverySectionProps) {
               </label>
             </div>
           </fieldset>
+
+          {homeDelivery ? (
+            <div className="mb-6">
+              <label className="block text-xs font-bold uppercase tracking-wider text-stone-500" htmlFor="delivery-fee">
+                Costo de entrega (opcional)
+              </label>
+              <div className="mt-2 flex items-center rounded-xl border border-stone-200 bg-stone-50 px-3 focus-within:border-orange-300 focus-within:bg-white focus-within:ring-2 focus-within:ring-orange-100">
+                <span className="text-sm font-bold text-stone-500">$</span>
+                <input
+                  id="delivery-fee"
+                  type="number"
+                  inputMode="numeric"
+                  min={0}
+                  max={10_000_000}
+                  step={1}
+                  value={deliveryFeeText}
+                  onChange={(event) => setDeliveryFeeOverride(event.target.value)}
+                  placeholder="Sin costo"
+                  className="h-11 min-w-0 flex-1 bg-transparent px-2 text-sm text-stone-900 outline-none"
+                />
+              </div>
+              <p className="mt-1.5 text-[11px] leading-4 text-stone-500">
+                Déjalo vacío o en $0 para ofrecer entrega sin recargo. No se aplica al retiro en tienda.
+              </p>
+            </div>
+          ) : null}
 
           <fieldset className="mb-6">
             <legend className="text-xs font-bold uppercase tracking-wider text-stone-500">

@@ -29,6 +29,7 @@ type OrderDetail = {
   delivery_customer_phone: string | null
   delivery_address: string | null
   delivery_reference: string | null
+  delivery_fee: number
   table_number: number | null
   status_name: string | null
   items: {
@@ -79,7 +80,7 @@ export function OrderDetailModal({ orderId, onClose }: Props) {
       const { data, error: e } = await supabase
         .from("orders")
         .select(
-          "id, order_number, total, table_id, status_id, created_at, ready_at, diner_slot, diner_label, order_type, fulfillment_type, delivery_customer_name, delivery_customer_phone, delivery_address, delivery_reference, tables(table_number), order_status(status_name), order_items(id, product_name, variant_name, product_price, product_quantity, notes)"
+          "id, order_number, total, table_id, status_id, created_at, ready_at, diner_slot, diner_label, order_type, fulfillment_type, delivery_customer_name, delivery_customer_phone, delivery_address, delivery_reference, delivery_fee, tables(table_number), order_status(status_name), order_items(id, product_name, variant_name, product_price, product_quantity, notes)"
         )
         .eq("id", orderId)
         .maybeSingle()
@@ -125,6 +126,7 @@ export function OrderDetailModal({ orderId, onClose }: Props) {
         delivery_customer_phone: data.delivery_customer_phone,
         delivery_address: data.delivery_address,
         delivery_reference: data.delivery_reference,
+        delivery_fee: data.delivery_fee ?? 0,
         table_number: tableNumber,
         status_name: statusName,
         items,
@@ -239,38 +241,46 @@ export function OrderDetailModal({ orderId, onClose }: Props) {
                   Este pedido no tiene ítems.
                 </p>
               ) : (
-                <ul className="space-y-2">
-                  {order.items.map((item) => (
-                    <li
-                      key={item.id}
-                      className="flex items-start justify-between gap-3 rounded-2xl border border-stone-100 bg-stone-50 px-4 py-3"
-                    >
-                      <div className="flex min-w-0 gap-3">
-                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-orange-100 text-[11px] font-extrabold text-orange-700 tabular-nums">
-                          {item.product_quantity}×
-                        </span>
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-bold text-stone-900">
-                            {item.product_name ?? "Producto"}
-                            {item.variant_name ? (
-                              <span className="ml-1 font-semibold text-stone-600">
-                                · {item.variant_name}
-                              </span>
-                            ) : null}
-                          </p>
-                          {item.notes && (
-                            <p className="mt-0.5 text-[11px] italic text-orange-700">
-                              📝 {item.notes}
+                <>
+                  <ul className="space-y-2">
+                    {order.items.map((item) => (
+                      <li
+                        key={item.id}
+                        className="flex items-start justify-between gap-3 rounded-2xl border border-stone-100 bg-stone-50 px-4 py-3"
+                      >
+                        <div className="flex min-w-0 gap-3">
+                          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-orange-100 text-[11px] font-extrabold text-orange-700 tabular-nums">
+                            {item.product_quantity}×
+                          </span>
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-bold text-stone-900">
+                              {item.product_name ?? "Producto"}
+                              {item.variant_name ? (
+                                <span className="ml-1 font-semibold text-stone-600">
+                                  · {item.variant_name}
+                                </span>
+                              ) : null}
                             </p>
-                          )}
+                            {item.notes && (
+                              <p className="mt-0.5 text-[11px] italic text-orange-700">
+                                📝 {item.notes}
+                              </p>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                      <span className="shrink-0 text-sm font-bold text-stone-700 tabular-nums">
-                        {formatPrice(item.product_price * item.product_quantity)}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
+                        <span className="shrink-0 text-sm font-bold text-stone-700 tabular-nums">
+                          {formatPrice(item.product_price * item.product_quantity)}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                  {order.delivery_fee > 0 ? (
+                    <div className="flex items-center justify-between border-t border-stone-100 px-5 py-3 text-sm">
+                      <span className="font-bold text-stone-700">Costo de entrega</span>
+                      <span className="font-bold text-stone-700 tabular-nums">{formatPrice(order.delivery_fee)}</span>
+                    </div>
+                  ) : null}
+                </>
               )}
             </>
           )}
