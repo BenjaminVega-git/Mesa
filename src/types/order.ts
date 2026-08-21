@@ -8,6 +8,7 @@ export type Order = {
   order_type: "dine_in" | "delivery" | null
   fulfillment_type: "home_delivery" | "pickup" | null
   delivery_customer_name: string | null
+  delivery_fee: number
   total: number
   status_id: number
   created_at: string

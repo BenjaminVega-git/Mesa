@@ -73,6 +73,10 @@ function OrdersGrid({
       {orders.map((order) => {
         const statusName = order.order_status?.status_name ?? "Desconocido"
         const orderLabel = `Pedido #${order.order_number ?? order.id}`
+        const deliveryFee = order.fulfillment_type === "home_delivery"
+          ? Math.max(0, order.delivery_fee ?? 0)
+          : 0
+        const subtotal = Math.max(0, order.total - deliveryFee)
 
         return (
           <article
@@ -106,6 +110,14 @@ function OrdersGrid({
               <p className="mt-0.5 text-xl font-extrabold tracking-tight text-orange-700 tabular-nums">
                 ${order.total.toLocaleString("es-CL")}
               </p>
+              {order.order_type === "delivery" && order.fulfillment_type === "home_delivery" ? (
+                <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 border-t border-orange-200/70 pt-2 text-[11px] font-bold text-stone-600">
+                  <span>Productos: ${subtotal.toLocaleString("es-CL")}</span>
+                  <span className={deliveryFee > 0 ? "text-orange-700" : "text-emerald-700"}>
+                    Envío: {deliveryFee > 0 ? `$${deliveryFee.toLocaleString("es-CL")}` : "Gratis"}
+                  </span>
+                </div>
+              ) : null}
             </div>
 
             <div className="mt-auto grid grid-cols-2 gap-2">
