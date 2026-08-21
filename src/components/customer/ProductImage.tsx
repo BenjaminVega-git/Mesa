@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import type { RefObject, SyntheticEvent } from "react"
 
 type ProductImageProps = {
@@ -62,6 +62,33 @@ export function ProductImage({ src, alt, className = "", imgRef, hasBackground, 
     event.currentTarget.style.display = "none"
     setImageState({ src: imageSrc, status: "failed" })
   }
+
+  useEffect(() => {
+    if (!imageSrc) {
+      return
+    }
+
+    let cancelled = false
+    const image = new Image()
+
+    image.onload = () => {
+      if (!cancelled) setImageState({ src: imageSrc, status: "loaded" })
+    }
+    image.onerror = () => {
+      if (!cancelled) setImageState({ src: imageSrc, status: "failed" })
+    }
+    image.src = imageSrc
+
+    if (image.complete) {
+      queueMicrotask(() => {
+        if (!cancelled) setImageState({ src: imageSrc, status: image.naturalWidth > 0 ? "loaded" : "failed" })
+      })
+    }
+
+    return () => {
+      cancelled = true
+    }
+  }, [imageSrc])
 
   return (
     <div className={`relative overflow-hidden ${className}`} aria-label={imageSrc ? alt : undefined}>
