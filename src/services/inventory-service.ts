@@ -1,7 +1,6 @@
-import { revalidateTag, revalidatePath } from "next/cache"
 import { ok, fail, type Result } from "@/services/result"
 import { requireCurrentAdmin } from "@/services/auth-guard"
-import { menuTag } from "@/lib/menu/menu-cache"
+import { revalidatePublicMenu } from "@/lib/menu/menu-cache"
 import {
   CreateIngredientSchema,
   UpdateIngredientSchema,
@@ -35,8 +34,7 @@ const MOVEMENTS_LIMIT = 100
 // La disponibilidad por stock (stock_out) viaja en el menú; al cambiar recetas
 // o stock manualmente hay que invalidar su cache.
 function revalidateMenu(restaurantId: number) {
-  revalidateTag(menuTag(restaurantId), "max")
-  revalidatePath("/[id]/menu", "page")
+  revalidatePublicMenu(restaurantId)
 }
 
 // ----------------------------------------------------------------------------

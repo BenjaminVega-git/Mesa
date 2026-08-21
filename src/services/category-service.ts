@@ -1,4 +1,3 @@
-import { revalidateTag, revalidatePath } from "next/cache"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import {
   CreateCategorySchema,
@@ -10,7 +9,7 @@ import {
 } from "@/lib/validation/category"
 import { ok, fail, type Result } from "@/services/result"
 import { requireAdminForRestaurant } from "@/services/auth-guard"
-import { menuTag } from "@/lib/menu/menu-cache"
+import { revalidatePublicMenu } from "@/lib/menu/menu-cache"
 
 export type CreatedCategory = {
   id: number
@@ -22,8 +21,7 @@ export type CategoryForEdit = {
 }
 
 function revalidateMenu(restaurantId: number) {
-  revalidateTag(menuTag(restaurantId), "max")
-  revalidatePath("/[id]/menu", "page")
+  revalidatePublicMenu(restaurantId)
 }
 
 async function getRestaurantIdForCategory(categoryId: number): Promise<number | null> {

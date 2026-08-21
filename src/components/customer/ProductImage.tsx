@@ -21,21 +21,22 @@ type ProductImageProps = {
  */
 export function ProductImage({ src, alt, className = "", imgRef, hasBackground, fade }: ProductImageProps) {
   const dataCutout = hasBackground ? undefined : "true"
+  const imageSrc = src?.trim() || null
 
   return (
     <div className={`relative overflow-hidden ${className}`}>
-      {src ? (
+      {imageSrc ? (
         hasBackground ? (
           <>
             <div
               aria-hidden="true"
               className="pointer-events-none absolute inset-0 scale-125 bg-cover bg-center blur-2xl brightness-[0.55]"
-              style={{ backgroundImage: `url("${src}")` }}
+              style={{ backgroundImage: `url("${imageSrc}")` }}
             />
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               ref={imgRef}
-              src={src}
+              src={imageSrc}
               alt={alt}
               loading="lazy"
               data-cutout={dataCutout}
@@ -53,7 +54,7 @@ export function ProductImage({ src, alt, className = "", imgRef, hasBackground, 
           // eslint-disable-next-line @next/next/no-img-element
           <img
             ref={imgRef}
-            src={src}
+            src={imageSrc}
             alt={alt}
             loading="lazy"
             data-cutout={dataCutout}

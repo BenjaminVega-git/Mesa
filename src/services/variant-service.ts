@@ -1,4 +1,3 @@
-import { revalidateTag, revalidatePath } from "next/cache"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import {
   CreateVariantSchema,
@@ -11,7 +10,7 @@ import {
 import { ok, fail, type Result } from "@/services/result"
 import { deleteImageBestEffort } from "@/lib/cloudinary/delete-image-server"
 import { requireAdminForRestaurant } from "@/services/auth-guard"
-import { menuTag } from "@/lib/menu/menu-cache"
+import { revalidatePublicMenu } from "@/lib/menu/menu-cache"
 
 export type CreatedVariant = {
   id: number
@@ -22,8 +21,7 @@ export type CreatedVariant = {
  * Las variantes aparecen en el menú, por eso se invalida tras cambiarlas.
  */
 function revalidateMenu(restaurantId: number) {
-  revalidateTag(menuTag(restaurantId), "max")
-  revalidatePath("/[id]/menu", "page")
+  revalidatePublicMenu(restaurantId)
 }
 
 /**

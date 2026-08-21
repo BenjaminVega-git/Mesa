@@ -1,5 +1,6 @@
 import { unstable_cache } from "next/cache"
 import { createSupabaseAnonClient } from "@/lib/supabase/anon"
+import { PUBLIC_MENU_TAG } from "@/lib/menu/menu-cache"
 import type { MenuData, MenuPromotion } from "@/types/menu"
 import type { PublicRestaurant } from "@/types/restaurant"
 import type { Product } from "@/types/product"
@@ -53,6 +54,6 @@ export const getMenuData = unstable_cache(
   ["menu-data"], // key base, el qrCode se agrega automáticamente como argumento
   {
     revalidate: 300, // 5 minutos
-    tags: ["menu"], // tag para invalidación manual con revalidateTag("menu")
+    tags: [PUBLIC_MENU_TAG],
   }
 )

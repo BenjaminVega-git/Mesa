@@ -1,4 +1,3 @@
-import { revalidateTag, revalidatePath } from "next/cache"
 import { createSupabaseServerClient } from "@/lib/supabase/server"
 import {
   CreateProductSchema,
@@ -13,7 +12,7 @@ import {
 import { ok, fail, type Result } from "@/services/result"
 import { deleteImagesBestEffort } from "@/lib/cloudinary/delete-image-server"
 import { requireAdminForRestaurant } from "@/services/auth-guard"
-import { menuTag } from "@/lib/menu/menu-cache"
+import { revalidatePublicMenu } from "@/lib/menu/menu-cache"
 
 export type CreatedProduct = {
   id: number
@@ -46,8 +45,7 @@ export type ProductForEdit = {
 }
 
 function revalidateMenu(restaurantId: number) {
-  revalidateTag(menuTag(restaurantId), "max")
-  revalidatePath("/[id]/menu", "page")
+  revalidatePublicMenu(restaurantId)
 }
 
 function normalizeCodigo(value?: string | null) {
@@ -537,4 +535,3 @@ export async function updateProductStatus(input: UpdateProductStatusInput): Prom
   revalidateMenu(restaurantId)
   return ok({ id: productId })
 }
-

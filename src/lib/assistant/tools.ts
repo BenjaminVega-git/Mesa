@@ -1,12 +1,11 @@
 import "server-only"
 import { SchemaType, type FunctionDeclaration } from "@google/generative-ai"
-import { revalidateTag } from "next/cache"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { createCategory } from "@/services/category-service"
 import { createProduct } from "@/services/product-service"
 import { getSalesReport, getProductMargins, getPeakHours } from "@/services/report-service"
 import { listIngredients, restockIngredient } from "@/services/inventory-service"
-import { menuTag } from "@/lib/menu/menu-cache"
+import { revalidatePublicMenu } from "@/lib/menu/menu-cache"
 
 /**
  * Herramientas del ASISTENTE IA del panel admin. Cada ejecutor corre con el
@@ -387,7 +386,7 @@ type ToolArgs = Record<string, unknown>
 
 function refreshMenu(restaurantId: number) {
   try {
-    revalidateTag(menuTag(restaurantId), "max")
+    revalidatePublicMenu(restaurantId)
   } catch {
     // fuera de contexto de revalidación: ignorar
   }
