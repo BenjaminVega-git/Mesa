@@ -13,15 +13,26 @@ type ProductImageProps = {
   fade?: "right" | "bottom"
 }
 
+function normalizeImageSrc(src: string | null) {
+  const trimmed = src?.trim()
+  if (!trimmed) return null
+
+  try {
+    return encodeURI(trimmed)
+  } catch {
+    return trimmed
+  }
+}
+
 /**
  * Imagen de producto con tratamiento adaptativo según la marca de la BD:
- * - CON fondo: backdrop borroso + cover + degradado de fundido.
+ * - CON fondo: backdrop borroso + imagen completa + degradado de fundido.
  * - SIN fondo (recorte): contain, sin blur ni degradado.
  * Marca la <img> con data-cutout para que flyToCart decida si vuela en círculo.
  */
 export function ProductImage({ src, alt, className = "", imgRef, hasBackground, fade }: ProductImageProps) {
   const dataCutout = hasBackground ? undefined : "true"
-  const imageSrc = src?.trim() || null
+  const imageSrc = normalizeImageSrc(src)
 
   return (
     <div className={`relative overflow-hidden ${className}`}>
@@ -40,7 +51,7 @@ export function ProductImage({ src, alt, className = "", imgRef, hasBackground, 
               alt={alt}
               loading="lazy"
               data-cutout={dataCutout}
-              className="absolute inset-0 z-[1] h-full w-full object-cover transition duration-300 group-hover:scale-[1.04]"
+              className="absolute inset-0 z-[1] h-full w-full object-contain p-2 transition duration-300 group-hover:scale-[1.04]"
             />
             {fade === "right" ? (
               <div className="pointer-events-none absolute inset-0 z-[2] bg-[linear-gradient(90deg,transparent_45%,#161618_100%)]" />
