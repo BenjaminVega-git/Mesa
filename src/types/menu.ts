@@ -8,6 +8,7 @@ export interface MenuPromotionGroup {
   id: number
   name: string
   category_id: number
+  option_product_ids: number[]
   min_select: number
   max_select: number
 }

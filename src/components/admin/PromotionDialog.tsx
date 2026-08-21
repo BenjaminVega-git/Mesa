@@ -45,6 +45,7 @@ type DraftGroup = {
   key: string
   name: string
   category_id: number | null
+  option_product_ids: number[]
   min_select: number
   max_select: number
 }
@@ -100,6 +101,7 @@ export function PromotionDialog({
       key: newGroupKey(),
       name: g.name,
       category_id: g.category_id,
+      option_product_ids: g.option_product_ids ?? [],
       min_select: g.min_select,
       max_select: g.max_select,
     }))
@@ -143,7 +145,10 @@ export function PromotionDialog({
     let subtotal = kind === "mixed" ? originalTotal : 0
     for (const g of groups) {
       if (!g.category_id) continue
-      const opts = products.filter((p) => p.category_id === g.category_id)
+      const allowed = new Set(g.option_product_ids)
+      const opts = products.filter((p) =>
+        allowed.size > 0 ? allowed.has(p.id) : p.category_id === g.category_id
+      )
       if (opts.length === 0) continue
       const cheapest = Math.min(
         ...opts.map((p) =>
@@ -199,7 +204,14 @@ export function PromotionDialog({
   function addGroup() {
     setGroups((prev) => [
       ...prev,
-      { key: newGroupKey(), name: "", category_id: categories[0]?.id ?? null, min_select: 1, max_select: 1 },
+      {
+        key: newGroupKey(),
+        name: "",
+        category_id: categories[0]?.id ?? null,
+        option_product_ids: [],
+        min_select: 1,
+        max_select: 1,
+      },
     ])
   }
   function patchGroup(key: string, patch: Partial<DraftGroup>) {
@@ -207,6 +219,17 @@ export function PromotionDialog({
   }
   function removeGroup(key: string) {
     setGroups((prev) => prev.filter((g) => g.key !== key))
+  }
+  function toggleGroupProduct(key: string, productId: number) {
+    setGroups((prev) =>
+      prev.map((g) => {
+        if (g.key !== key) return g
+        const current = new Set(g.option_product_ids)
+        if (current.has(productId)) current.delete(productId)
+        else current.add(productId)
+        return { ...g, option_product_ids: Array.from(current) }
+      })
+    )
   }
 
   async function handleSave() {
@@ -234,6 +257,9 @@ export function PromotionDialog({
         if (!g.category_id) return setError("Cada grupo necesita una categoría.")
         if (g.max_select < 1 || g.min_select < 0 || g.max_select < g.min_select) {
           return setError("Revisá el mínimo/máximo de un grupo.")
+        }
+        if (g.option_product_ids.length > 0 && g.option_product_ids.length < g.min_select) {
+          return setError("Un grupo con productos específicos necesita suficientes opciones para el mínimo.")
         }
       }
     }
@@ -264,6 +290,7 @@ export function PromotionDialog({
             ? groups.map((g, i) => ({
                 category_id: g.category_id as number,
                 name: g.name.trim(),
+                option_product_ids: g.option_product_ids,
                 min_select: g.min_select,
                 max_select: g.max_select,
                 sort_order: i,
@@ -465,7 +492,15 @@ export function PromotionDialog({
               ) : (
                 <div className="space-y-2.5">
                   {groups.map((g, idx) => {
-                    const count = g.category_id ? countByCategory.get(g.category_id) ?? 0 : 0
+                    const isSpecific = g.option_product_ids.length > 0
+                    const count = isSpecific
+                      ? g.option_product_ids.length
+                      : g.category_id
+                        ? countByCategory.get(g.category_id) ?? 0
+                        : 0
+                    const categoryProducts = g.category_id
+                      ? products.filter((p) => p.category_id === g.category_id)
+                      : products
                     return (
                       <div key={g.key} className="rounded-xl border border-stone-200 bg-stone-50 p-3">
                         <div className="flex items-center justify-between gap-2">
@@ -492,7 +527,7 @@ export function PromotionDialog({
                           <select
                             className={inputCls}
                             value={g.category_id ?? ""}
-                            onChange={(e) => patchGroup(g.key, { category_id: Number(e.target.value) })}
+                            onChange={(e) => patchGroup(g.key, { category_id: Number(e.target.value), option_product_ids: [] })}
                           >
                             {categories.map((c) => (
                               <option key={c.id} value={c.id}>
@@ -500,6 +535,68 @@ export function PromotionDialog({
                               </option>
                             ))}
                           </select>
+                        </div>
+                        <div className="mt-2 rounded-xl border border-stone-200 bg-white p-2">
+                          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                            <span className="text-[11px] font-semibold text-stone-500">
+                              Opciones del grupo
+                            </span>
+                            <div className="grid grid-cols-2 gap-1 rounded-lg bg-stone-100 p-1">
+                              <button
+                                type="button"
+                                onClick={() => patchGroup(g.key, { option_product_ids: [] })}
+                                className={`rounded-md px-2 py-1 text-[11px] font-bold transition ${
+                                  !isSpecific ? "bg-white text-orange-700 shadow-sm" : "text-stone-500"
+                                }`}
+                              >
+                                Categoría
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  patchGroup(g.key, {
+                                    option_product_ids:
+                                      g.option_product_ids.length > 0
+                                        ? g.option_product_ids
+                                        : categoryProducts.slice(0, Math.max(1, g.min_select)).map((p) => p.id),
+                                  })
+                                }
+                                className={`rounded-md px-2 py-1 text-[11px] font-bold transition ${
+                                  isSpecific ? "bg-white text-orange-700 shadow-sm" : "text-stone-500"
+                                }`}
+                              >
+                                Productos
+                              </button>
+                            </div>
+                          </div>
+                          {isSpecific ? (
+                            <div className="grid max-h-36 gap-1 overflow-y-auto sm:grid-cols-2">
+                              {categoryProducts.length === 0 ? (
+                                <p className="col-span-full py-2 text-center text-xs text-stone-400">
+                                  Sin productos en esta categoría.
+                                </p>
+                              ) : (
+                                categoryProducts.map((p) => (
+                                  <label
+                                    key={p.id}
+                                    className="flex min-w-0 items-center gap-2 rounded-lg px-2 py-1.5 text-xs text-stone-700 hover:bg-stone-50"
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={g.option_product_ids.includes(p.id)}
+                                      onChange={() => toggleGroupProduct(g.key, p.id)}
+                                      className="h-3.5 w-3.5 rounded border-stone-300 text-orange-500 focus:ring-orange-200"
+                                    />
+                                    <span className="truncate">{p.product_name}</span>
+                                  </label>
+                                ))
+                              )}
+                            </div>
+                          ) : (
+                            <p className="text-[11px] text-stone-500">
+                              Se mostrarán todos los productos disponibles de la categoría elegida.
+                            </p>
+                          )}
                         </div>
                         <div className="mt-2 flex flex-wrap items-center gap-3">
                           <label className="flex items-center gap-1.5 text-xs text-stone-600">

@@ -23,6 +23,7 @@ export type PromotionGroup = {
   name: string
   category_id: number
   category_name: string
+  option_product_ids: number[]
   min_select: number
   max_select: number
   sort_order: number
@@ -59,6 +60,7 @@ export type PromotionItemInput = {
 export type PromotionGroupInput = {
   category_id: number
   name: string
+  option_product_ids: number[]
   min_select: number
   max_select: number
   sort_order: number

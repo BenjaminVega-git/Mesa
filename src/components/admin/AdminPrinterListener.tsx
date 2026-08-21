@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useId, useRef } from "react"
+import { useCallback, useEffect, useId, useRef, useState } from "react"
 import { usePathname } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import { useRestaurant } from "@/hooks/useRestaurant"
@@ -13,6 +13,8 @@ import { logger } from "@/lib/logger"
 
 const EN_PREPARACION_STATUS_ID = 2
 const ORDER_FETCH_RETRY_DELAYS_MS = [0, 250, 700, 1500]
+const MISSED_ORDER_RECOVERY_MS = 30_000
+const REALTIME_RETRY_MS = 3_000
 
 type FetchedOrder = {
   id: number
@@ -56,12 +58,22 @@ export function AdminPrinterListener() {
   const { restaurant } = useRestaurant()
   const pathname = usePathname()
   const channelId = useId()
+  const [subscriptionAttempt, setSubscriptionAttempt] = useState(0)
   const restaurantRef = useRef(restaurant)
+  const listenerStartedAtRef = useRef(new Date().toISOString())
+  const lastRestaurantIdRef = useRef<number | null>(null)
   const printedOrderIds = useRef<Set<number>>(new Set())
   const processingOrderIds = useRef<Set<number>>(new Set())
+  const retryTimerRef = useRef<number | null>(null)
 
   useEffect(() => {
     restaurantRef.current = restaurant
+    if (restaurant?.id && lastRestaurantIdRef.current !== restaurant.id) {
+      lastRestaurantIdRef.current = restaurant.id
+      listenerStartedAtRef.current = new Date().toISOString()
+      printedOrderIds.current.clear()
+      processingOrderIds.current.clear()
+    }
   }, [restaurant])
 
   const fetchOrderForTicket = useCallback(async (orderId: number): Promise<FetchedOrder | null> => {
@@ -141,12 +153,66 @@ export function AdminPrinterListener() {
     }
   }, [fetchOrderForTicket])
 
+  const recoverMissedOrders = useCallback(async () => {
+    const current = restaurantRef.current
+    if (!current || current.output_mode !== "printer") return
+    if (!osPrintEnabledFromStorage()) return
+    if (pathname?.startsWith("/admin/printer")) return
+
+    const { data, error } = await supabase
+      .from("orders")
+      .select("id")
+      .eq("restaurant_id", current.id)
+      .eq("status_id", EN_PREPARACION_STATUS_ID)
+      .gte("created_at", listenerStartedAtRef.current)
+      .order("created_at", { ascending: true })
+      .limit(25)
+
+    if (error) {
+      logger.warn("global printer recovery query failed", { error: error.message })
+      return
+    }
+
+    for (const row of data ?? []) {
+      if (typeof row.id === "number") await handleOrderEvent(row.id)
+    }
+  }, [handleOrderEvent, pathname])
+
   useEffect(() => {
     if (!restaurant?.id) return
     if (!osPrintEnabledFromStorage()) return
     if (pathname?.startsWith("/admin/printer")) return
     if (restaurant.output_mode !== "printer") return
 
+    const interval = window.setInterval(() => {
+      void recoverMissedOrders()
+    }, MISSED_ORDER_RECOVERY_MS)
+    const onWake = () => {
+      void recoverMissedOrders()
+    }
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void recoverMissedOrders()
+    }
+
+    window.addEventListener("focus", onWake)
+    window.addEventListener("online", onWake)
+    document.addEventListener("visibilitychange", onVisible)
+
+    return () => {
+      window.clearInterval(interval)
+      window.removeEventListener("focus", onWake)
+      window.removeEventListener("online", onWake)
+      document.removeEventListener("visibilitychange", onVisible)
+    }
+  }, [restaurant?.id, restaurant?.output_mode, pathname, recoverMissedOrders])
+
+  useEffect(() => {
+    if (!restaurant?.id) return
+    if (!osPrintEnabledFromStorage()) return
+    if (pathname?.startsWith("/admin/printer")) return
+    if (restaurant.output_mode !== "printer") return
+
+    let active = true
     const channel = supabase
       .channel(`admin-printer-global-${restaurant.id}-${channelId}`)
       .on(
@@ -175,12 +241,26 @@ export function AdminPrinterListener() {
           if (typeof id === "number") handleOrderEvent(id)
         }
       )
-      .subscribe()
+      .subscribe((status) => {
+        if (!active) return
+        if (status !== "CHANNEL_ERROR" && status !== "TIMED_OUT" && status !== "CLOSED") return
+        logger.warn(`Realtime admin-printer-global channel: ${status}`)
+        if (retryTimerRef.current) window.clearTimeout(retryTimerRef.current)
+        retryTimerRef.current = window.setTimeout(() => {
+          retryTimerRef.current = null
+          setSubscriptionAttempt((attempt) => attempt + 1)
+        }, REALTIME_RETRY_MS)
+      })
 
     return () => {
+      active = false
+      if (retryTimerRef.current) {
+        window.clearTimeout(retryTimerRef.current)
+        retryTimerRef.current = null
+      }
       supabase.removeChannel(channel)
     }
-  }, [restaurant?.id, restaurant?.output_mode, pathname, channelId, handleOrderEvent])
+  }, [restaurant?.id, restaurant?.output_mode, pathname, channelId, handleOrderEvent, subscriptionAttempt])
 
   return null
 }

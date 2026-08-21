@@ -65,6 +65,8 @@ function ticketItemName(item: FetchedOrder["order_items"][number]) {
 
 const EN_PREPARACION_STATUS_ID = 2
 const ORDER_FETCH_RETRY_DELAYS_MS = [0, 250, 700, 1500]
+const MISSED_ORDER_RECOVERY_MS = 30_000
+const REALTIME_RETRY_MS = 3_000
 
 function wait(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
@@ -73,6 +75,7 @@ function wait(ms: number): Promise<void> {
 export default function PrinterPage() {
   const { restaurant, loading } = useRestaurant()
   const channelId = useId()
+  const [subscriptionAttempt, setSubscriptionAttempt] = useState(0)
   const [entries, setEntries] = useState<LogEntry[]>([])
   const [printer, setPrinter] = useState<ConnectedPrinter | null>(null)
   const [pairing, setPairing] = useState(false)
@@ -90,9 +93,12 @@ export default function PrinterPage() {
   const [electronPrinters, setElectronPrinters] = useState<ElectronPrinterInfo[]>([])
   const [electronDevice, setElectronDevice] = useState<string>(() => getStoredElectronPrinter())
   const restaurantRef = useRef(restaurant)
+  const listenerStartedAtRef = useRef(new Date().toISOString())
+  const lastRestaurantIdRef = useRef<number | null>(null)
   const printerRef = useRef<ConnectedPrinter | null>(null)
   const reconnectingPrinter = useRef(false)
   const printedOrderIds = useRef<Set<number>>(new Set())
+  const retryTimerRef = useRef<number | null>(null)
   // Un mismo pedido dispara más de un evento realtime casi al mismo tiempo:
   // create_public_order_qr/staff_create_order hacen INSERT (con el status ya
   // en "En preparación" si el destino es cocina directa) y después un UPDATE
@@ -104,6 +110,12 @@ export default function PrinterPage() {
 
   useEffect(() => {
     restaurantRef.current = restaurant
+    if (restaurant?.id && lastRestaurantIdRef.current !== restaurant.id) {
+      lastRestaurantIdRef.current = restaurant.id
+      listenerStartedAtRef.current = new Date().toISOString()
+      printedOrderIds.current.clear()
+      processingOrderIds.current.clear()
+    }
   }, [restaurant])
 
   useEffect(() => {
@@ -472,9 +484,60 @@ export default function PrinterPage() {
     }
   }, [fetchOrderForTicket, printViaSystemDriver])
 
+  const recoverMissedOrders = useCallback(async () => {
+    const current = restaurantRef.current
+    if (!current || current.output_mode !== "printer") return
+    if (!printerRef.current && !osPrintEnabledRef.current) return
+
+    const { data, error } = await supabase
+      .from("orders")
+      .select("id")
+      .eq("restaurant_id", current.id)
+      .eq("status_id", EN_PREPARACION_STATUS_ID)
+      .gte("created_at", listenerStartedAtRef.current)
+      .order("created_at", { ascending: true })
+      .limit(25)
+
+    if (error) {
+      logger.warn("printer page recovery query failed", { error: error.message })
+      return
+    }
+
+    for (const row of data ?? []) {
+      if (typeof row.id === "number") await handleOrderEvent(row.id)
+    }
+  }, [handleOrderEvent])
+
+  useEffect(() => {
+    if (!restaurant?.id) return
+    if (restaurant.output_mode !== "printer") return
+
+    const interval = window.setInterval(() => {
+      void recoverMissedOrders()
+    }, MISSED_ORDER_RECOVERY_MS)
+    const onWake = () => {
+      void recoverMissedOrders()
+    }
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void recoverMissedOrders()
+    }
+
+    window.addEventListener("focus", onWake)
+    window.addEventListener("online", onWake)
+    document.addEventListener("visibilitychange", onVisible)
+
+    return () => {
+      window.clearInterval(interval)
+      window.removeEventListener("focus", onWake)
+      window.removeEventListener("online", onWake)
+      document.removeEventListener("visibilitychange", onVisible)
+    }
+  }, [restaurant?.id, restaurant?.output_mode, recoverMissedOrders])
+
   useEffect(() => {
     if (!restaurant?.id) return
 
+    let active = true
     const channel = supabase
       .channel(`printer-${restaurant.id}-${channelId}`)
       .on(
@@ -503,12 +566,26 @@ export default function PrinterPage() {
           if (typeof id === "number") handleOrderEvent(id)
         }
       )
-      .subscribe()
+      .subscribe((status) => {
+        if (!active) return
+        if (status !== "CHANNEL_ERROR" && status !== "TIMED_OUT" && status !== "CLOSED") return
+        logger.warn(`Realtime printer channel: ${status}`)
+        if (retryTimerRef.current) window.clearTimeout(retryTimerRef.current)
+        retryTimerRef.current = window.setTimeout(() => {
+          retryTimerRef.current = null
+          setSubscriptionAttempt((attempt) => attempt + 1)
+        }, REALTIME_RETRY_MS)
+      })
 
     return () => {
+      active = false
+      if (retryTimerRef.current) {
+        window.clearTimeout(retryTimerRef.current)
+        retryTimerRef.current = null
+      }
       supabase.removeChannel(channel)
     }
-  }, [restaurant?.id, channelId, handleOrderEvent])
+  }, [restaurant?.id, channelId, handleOrderEvent, subscriptionAttempt])
 
   if (loading) {
     return (
